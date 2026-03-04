@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GTM Tool Master</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+canvas { border: 3px solid #e94560; border-radius: 8px; box-shadow: 0 0 30px rgba(233,69,96,0.3); }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+canvas.width = 900;
+canvas.height = 640;
+
+const keys = {};
+window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; e.preventDefault(); });
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+const player = {
+  x: 450, y: 320, size: 28, speed: 3.5, color: '#00d2ff',
+  trail: [], facing: 0, bobPhase: 0, interacting: false,
+  interactStation: null, interactTimer: 0, interactDuration: 90
+};
+
+let score = 0;
+let particles = [];
+let floatingTexts = [];
+let time = 0;
+let combo = 1;
+let lastStationTime = 0;
+let screenShake = 0;
+let notification = '';
+let notificationTimer = 0;
+
+const stations = [
+  { name: 'CRM', x: 120, y: 100, color: '#ff6b6b', icon: '♥', desc: 'Customer Relations', cooldown: 0, maxCool: 300, points: 10, uses: 0, glowPhase: 0 },
+  { name: 'Email', x: 750, y: 100, color: '#ffd93d', icon: '✉', desc: 'Email Campaigns', cooldown: 0, maxCool: 250, points: 15, uses: 0, glowPhase: 1 },
+  { name: 'Analytics', x: 120, y: 520, color: '#6bcb77', icon: '◆', desc: 'Data Insights', cooldown: 0, maxCool: 200, points: 20, uses: 0, glowPhase: 2 },
+  { name: 'Social', x: 750, y: 520, color: '#4d96ff', icon: '★', desc: 'Social Media', cooldown: 0, maxCool: 280, points: 12, uses: 0, glowPhase: 3 },
+  { name: 'SEO', x: 120, y: 310, color: '#9b59b6', icon: '⚡', desc: 'Search Optimize', cooldown: 0, maxCool: 320, points: 25, uses: 0, glowPhase: 4 },
+  { name: 'Ads', x: 750, y: 310, color: '#ff8c42', icon: '▲', desc: 'Ad Campaigns', cooldown: 0, maxCool: 270, points: 18, uses: 0, glowPhase: 5 }
+];
+
+const stationSize = 55;
+
+function spawnParticles(x, y, color, count = 12) {
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 / count) * i + Math.random() * 0.5;
+    const speed = 1.5 + Math.random() * 3;
+    particles.push({
+      x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+      life: 1, decay: 0.015 + Math.random() * 0.02, color,
+      size: 3 + Math.random() * 5, type: Math.random() > 0.5 ? 'circle' : 'square'
+    });
+  }
+}
+
+function spawnFloatingText(x, y, text, color) {
+  floatingTexts.push({ x, y, text, color, life: 1, vy: -2 });
+}
+
+function drawFloor() {
+  ctx.fillStyle = '#16213e';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < canvas.width; x += 40) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+  }
+  for (let y = 0; y < canvas.height; y += 40) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+  }
+  const gradient = ctx.createRadialGradient(450, 320, 50, 450, 320, 450);
+  gradient.addColorStop(0, 'rgba(233,69,96,0.06)');
+  gradient.addColorStop(1, 'transparent');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawStation(s) {
+  const pulse = Math.sin(time * 0.05 + s.glowPhase) * 0.3 + 0.7;
+  const ready = s.cooldown <= 0;
+  const alpha = ready ? 1 : 0.4;
+  const glowSize = ready ? 15 + Math.sin(time * 0.08 + s.glowPhase) * 8 : 0;
+
+  if (ready && glowSize > 0) {
+    const glow = ctx.createRadialGradient(s.x, s.y, stationSize * 0.5, s.x, s.y, stationSize + glowSize);
+    glow.addColorStop(0, s.color + '40');
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, stationSize + glowSize, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // Base hexagon
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i - Math.PI / 6;
+    const r = stationSize;
+    const px = s.x + Math.cos(angle) * r;
+    const py = s.y + Math.sin(angle) * r;
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  const bg = ctx.createLinearGradient(s.x - stationSize, s.y - stationSize, s.x + stationSize, s.y + stationSize);
+  bg.addColorStop(0, s.color + '30');
+  bg.addColorStop(1, s.color + '10');
+  ctx.fillStyle = bg;
+  ctx.fill();
+  ctx.strokeStyle = s.color;
+  ctx.lineWidth = ready ? 2.5 : 1.5;
+  ctx.stroke();
+
+  // Inner ring
+  ctx.beginPath();
+  ctx.arc(s.x, s.y, stationSize * 0.55, 0, Math.PI * 2);
+  ctx.strokeStyle = s.color + '60';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Icon
+  ctx.font = `bold ${28 * pulse}px sans-serif`;
+  ctx.fillStyle = s.color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(s.icon, s.x, s.y - 2);
+
+  // Name
+  ctx.font = 'bold 13px sans-serif';
+  ctx.fillStyle = '#fff';
+  ctx.fillText(s.name, s.x, s.y + stationSize + 16);
+
+  // Description
+  ctx.font = '10px sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.fillText(s.desc, s.x, s.y + stationSize + 30);
+
+  // Cooldown bar
+  if (s.cooldown > 0) {
+    const barW = stationSize * 1.4;
+    const barH = 5;
+    const bx = s.x - barW / 2;
+    const by = s.y + stationSize + 38;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(bx, by, barW, barH);
+    ctx.fillStyle = s.color;
+    ctx.fillRect(bx, by, barW * (1 - s.cooldown / s.maxCool), barH);
+  }
+
+  // Ready indicator
+  if (ready) {
+    ctx.font = '9px sans-serif';
+    ctx.fillStyle = '#6bcb77';
+    ctx.fillText('● READY', s.x, s.y + stationSize + 44);
+  }
+
+  // Uses counter
+  if (s.uses > 0) {
+    ctx.font = '9px sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText(`×${s.uses}`, s.x + stationSize * 0.7, s.y - stationSize * 0.7);
+  }
+
+  ctx.restore();
+}
+
+function drawPlayer() {
+  const bob = Math.sin(player.bobPhase) * 3;
+  const px = player.x;
+  const py = player.y + bob;
+
+  // Trail
+  for (let i = 0; i < player.trail.length; i++) {
+    const t = player.trail[i];
+    const a = i / player.trail.length * 0.3;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, player.size * 0.4 * (i / player.trail.length), 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(0,210,255,${a})`;
+    ctx.fill();
+  }
+
+  // Shadow
+  ctx.beginPath();
+  ctx.ellipse(px, py + player.size + 2, player.size * 0.7, 6, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fill();
+
+  // Body glow
+  const bodyGlow = ctx.createRadialGradient(px, py, 5, px, py, player.size * 1.5);
+  bodyGlow.addColorStop(0, 'rgba(0,210,255,0.15)');
+  bodyGlow.addColorStop(1, 'transparent');
+  ctx.fillStyle = bodyGlow;
+  ctx.beginPath();
+  ctx.arc(px, py, player.size * 1.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Body
+  ctx.beginPath();
+  ctx.arc(px, py, player.size, 0, Math.PI * 2);
+  const bodyGrad = ctx.createRadialGradient(px - 5, py - 8, 3, px, py, player.size);
+  bodyGrad.addColorStop(0, '#66efff');
+  bodyGrad.addColorStop(0.6, '#00d2ff');
+  bodyGrad.addColorStop(1, '#0088aa');
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+  ctx.strokeStyle = '#00eeff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Face
+  const eyeOffX = Math.cos(player.facing) * 5;
+  const eyeOffY = Math.sin(player.facing) * 3;
+  // Eyes
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(px - 8 + eyeOffX, py - 5 + eyeOffY, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(px + 8 + eyeOffX, py - 5 + eyeOffY, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1a1a2e';
+  ctx.beginPath(); ctx.arc(px - 7 + eyeOffX * 1.3, py - 5 + eyeOffY * 1.3, 2.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(px + 9 + eyeOffX * 1.3, py - 5 + eyeOffY * 1.3, 2.5, 0, Math.PI * 2); ctx.fill();
+  // Mouth
+  ctx.beginPath();
+  ctx.arc(px + eyeOffX * 0.5, py + 6 + eyeOffY * 0.5, 5, 0.1, Math.PI - 0.1);
+  ctx.strokeStyle = '#1a1a2e';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Interaction progress
+  if (player.interacting && player.interactStation) {
+    const prog = player.interactTimer / player.interactDuration;
+    ctx.beginPath();
+    ctx.arc(px, py - player.size - 12, 10, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * prog);
+    ctx.strokeStyle = player.interactStation.color;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    if (p.type === 'circle') {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.translate(p.x, p.y);
+      ctx.rotate(time * 0.1);
+      ctx.fillRect(-p.size * p.life / 2, -p.size * p.life / 2, p.size * p.life, p.size * p.life);
+    }
+    ctx.restore();
+  });
+}
+
+function drawFloatingTexts() {
+  floatingTexts.forEach(ft => {
+    ctx.save();
+    ctx.globalAlpha = ft.life;
+    ctx.font = `bold ${16 + (1 - ft.life) * 8}px sans-serif`;
+    ctx.fillStyle = ft.color;
+    ctx.textAlign = 'center';
+    ctx.fillText(ft.text, ft.x, ft.y);
+    ctx.restore();
+  });
+}
+
+function drawHUD() {
+  // Score panel
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  roundRect(ctx, 340, 8, 220, 48, 10);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(233,69,96,0.5)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, 340, 8, 220, 48, 10);
+  ctx.stroke();
+
+  ctx.font = 'bold 11px sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.textAlign = 'center';
+  ctx.fillText('SCORE', 450, 24);
+  ctx.font = 'bold 24px sans-serif';
+  ctx.fillStyle = '#fff';
+  ctx.fillText(score.toString(), 450, 48);
+
+  // Combo
+  if (combo > 1) {
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillStyle = '#ffd93d';
+    ctx.textAlign = 'center';
+    ctx.fillText(`COMBO x${combo}!`, 450, 76);
+  }
+
+  // Instructions
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.textAlign = 'center';
+  ctx.fillText('WASD / Arrow Keys to move  •  Walk to stations to activate', 450, canvas.height - 12);
+
+  // Notification
+  if (notificationTimer > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, notificationTimer / 20);
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillStyle = '#ffd93d';
+    ctx.textAlign = 'center';
+    ctx.fillText(notification, 450, canvas.height - 35);
+    ctx.restore();
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function drawConnections() {
+  ctx.save();
+  ctx.globalAlpha = 0.06;
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([5, 10]);
+  for (let i = 0; i < stations.length; i++) {
+    for (let j = i + 1; j < stations.length; j++) {
+      ctx.beginPath();
+      ctx.moveTo(stations[i].x, stations[i].y);
+      ctx.lineTo(stations[j].x, stations[j].y);
+      ctx.stroke();
+    }
+  }
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function update() {
+  time++;
+  let dx = 0, dy = 0;
+  if (!player.interacting) {
+    if (keys['arrowleft'] || keys['a']) dx -= 1;
+    if (keys['arrowright'] || keys['d']) dx += 1;
+    if (keys['arrowup'] || keys['w']) dy -= 1;
+    if (keys['arrowdown'] || keys['s']) dy += 1;
+  }
+
+  if (dx !== 0 || dy !== 0) {
+    const len = Math.sqrt(dx * dx + dy * dy);
+    dx /= len; dy /= len;
+    player.x += dx * player.speed;
+    player.y += dy * player.speed;
+    player.facing = Math.atan2(dy, dx);
+    player.bobPhase += 0.15;
+
+    player.trail.push({ x: player.x, y: player.y });
+    if (player.trail.length > 12) player.trail.shift();
+  }
+
+  player.x = Math.max(player.size, Math.min(canvas.width - player.size, player.x));
+  player.y = Math.max(player.size, Math.min(canvas.height - player.size, player.y));
+
+  // Station interaction
+  let nearStation = null;
+  const interactDist = stationSize + player.size + 5;
+  for (const s of stations) {
+    const dist = Math.hypot(player.x - s.x, player.y - s.y);
+    if (dist < interactDist && s.cooldown <= 0) {
+      nearStation = s;
+      break;
+    }
+    if (s.cooldown > 0) s.cooldown--;
+  }
+
+  if (nearStation && !player.interacting) {
+    player.interacting = true;
+    player.interactStation = nearStation;
+    player.interactTimer = 0;
+  }
+
+  if (player.interacting) {
+    if (player.interactStation) {
+      const dist = Math.hypot(player.x - player.interactStation.x, player.y - player.interactStation.y);
+      if (dist >= interactDist + 20 || player.interactStation.cooldown > 0) {
+        player.interacting = false;
+        player.interactStation = null;
+        player.interactTimer = 0;
+      } else {
+        player.interactTimer++;
+        if (player.interactTimer % 5 === 0) {
+          spawnParticles(
+            player.interactStation.x + (Math.random() - 0.5) * stationSize,
+            player.interactStation.y + (Math.random() - 0.5) * stationSize,
+            player.interactStation.color, 2
+          );
+        }
+        if (player.interactTimer >= player.interactDuration) {
+          const s = player.interactStation;
+          // Check combo
+          if (time - lastStationTime < 300) {
+            combo = Math.min(combo + 1, 8);
+          } else {
+            combo = 1;
+          }
+          lastStationTime = time;
+          const pts = s.points * combo;
+          score += pts;
+          s.cooldown = s.maxCool;
+          s.uses++;
+          spawnParticles(s.x, s.y, s.color, 20);
+          spawnFloatingText(s.x, s.y - stationSize - 20, `+${pts}`, s.color);
+          screenShake = 8;
+
+          if (s.uses % 5 === 0) {
+            notification = `${s.name} Level ${Math.floor(s.uses / 5) + 1}!`;
+            notificationTimer = 90;
+          }
+
+          player.interacting = false;
+          player.interactStation = null;
+          player.interactTimer = 0;
+        }
+      }
+    }
+  }
+
+  // Update particles
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.97;
+    p.vy *= 0.97;
+    p.life -= p.decay;
+  });
+  particles = particles.filter(p => p.life > 0);
+
+  // Update floating texts
+  floatingTexts.forEach(ft => {
+    ft.y += ft.vy;
+    ft.vy *= 0.96;
+    ft.life -= 0.015;
+  });
+  floatingTexts = floatingTexts.filter(ft => ft.life > 0);
+
+  if (screenShake > 0) screenShake *= 0.85;
+  if (notificationTimer > 0) notificationTimer--;
+
+  // Ambient particles
+  if (time % 30 === 0) {
+    particles.push({
+      x: Math.random() * canvas.width, y: canvas.height + 10,
+      vx: (Math.random() - 0.5) * 0.5, vy: -0.5 - Math.random() * 0.5,
+      life: 1, decay: 0.005, color: 'rgba(255,255,255,0.3)',
+      size: 2 + Math.random() * 2, type: 'circle'
+    });
+  }
+}
+
+function draw() {
+  ctx.save();
+  if (screenShake > 0.5) {
+    ctx.translate((Math.random() - 0.5) * screenShake, (Math.random() - 0.5) * screenShake);
+  }
+
+  drawFloor();
+  drawConnections();
+  stations.forEach(drawStation);
+  drawParticles();
+  drawPlayer();
+  drawFloatingTexts();
+  drawHUD();
+
+  ctx.restore();
+}
+
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
