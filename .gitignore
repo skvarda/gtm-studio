@@ -1,5 +1,7 @@
 node_modules/
 .env
-server/
-ui/
+server/*
+!server/index.js
+ui/*
+!ui/index.html
 *.log
