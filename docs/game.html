@@ -14,7 +14,7 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 <canvas id="game"></canvas>
 <script>
 // ============================================================
-// SaaS STARTUP SIMULATOR — Round 14
+// SaaS STARTUP SIMULATOR — Round 15
 // ============================================================
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -62,6 +62,7 @@ const PAL = {
     titleBg:'#0e0e1c', titlePurple:'#533483', titleGreen:'#58b868',
     titleAccent:'#e94560', morningGold:'rgba(255,230,150,0.08)',
     nightBlue:'rgba(10,10,40,0.45)',
+    eventGold:'#f5a623', eventRed:'#e94560', eventGreen:'#53d769',
 };
 
 // ============================================================
@@ -103,102 +104,161 @@ function isSolid(gx,gy){return SOLID[getTile(gx,gy)]===1;}
 // PRODUCT MILESTONES
 // ============================================================
 const MILESTONES = [
-    { name:'MVP', threshold:30, announced:false, desc:'Minimum Viable Product launched!' },
-    { name:'Beta', threshold:60, announced:false, desc:'Beta release - early adopters incoming!' },
-    { name:'V1.0', threshold:100, announced:false, desc:'Version 1.0 shipped! Market ready.' },
-    { name:'Scale', threshold:150, announced:false, desc:'Platform at scale! Enterprise deals unlocked.' },
+    { name:'MVP', threshold:30, announced:false, desc:'Minimum Viable Product launched!', custBonus:1 },
+    { name:'Beta', threshold:60, announced:false, desc:'Beta release — early adopters incoming!', custBonus:2 },
+    { name:'V1.0', threshold:100, announced:false, desc:'Version 1.0 shipped! Market ready.', custBonus:3 },
+    { name:'Scale', threshold:150, announced:false, desc:'Platform at scale! Enterprise unlocked.', custBonus:5 },
 ];
 
-const REVENUE_MILESTONES = [
-    { name:'First Dollar', threshold:1, announced:false, desc:'Your first dollar of revenue!', bonus:'morale' },
-    { name:'Ramen Profitable', threshold:0, announced:false, desc:'Revenue covers burn! Ramen forever.', bonus:'confidence' },
-    { name:'Series A Ready', threshold:500, announced:false, desc:'Investors are calling YOU now.', bonus:'funding' },
+// ============================================================
+// RANDOM EVENTS POOL
+// ============================================================
+const EVENT_POOL = [
+    {
+        id:'server_crash', title:'Server Meltdown!',
+        text:'Your main server just went down. Customers are tweeting angry emojis.',
+        choiceA:'Pay for emergency fix ($8K)', choiceB:'Roll back and hope (risk losing customers)',
+        effectA:{ cash:-8000 }, effectB:{ customers:-3, cashMin:true },
+        colorTag:'eventRed'
+    },
+    {
+        id:'techcrunch', title:'TechCrunch Spotted You!',
+        text:'A reporter wants to feature your startup. But they want an exclusive demo...',
+        choiceA:'Give the demo (costs 1 day progress)', choiceB:'Decline politely',
+        effectA:{ customers:5, product:-5 }, effectB:{},
+        colorTag:'eventGold'
+    },
+    {
+        id:'competitor', title:'Competitor Launches!',
+        text:'A well-funded competitor just launched a similar product. The market is buzzing.',
+        choiceA:'Double down on features ($6K)', choiceB:'Undercut their pricing (lose revenue)',
+        effectA:{ cash:-6000, product:8 }, effectB:{ customers:2, cash:-3000 },
+        colorTag:'eventRed'
+    },
+    {
+        id:'viral_tweet', title:'Viral Tweet!',
+        text:'Someone influential tweeted about your product and it\'s blowing up!',
+        choiceA:'Ride the wave (free customers!)', choiceB:'Invest in marketing to amplify ($5K)',
+        effectA:{ customers:3 }, effectB:{ customers:7, cash:-5000 },
+        colorTag:'eventGreen'
+    },
+    {
+        id:'dev_burnout', title:'Developer Burnout',
+        text:'Your lead developer says they need a break or they\'re quitting.',
+        choiceA:'Give them a week off (lose progress)', choiceB:'Offer a $5K bonus',
+        effectA:{ product:-8, morale:10 }, effectB:{ cash:-5000, morale:5 },
+        colorTag:'eventRed'
+    },
+    {
+        id:'investor_call', title:'Investor Interest!',
+        text:'An angel investor saw your traction and wants to chat.',
+        choiceA:'Take the meeting ($15K injection)', choiceB:'Stay bootstrapped (keep full control)',
+        effectA:{ cash:15000, morale:5 }, effectB:{ morale:10 },
+        colorTag:'eventGold'
+    },
+    {
+        id:'security_breach', title:'Security Scare!',
+        text:'A white-hat hacker found a vulnerability in your auth system.',
+        choiceA:'Hire them to fix it ($7K)', choiceB:'Patch it yourself (risky, slow)',
+        effectA:{ cash:-7000, product:5 }, effectB:{ product:-3, customers:-2 },
+        colorTag:'eventRed'
+    },
+    {
+        id:'conference', title:'Startup Conference',
+        text:'SaaSCon is next week. You could demo your product on the main stage.',
+        choiceA:'Attend and demo ($4K travel)', choiceB:'Skip it, keep building',
+        effectA:{ cash:-4000, customers:4, morale:5 }, effectB:{ product:5 },
+        colorTag:'eventGold'
+    },
+    {
+        id:'enterprise_lead', title:'Enterprise Lead!',
+        text:'A Fortune 500 company wants a custom integration. Big contract potential.',
+        choiceA:'Pursue the deal ($10K dev cost)', choiceB:'Too early, focus on SMB',
+        effectA:{ cash:-10000, customers:8, product:5 }, effectB:{ morale:3 },
+        colorTag:'eventGreen'
+    },
+    {
+        id:'office_prank', title:'Office Shenanigans',
+        text:'Someone replaced all the coffee with decaf. Productivity is tanking.',
+        choiceA:'Buy fancy espresso machine ($2K)', choiceB:'Declare a nap day',
+        effectA:{ cash:-2000, morale:15 }, effectB:{ morale:8, product:-2 },
+        colorTag:'eventGold'
+    },
+    {
+        id:'key_hire', title:'Star Developer Available!',
+        text:'A talented engineer just left Google and is looking for startup life.',
+        choiceA:'Make an offer ($12K signing bonus)', choiceB:'Can\'t afford it right now',
+        effectA:{ cash:-12000, devs:1 }, effectB:{},
+        colorTag:'eventGreen'
+    },
+    {
+        id:'churn_spike', title:'Churn Spike!',
+        text:'Several customers canceled this week citing missing features.',
+        choiceA:'Rush a hotfix sprint ($5K overtime)', choiceB:'Survey and plan (lose customers now)',
+        effectA:{ cash:-5000, product:6 }, effectB:{ customers:-4, product:3 },
+        colorTag:'eventRed'
+    },
 ];
 
 // ============================================================
 // GAME STATE
 // ============================================================
-const gameState = {
-    phase: 'titleScreen',
+let gameState = {
+    phase: 'title',
     day: 1,
-    maxAP: 5,
-    ap: 5,
-    cash: 10000,
-    burnRate: 200,
-    revenue: 0,
+    cash: 50000,
     customers: 0,
-    churnRate: 0.05,
-    productProgress: 0,
-    productQuality: 1,
-    morale: 80,
-    bugs: 0,
-    teamDevs: 0,
-    teamSales: 0,
-    teamSupport: 0,
-    hireSlots: [null,null,null,null],
-    features: [],
-    notifications: [],
-    notifTimer: 0,
-    dialogQueue: [],
-    dialogActive: false,
-    currentDialog: null,
-    menuOpen: false,
-    menuIndex: 0,
+    product: 0,
+    morale: 70,
+    ap: 3,
+    maxAp: 3,
+    devs: 0,
+    sales: 0,
+    revenue: 0,
+    burn: 500,
+    totalRevenue: 0,
+    // player position (pixel coords)
+    px: 9 * T + 4,
+    py: 7 * T + 4,
+    pdir: 0, // 0=down,1=left,2=right,3=up
+    pframe: 0,
+    pMoving: false,
+    // menu / dialog
+    menuActive: false,
     menuItems: [],
-    menuContext: '',
-    paused: false,
-    cofMood: 'neutral',
-    cofDialog: [
-        "Don't mind me. Just... thinking about equity structures.",
-        "Did you know we're burning $200 a day? Me neither. Ha.",
-        "I've been networking. You wouldn't understand.",
-        "I'm working on something big. Can't say what yet.",
-        "Have you tried turning the product off and on again?",
-    ],
-    cofDialogIndex: 0,
-    eventLog: [],
+    menuSel: 0,
+    menuCallback: null,
+    menuTitle: '',
+    dialogActive: false,
+    dialogText: '',
+    dialogQueue: [],
+    dialogCallback: null,
+    // interaction
     interactTarget: null,
-    moveTimer: 0,
-    titleTimer: 0,
-    titleCursorBlink: 0,
-    titleStarField: [],
-    introStep: 0,
-    introDialogs: [
-        { speaker:'???', text:"Welcome to the grind, co-founder." },
-        { speaker:'You', text:"Angel check cleared. Office lease signed. Let's do this." },
-        { speaker:'???', text:"Your co-founder is already here... somewhere. Press arrows to move, Z to interact. Good luck." },
-    ],
-    dayPhase: 0,
+    // day transition
+    dayTransition: false,
+    dayTransAlpha: 0,
+    dayTransDir: 0,
+    dayTransCallback: null,
+    // events
+    eventHistory: {},  // id -> last day fired
+    eventActive: false,
+    pendingEvent: null,
+    // milestones
+    milestoneQueue: [],
+    // endgame
+    gameOver: false,
+    endType: '',
+    // passive customer gain from milestones
+    passiveCustPerDay: 0,
+    // animation
+    tick: 0,
+    cofAnimTick: 0,
+    // notification
+    notifications: [],
 };
 
-// Generate title star field
-for(let i=0;i<40;i++){
-    gameState.titleStarField.push({
-        x: Math.random()*NATIVE_W,
-        y: Math.random()*NATIVE_H,
-        speed: 0.1+Math.random()*0.3,
-        bright: 0.3+Math.random()*0.7,
-        twinkle: Math.random()*Math.PI*2,
-    });
-}
-
-// ============================================================
-// PLAYER
-// ============================================================
-const player = {
-    gx:9, gy:7, px:9*T, py:7*T,
-    dir:0, frame:0, frameTimer:0, moving:false, speed:1.5,
-    targetPx:9*T, targetPy:7*T,
-};
-
-// ============================================================
-// CO-FOUNDER NPC
-// ============================================================
-const cofounder = {
-    gx:14, gy:10, px:14*T, py:10*T,
-    dir:2, frame:0, frameTimer:0,
-    wanderTimer:180, idle:true,
-};
+let gs = gameState;
 
 // ============================================================
 // INPUT
@@ -206,414 +266,130 @@ const cofounder = {
 const keys = {};
 const justPressed = {};
 document.addEventListener('keydown', e => {
-    if(!keys[e.key]) justPressed[e.key] = true;
+    if (!keys[e.key]) justPressed[e.key] = true;
     keys[e.key] = true;
     e.preventDefault();
 });
 document.addEventListener('keyup', e => { keys[e.key] = false; });
-function consumeKey(k){ if(justPressed[k]){justPressed[k]=false;return true;} return false; }
+function wasPressed(k) { return justPressed[k]; }
+function clearInput() { for (let k in justPressed) delete justPressed[k]; }
 
 // ============================================================
-// NOTIFICATION SYSTEM
+// DRAWING HELPERS
 // ============================================================
-function notify(text, color=PAL.white, duration=180){
-    gameState.notifications.push({text,color,timer:duration,maxTimer:duration});
+function px(x,y,w,h,c){ bctx.fillStyle=c; bctx.fillRect(Math.floor(x),Math.floor(y),w,h); }
+function drawText(txt,x,y,col,size,align){
+    bctx.fillStyle=col||PAL.white;
+    bctx.font=(size||8)+'px monospace';
+    bctx.textAlign=align||'left';
+    bctx.textBaseline='top';
+    bctx.fillText(txt,Math.floor(x),Math.floor(y));
 }
-
-function addEventLog(text){
-    gameState.eventLog.unshift({text,day:gameState.day});
-    if(gameState.eventLog.length>20) gameState.eventLog.pop();
-}
-
-// ============================================================
-// DIALOG SYSTEM
-// ============================================================
-function showDialog(speaker, text){
-    gameState.dialogQueue.push({speaker, text});
-    if(!gameState.dialogActive) advanceDialog();
-}
-function advanceDialog(){
-    if(gameState.dialogQueue.length>0){
-        gameState.currentDialog = gameState.dialogQueue.shift();
-        gameState.dialogActive = true;
-    } else {
-        gameState.dialogActive = false;
-        gameState.currentDialog = null;
-        if(gameState.phase === 'intro'){
-            gameState.introStep++;
-            if(gameState.introStep >= gameState.introDialogs.length){
-                gameState.phase = 'gameplay';
-                notify('Day 1 begins! You have 5 AP.', PAL.hudGreen);
-                addEventLog('Opened the office for the first time.');
-            }
-        }
-    }
+function drawTextShadow(txt,x,y,col,size,align){
+    drawText(txt,x+1,y+1,'#000',size,align);
+    drawText(txt,x,y,col,size,align);
 }
 
 // ============================================================
-// MENU SYSTEM
+// TILE RENDERING
 // ============================================================
-function openMenu(items, context){
-    gameState.menuOpen = true;
-    gameState.menuItems = items;
-    gameState.menuIndex = 0;
-    gameState.menuContext = context;
-}
-function closeMenu(){
-    gameState.menuOpen = false;
-    gameState.menuItems = [];
-    gameState.menuContext = '';
-}
-
-// ============================================================
-// ACTIONS
-// ============================================================
-function spendAP(cost){
-    if(gameState.ap >= cost){ gameState.ap -= cost; return true; }
-    notify('Not enough AP!', PAL.hudRed);
-    return false;
-}
-
-function actionCode(){
-    if(!spendAP(1)) return;
-    let progress = 8 + Math.floor(Math.random()*5) + gameState.teamDevs*4;
-    if(gameState.morale > 70) progress += 2;
-    let bugChance = 0.2 - gameState.productQuality*0.02;
-    if(Math.random() < bugChance){
-        gameState.bugs++;
-        notify('Introduced a bug while coding...', PAL.hudYellow);
-        addEventLog('A sneaky bug crept into the code.');
-    }
-    gameState.productProgress += progress;
-    notify('Coded! +' + progress + ' progress', PAL.hudGreen);
-    addEventLog('Wrote code. Progress +' + progress);
-    checkMilestones();
-}
-
-function actionFixBugs(){
-    if(gameState.bugs <= 0){ notify('No bugs to fix!', PAL.neutral); return; }
-    if(!spendAP(1)) return;
-    let fixed = Math.min(gameState.bugs, 1 + Math.floor(Math.random()*2));
-    gameState.bugs -= fixed;
-    gameState.productQuality = Math.min(10, gameState.productQuality + 0.2);
-    notify('Fixed ' + fixed + ' bug(s)!', PAL.hudGreen);
-    addEventLog('Squashed ' + fixed + ' bug(s).');
-}
-
-function actionSell(){
-    if(!spendAP(1)) return;
-    let milestone = getCurrentMilestone();
-    let productMult = milestone ? 1 + MILESTONES.indexOf(milestone)*0.5 : 0.5;
-    let gained = Math.floor((1 + gameState.teamSales*2) * productMult * (1 + Math.random()));
-    if(gameState.bugs > 3) gained = Math.max(1, Math.floor(gained * 0.5));
-    gameState.customers += gained;
-    notify('Sold! +' + gained + ' customer(s)', PAL.custBlue);
-    addEventLog('Closed ' + gained + ' new customer(s).');
-    recalcRevenue();
-}
-
-function actionHire(type){
-    if(!spendAP(2)) return;
-    let cost = type === 'dev' ? 3000 : type === 'sales' ? 2500 : 2000;
-    if(gameState.cash < cost){ notify('Not enough cash to hire!', PAL.hudRed); return; }
-    gameState.cash -= cost;
-    if(type === 'dev'){ gameState.teamDevs++; gameState.burnRate += 150; }
-    if(type === 'sales'){ gameState.teamSales++; gameState.burnRate += 120; }
-    if(type === 'support'){ gameState.teamSupport++; gameState.burnRate += 100; }
-    notify('Hired a ' + type + '!', PAL.hudGreen);
-    addEventLog('Hired a new ' + type + '. Burn rate increased.');
-}
-
-function actionCoffee(){
-    if(!spendAP(1)) return;
-    gameState.morale = Math.min(100, gameState.morale + 15);
-    notify('Coffee break! Morale +15', PAL.hudYellow);
-    addEventLog('Took a well-deserved coffee break.');
-}
-
-function actionWhiteboard(){
-    if(!spendAP(1)) return;
-    let insight = Math.random();
-    if(insight > 0.6){
-        gameState.productQuality = Math.min(10, gameState.productQuality + 0.5);
-        notify('Great brainstorm! Quality +0.5', PAL.hudGreen);
-        addEventLog('Whiteboard session yielded key insights.');
-    } else {
-        notify('Drew some boxes and arrows. Felt productive.', PAL.neutral);
-        addEventLog('Whiteboard session... mostly doodles.');
-    }
-}
-
-function endDay(){
-    gameState.day++;
-    // Churn
-    let churned = Math.floor(gameState.customers * gameState.churnRate);
-    if(gameState.teamSupport > 0) churned = Math.max(0, churned - gameState.teamSupport);
-    if(gameState.bugs > 5) churned += Math.floor(gameState.bugs * 0.5);
-    gameState.customers = Math.max(0, gameState.customers - churned);
-    // Revenue
-    recalcRevenue();
-    // Burn
-    gameState.cash = gameState.cash - gameState.burnRate + gameState.revenue;
-    // Team auto-work
-    if(gameState.teamDevs > 0){
-        let autoProgress = gameState.teamDevs * (3 + Math.floor(Math.random()*3));
-        gameState.productProgress += autoProgress;
-    }
-    if(gameState.teamSales > 0){
-        let milestone = getCurrentMilestone();
-        let mult = milestone ? 1 : 0.3;
-        let autoCust = Math.floor(gameState.teamSales * mult * (1 + Math.random()));
-        gameState.customers += autoCust;
-        recalcRevenue();
-    }
-    // Morale decay
-    if(gameState.cash < 2000) gameState.morale = Math.max(10, gameState.morale - 5);
-    else gameState.morale = Math.max(30, gameState.morale - 2);
-    // Restore AP
-    gameState.ap = gameState.maxAP;
-    gameState.dayPhase = 0;
-    // Random events
-    if(Math.random() < 0.15) triggerRandomEvent();
-    // Check game over
-    if(gameState.cash <= 0){
-        showDialog('Reality', 'Your bank account hit zero. The dream is over... for now.');
-        addEventLog('GAME OVER — Ran out of cash on day ' + gameState.day);
-        gameState.phase = 'gameOver';
-        return;
-    }
-    checkMilestones();
-    checkRevenueMilestones();
-    notify('Day ' + gameState.day + ' — $' + gameState.cash + ' in the bank', PAL.hudGreen);
-    if(churned > 0) notify(churned + ' customer(s) churned', PAL.redChurn);
-}
-
-function recalcRevenue(){
-    let arpu = 50 - gameState.bugs * 2;
-    if(arpu < 10) arpu = 10;
-    gameState.revenue = gameState.customers * arpu;
-}
-
-function getCurrentMilestone(){
-    let m = null;
-    for(let i=0;i<MILESTONES.length;i++){
-        if(gameState.productProgress >= MILESTONES[i].threshold) m = MILESTONES[i];
-    }
-    return m;
-}
-
-function checkMilestones(){
-    for(let m of MILESTONES){
-        if(!m.announced && gameState.productProgress >= m.threshold){
-            m.announced = true;
-            showDialog('Milestone!', m.desc);
-            notify('MILESTONE: ' + m.name, PAL.goldMile);
-            addEventLog('Reached milestone: ' + m.name);
-        }
-    }
-}
-
-function checkRevenueMilestones(){
-    for(let m of REVENUE_MILESTONES){
-        if(m.announced) continue;
-        if(m.name === 'Ramen Profitable' && gameState.revenue >= gameState.burnRate){
-            m.announced = true;
-            showDialog('Milestone!', m.desc);
-            notify('RAMEN PROFITABLE!', PAL.goldMile);
-        } else if(m.name !== 'Ramen Profitable' && gameState.revenue >= m.threshold){
-            m.announced = true;
-            showDialog('Milestone!', m.desc);
-            notify(m.name + '!', PAL.goldMile);
-        }
-    }
-}
-
-function triggerRandomEvent(){
-    const events = [
-        () => { gameState.cash += 500; notify('Found $500 in the couch cushions!', PAL.greenCash); addEventLog('Lucky find: $500 in the couch.'); },
-        () => { gameState.morale = Math.min(100, gameState.morale+10); notify('Team pizza party! Morale +10', PAL.hudYellow); addEventLog('Spontaneous pizza party.'); },
-        () => { gameState.bugs += 2; notify('Legacy code strikes! +2 bugs', PAL.hudRed); addEventLog('Legacy code introduced 2 bugs.'); },
-        () => { let c = 1+Math.floor(Math.random()*3); gameState.customers+=c; recalcRevenue(); notify('Organic signup! +'+c+' customer(s)', PAL.custGreen); addEventLog('Organic signups: +'+c); },
-        () => { gameState.burnRate += 50; notify('Rent increase! Burn +$50/day', PAL.hudRed); addEventLog('Landlord raised the rent.'); },
-        () => { notify('Your co-founder sent a cryptic Slack message...', PAL.neutral); addEventLog('Co-founder: "Big things coming. Trust the process."'); },
-        () => { if(gameState.teamDevs > 0){ gameState.productProgress += 15; notify('Dev had a breakthrough! +15 progress', PAL.hudGreen); addEventLog('Developer breakthrough!'); }},
-        () => { gameState.productQuality = Math.min(10, gameState.productQuality+0.3); notify('User feedback improved quality!', PAL.positive); addEventLog('User feedback improved the product.'); },
-    ];
-    events[Math.floor(Math.random()*events.length)]();
-}
-
-// ============================================================
-// INTERACTION SYSTEM
-// ============================================================
-function getInteractTile(){
-    const dirs = [[0,-1],[1,0],[0,1],[-1,0]];
-    let d = dirs[player.dir];
-    let gx = Math.round(player.px/T) + d[0];
-    let gy = Math.round(player.py/T) + d[1];
-    return {gx, gy, tile: getTile(gx, gy)};
-}
-
-function interact(){
-    if(gameState.phase !== 'gameplay') return;
-    let {gx, gy, tile} = getInteractTile();
-    // Check cofounder proximity
-    if(Math.abs(gx - cofounder.gx) <= 1 && Math.abs(gy - cofounder.gy) <= 1){
-        let line = gameState.cofDialog[gameState.cofDialogIndex % gameState.cofDialog.length];
-        gameState.cofDialogIndex++;
-        showDialog('Co-Founder', line);
-        return;
-    }
-    switch(tile){
-        case TERMINAL:
-            openMenu([
-                {label:'Write Code (1 AP)', action:actionCode},
-                {label:'Fix Bugs (1 AP)', action:actionFixBugs},
-                {label:'Cancel', action:closeMenu},
-            ], 'Terminal');
-            break;
-        case DESK:
-            openMenu([
-                {label:'Review Metrics', action:()=>{ closeMenu(); showMetrics(); }},
-                {label:'End Day', action:()=>{ closeMenu(); endDay(); }},
-                {label:'Cancel', action:closeMenu},
-            ], 'Desk');
-            break;
-        case WHITEBOARD:
-            openMenu([
-                {label:'Brainstorm (1 AP)', action:()=>{ closeMenu(); actionWhiteboard(); }},
-                {label:'Cancel', action:closeMenu},
-            ], 'Whiteboard');
-            break;
-        case COFFEE_MACHINE:
-            openMenu([
-                {label:'Get Coffee (1 AP)', action:()=>{ closeMenu(); actionCoffee(); }},
-                {label:'Cancel', action:closeMenu},
-            ], 'Coffee Machine');
-            break;
-        case DOOR:
-            openMenu([
-                {label:'Hire Developer ($3000, 2 AP)', action:()=>{ closeMenu(); actionHire('dev'); }},
-                {label:'Hire Salesperson ($2500, 2 AP)', action:()=>{ closeMenu(); actionHire('sales'); }},
-                {label:'Hire Support ($2000, 2 AP)', action:()=>{ closeMenu(); actionHire('support'); }},
-                {label:'Go Sell (1 AP)', action:()=>{ closeMenu(); actionSell(); }},
-                {label:'Cancel', action:closeMenu},
-            ], 'Front Door');
-            break;
-        default:
-            break;
-    }
-}
-
-function showMetrics(){
-    let m = getCurrentMilestone();
-    let mName = m ? m.name : 'None';
-    let nextM = MILESTONES.find(x => !x.announced);
-    let nextStr = nextM ? (nextM.name + ' (' + nextM.threshold + ')') : 'All reached!';
-    showDialog('Metrics',
-        'Day ' + gameState.day + ' | Cash: $' + gameState.cash +
-        ' | Rev: $' + gameState.revenue + '/day' +
-        ' | Burn: $' + gameState.burnRate + '/day'
-    );
-    showDialog('Metrics',
-        'Customers: ' + gameState.customers +
-        ' | Product: ' + gameState.productProgress +
-        ' (' + mName + ') | Next: ' + nextStr
-    );
-    showDialog('Metrics',
-        'Team: ' + gameState.teamDevs + ' dev, ' + gameState.teamSales + ' sales, ' + gameState.teamSupport + ' support' +
-        ' | Bugs: ' + gameState.bugs + ' | Morale: ' + gameState.morale + '%'
-    );
-}
-
-// ============================================================
-// PIXEL ART DRAWING HELPERS
-// ============================================================
-function drawRect(x,y,w,h,col){
-    bctx.fillStyle=col; bctx.fillRect(Math.floor(x),Math.floor(y),w,h);
-}
-
 function drawTile(tx,ty){
-    let x=tx*T, y=ty*T;
-    let tile=getTile(tx,ty);
-    let checker=(tx+ty)%2===0;
+    const tile = getTile(tx,ty);
+    const x=tx*T, y=ty*T;
+    // floor under everything
+    px(x,y,T,T,((tx+ty)%2)?PAL.floorA:PAL.floorB);
+
     switch(tile){
-        case FLOOR:
-            drawRect(x,y,T,T,checker?PAL.floorA:PAL.floorB);
-            break;
         case WALL_TOP:
-            drawRect(x,y,T,T,PAL.wallTop);
-            drawRect(x,y+12,T,4,'#443377');
+            px(x,y,T,T,PAL.wallTop);
+            px(x,y+12,T,2,PAL.wallTrim);
+            // subtle brick pattern
+            if((tx+ty)%3===0){ px(x+2,y+3,5,3,'#4a2873'); px(x+9,y+7,5,3,'#4a2873'); }
             break;
         case WALL_FACE:
-            drawRect(x,y,T,T,PAL.wallFace);
-            drawRect(x,y,1,T,'#252540');
+            px(x,y,T,T,PAL.wallFace);
+            px(x,y,T,1,PAL.wallTop);
             break;
         case WALL_TRIM_TILE:
-            drawRect(x,y,T,T,PAL.wallFace);
-            drawRect(x,y,T,3,PAL.wallTrim);
-            drawRect(x,y+3,T,2,'#3a8848');
-            break;
-        case DESK:
-            drawRect(x,y,T,T,checker?PAL.floorA:PAL.floorB);
-            drawRect(x+1,y+4,14,10,PAL.desk);
-            drawRect(x+1,y+4,14,3,PAL.deskTop);
-            drawRect(x+2,y+12,2,4,PAL.deskLeg);
-            drawRect(x+12,y+12,2,4,PAL.deskLeg);
-            break;
-        case CHAIR:
-            drawRect(x,y,T,T,checker?PAL.floorA:PAL.floorB);
-            drawRect(x+4,y+6,8,8,PAL.chair);
-            drawRect(x+5,y+7,6,6,PAL.chairSeat);
-            break;
-        case TERMINAL:
-            drawRect(x,y,T,T,checker?PAL.floorA:PAL.floorB);
-            drawRect(x+1,y+4,14,10,PAL.desk);
-            drawRect(x+1,y+4,14,3,PAL.deskTop);
-            drawRect(x+3,y+1,10,6,PAL.monitor);
-            drawRect(x+4,y+2,8,4,PAL.monGlow);
-            // Screen flicker
-            if(Math.random()>0.92) drawRect(x+4,y+2,8,4,PAL.monGlowLt);
-            drawRect(x+6,y+7,4,1,PAL.deskLeg);
-            break;
-        case PLANT:
-            drawRect(x,y,T,T,checker?PAL.floorA:PAL.floorB);
-            drawRect(x+5,y+9,6,6,PAL.pot);
-            drawRect(x+5,y+9,6,2,PAL.potDk);
-            drawRect(x+6,y+4,4,6,PAL.plant);
-            drawRect(x+4,y+3,3,3,PAL.plantDk);
-            drawRect(x+9,y+2,3,4,PAL.plant);
-            drawRect(x+7,y+1,2,3,PAL.plantDk);
-            break;
-        case COFOUNDER_SPOT:
-            drawRect(x,y,T,T,checker?PAL.floorA:PAL.floorB);
-            break;
-        case DOOR:
-            drawRect(x,y,T,T,checker?PAL.floorA:PAL.floorB);
-            drawRect(x+3,y,10,T,'#5a4a3a');
-            drawRect(x+4,y+1,8,14,'#7a6a5a');
-            drawRect(x+10,y+7,2,3,'#ccaa44');
-            break;
-        case RUG:
-            drawRect(x,y,T,T,checker?PAL.rug:PAL.rugB);
-            if(tx===8&&ty===4){ drawRect(x,y,T,2,PAL.wallTrim); }
-            if(tx===11&&ty===4){ drawRect(x,y,T,2,PAL.wallTrim); }
-            if(ty===6){ drawRect(x,y+14,T,2,PAL.wallTrim); }
-            if(tx===8){ drawRect(x,y,2,T,PAL.wallTrim); }
-            if(tx===11){ drawRect(x+14,y,2,T,PAL.wallTrim); }
-            break;
-        case WHITEBOARD:
-            drawRect(x,y,T,T,PAL.wallFace);
-            drawRect(x+1,y+2,14,10,PAL.wbBorder);
-            drawRect(x+2,y+3,12,8,PAL.whiteboard);
-            drawRect(x+4,y+5,5,1,PAL.hudRed);
-            drawRect(x+4,y+7,8,1,PAL.hudGreen);
+            px(x,y,T,T,PAL.wallFace);
+            px(x,y,T,3,PAL.wallTrim);
+            px(x,y+3,T,1,'#489858');
             break;
         case WINDOW_TILE:
-            drawRect(x,y,T,T,PAL.wallTop);
-            drawRect(x+2,y+2,12,10,PAL.window);
-            drawRect(x+3,y+3,10,8,PAL.windowLt);
-            drawRect(x+8,y+2,1,10,'#666688');
-            drawRect(x+2,y+6,12,1,'#666688');
+            px(x,y,T,T,PAL.wallTop);
+            px(x+2,y+2,12,8,PAL.window);
+            px(x+3,y+3,10,6,PAL.windowLt);
+            px(x+7,y+2,2,8,PAL.wallTop);
+            // shimmer
+            if((gs.tick+tx*7)%60<30) px(x+4,y+4,3,2,'#aaddff');
+            px(x,y+12,T,2,PAL.wallTrim);
+            break;
+        case DESK:
+            px(x+1,y+6,14,4,PAL.deskTop);
+            px(x+1,y+10,2,5,PAL.deskLeg);
+            px(x+13,y+10,2,5,PAL.deskLeg);
+            px(x+1,y+5,14,1,PAL.desk);
+            break;
+        case CHAIR:
+            px(x+4,y+4,8,8,PAL.chair);
+            px(x+5,y+5,6,6,PAL.chairSeat);
+            break;
+        case TERMINAL:
+            // desk underneath
+            px(x+1,y+8,14,4,PAL.deskTop);
+            px(x+1,y+12,2,3,PAL.deskLeg);
+            px(x+13,y+12,2,3,PAL.deskLeg);
+            // monitor
+            px(x+3,y+1,10,7,PAL.monitor);
+            px(x+4,y+2,8,5,PAL.monGlow);
+            // screen flicker
+            if(gs.tick%40<20) px(x+5,y+3,4,1,PAL.monGlowLt);
+            if(gs.tick%60<15) px(x+6,y+5,3,1,PAL.monGlowLt);
+            px(x+6,y+8,4,1,PAL.chair);
+            break;
+        case PLANT:
+            px(x+5,y+10,6,5,PAL.pot);
+            px(x+6,y+11,4,4,PAL.potDk);
+            px(x+6,y+4,4,7,PAL.plantDk);
+            px(x+4,y+2,3,4,PAL.plant);
+            px(x+9,y+3,3,3,PAL.plant);
+            px(x+6,y+1,4,3,PAL.plant);
+            // leaf sway
+            if(gs.tick%80<40) px(x+3,y+3,2,2,PAL.plant);
+            else px(x+10,y+2,2,2,PAL.plant);
+            break;
+        case COFOUNDER_SPOT:
+            break;
+        case DOOR:
+            px(x+2,y,12,T,PAL.desk);
+            px(x+3,y+1,10,T-2,'#7a5a42');
+            px(x+11,y+7,2,2,PAL.hudGold);
+            break;
+        case RUG:
+            px(x,y,T,T,((tx+ty)%2)?PAL.rug:PAL.rugB);
+            px(x,y,T,1,PAL.rug);
+            break;
+        case WHITEBOARD:
+            px(x,y+2,T,12,PAL.whiteboard);
+            px(x,y+1,T,1,PAL.wbBorder);
+            px(x,y+14,T,1,PAL.wbBorder);
+            // scribbles
+            px(x+2,y+4,6,1,PAL.hudGreen);
+            px(x+2,y+7,8,1,PAL.accent);
+            px(x+3,y+10,5,1,PAL.hudYellow);
+            break;
+        case COFFEE_MACHINE:
+            px(x+3,y+4,10,10,PAL.coffee);
+            px(x+4,y+5,8,6,'#8b6e50');
+            px(x+5,y+2,6,3,PAL.coffee);
+            // steam
+            if(gs.tick%50<25){
+                px(x+6,y,1,2,'#ffffff44');
+                px(x+8,y+1,1,2,'#ffffff33');
+            }
+            // mug
+            px(x+1,y+10,4,4,PAL.coffeeMug);
+            px(x+2,y+11,2,2,'#aa8866');
             break;
     }
 }
@@ -621,697 +397,1077 @@ function drawTile(tx,ty){
 // ============================================================
 // SPRITE DRAWING
 // ============================================================
-function drawPlayer(px,py,dir,frame){
-    let x = Math.floor(px), y = Math.floor(py);
-    // Shadow
-    drawRect(x+3,y+13,10,3,PAL.shadow);
-    // Body
-    let hoodieC = PAL.hoodie;
-    let hoodieD = PAL.hoodieDk;
-    // Facing down (0), right (1), up (2), left (3)
-    let bobY = (frame%2===0 && player.moving) ? -1 : 0;
-    // Hoodie body
-    drawRect(x+4,y+6+bobY,8,7,hoodieC);
-    drawRect(x+4,y+6+bobY,2,7,hoodieD);
-    // Head
-    drawRect(x+4,y+1+bobY,8,6,PAL.skinTone);
-    // Hair
-    if(dir===2){
-        drawRect(x+4,y+1+bobY,8,3,PAL.hair);
+function drawPlayer(x, y, dir, frame, moving) {
+    const bx = Math.floor(x);
+    const by = Math.floor(y);
+    // shadow
+    px(bx-1, by+11, 10, 3, PAL.shadow);
+    const bob = moving ? Math.sin(frame * 0.5) * 1 : 0;
+    const dy = Math.floor(bob);
+    // shoes
+    if (moving) {
+        const step = Math.floor(frame) % 4;
+        px(bx+1, by+12+dy, 3, 2, PAL.shoes);
+        px(bx+5, by+12+dy + (step<2?-1:0), 3, 2, PAL.shoes);
     } else {
-        drawRect(x+4,y+0+bobY,8,3,PAL.hair);
+        px(bx+1, by+12, 3, 2, PAL.shoes);
+        px(bx+5, by+12, 3, 2, PAL.shoes);
     }
-    // Eyes
-    if(dir!==2){
-        let eyeOff = dir===1 ? 2 : dir===3 ? 0 : 1;
-        drawRect(x+5+eyeOff,y+3+bobY,2,2,'#222233');
-        if(dir===0) drawRect(x+9,y+3+bobY,2,2,'#222233');
+    // pants
+    px(bx+1, by+9+dy, 3, 4, PAL.pants);
+    px(bx+5, by+9+dy, 3, 4, PAL.pants);
+    // hoodie body
+    px(bx, by+3+dy, 9, 7, PAL.hoodie);
+    px(bx+1, by+4+dy, 7, 5, PAL.hoodieDk);
+    // arms
+    if (dir === 1) {
+        px(bx-1, by+4+dy, 2, 5, PAL.hoodie);
+    } else if (dir === 2) {
+        px(bx+8, by+4+dy, 2, 5, PAL.hoodie);
+    } else {
+        px(bx-1, by+4+dy, 2, 5, PAL.hoodie);
+        px(bx+8, by+4+dy, 2, 5, PAL.hoodie);
     }
-    // Pants
-    drawRect(x+4,y+12+bobY,4,2,PAL.pants);
-    drawRect(x+8,y+12+bobY,4,2,PAL.pants);
-    // Shoes
-    let walkOff = (frame%2===0 && player.moving) ? 1 : 0;
-    drawRect(x+4,y+14,4,2,PAL.shoes);
-    drawRect(x+8+walkOff,y+14,4,2,PAL.shoes);
-    // Hoodie strings
-    if(dir===0){
-        drawRect(x+7,y+6+bobY,1,3,PAL.white);
-        drawRect(x+8,y+6+bobY,1,3,PAL.white);
-    }
-}
-
-function drawCofounder(px,py,dir,frame){
-    let x = Math.floor(px), y = Math.floor(py);
-    drawRect(x+3,y+13,10,3,PAL.shadow);
-    let bobY = (frame%2===0 && !cofounder.idle) ? -1 : 0;
-    drawRect(x+4,y+6+bobY,8,7,PAL.cofHoodie);
-    drawRect(x+4,y+6+bobY,2,7,'#554466');
-    drawRect(x+4,y+1+bobY,8,6,PAL.skinTone);
-    drawRect(x+4,y+0+bobY,8,3,'#555555');
-    if(dir!==2){
-        let eyeOff = dir===1?2:dir===3?0:1;
-        drawRect(x+5+eyeOff,y+3+bobY,2,2,'#222233');
-        if(dir===0) drawRect(x+9,y+3+bobY,2,2,'#222233');
-    }
-    drawRect(x+4,y+12+bobY,4,2,'#444455');
-    drawRect(x+8,y+12+bobY,4,2,'#444455');
-    drawRect(x+4,y+14,4,2,'#333344');
-    drawRect(x+8,y+14,4,2,'#333344');
-    // Mysterious glint
-    if(Math.random()>0.97){
-        drawRect(x+11,y+2+bobY,2,2,'#ffffff');
+    // head
+    px(bx+1, by-1+dy, 7, 5, PAL.skinTone);
+    // hair
+    px(bx+1, by-2+dy, 7, 3, PAL.hair);
+    if (dir === 0) {
+        // eyes
+        px(bx+2, by+1+dy, 2, 1, PAL.bgDark);
+        px(bx+5, by+1+dy, 2, 1, PAL.bgDark);
+    } else if (dir === 3) {
+        px(bx+1, by-2+dy, 7, 4, PAL.hair);
+    } else if (dir === 1) {
+        px(bx+2, by+1+dy, 2, 1, PAL.bgDark);
+    } else {
+        px(bx+5, by+1+dy, 2, 1, PAL.bgDark);
     }
 }
 
-// ============================================================
-// HUD DRAWING
-// ============================================================
-function drawHUD(){
-    // Top bar
-    drawRect(0,0,NATIVE_W,18,PAL.hudBg);
-    drawRect(0,18,NATIVE_W,1,PAL.wallTrim);
-
-    bctx.font = '8px monospace';
-    bctx.textBaseline = 'top';
-
-    // Day
-    bctx.fillStyle = PAL.hudTxt;
-    bctx.fillText('Day ' + gameState.day, 4, 2);
-
-    // Cash
-    let cashCol = gameState.cash < 2000 ? PAL.hudRed : gameState.cash < 5000 ? PAL.hudYellow : PAL.hudGreen;
-    bctx.fillStyle = cashCol;
-    bctx.fillText('$' + gameState.cash, 50, 2);
-
-    // Revenue
-    bctx.fillStyle = PAL.hudGreen;
-    bctx.fillText('+$' + gameState.revenue, 110, 2);
-
-    // Customers
-    bctx.fillStyle = PAL.custBlue;
-    bctx.fillText(gameState.customers + ' cust', 160, 2);
-
-    // Bugs
-    if(gameState.bugs > 0){
-        bctx.fillStyle = PAL.hudRed;
-        bctx.fillText(gameState.bugs + ' bug' + (gameState.bugs>1?'s':''), 215, 2);
+function drawCofounder(x, y) {
+    const bx = Math.floor(x);
+    const by = Math.floor(y);
+    px(bx-1, by+11, 10, 3, PAL.shadow);
+    const bob = Math.sin(gs.cofAnimTick * 0.03) * 0.5;
+    const dy = Math.floor(bob);
+    // shoes
+    px(bx+1, by+12, 3, 2, PAL.shoes);
+    px(bx+5, by+12, 3, 2, PAL.shoes);
+    // pants
+    px(bx+1, by+9+dy, 3, 4, '#2a2a3e');
+    px(bx+5, by+9+dy, 3, 4, '#2a2a3e');
+    // hoodie
+    px(bx, by+3+dy, 9, 7, PAL.cofHoodie);
+    px(bx+1, by+4+dy, 7, 5, '#554466');
+    px(bx-1, by+4+dy, 2, 5, PAL.cofHoodie);
+    px(bx+8, by+4+dy, 2, 5, PAL.cofHoodie);
+    // head
+    px(bx+1, by-1+dy, 7, 5, '#e8c090');
+    // mysterious hood/hair
+    px(bx, by-2+dy, 9, 3, '#443355');
+    // sunglasses
+    px(bx+1, by+1+dy, 3, 2, '#111122');
+    px(bx+5, by+1+dy, 3, 2, '#111122');
+    // "?" bubble occasionally
+    if (gs.tick % 200 < 40) {
+        px(bx+10, by-6, 7, 8, PAL.white);
+        drawText('?', bx+11, by-5, PAL.cofHoodie, 7);
     }
+}
 
-    // Product milestone
-    let m = getCurrentMilestone();
-    bctx.fillStyle = PAL.goldMile;
-    bctx.fillText(m ? m.name : 'Pre-MVP', 260, 2);
-
-    // AP bar
-    bctx.fillStyle = PAL.hudTxt;
-    bctx.fillText('AP', 4, 10);
-    for(let i=0;i<gameState.maxAP;i++){
-        let col = i < gameState.ap ? PAL.apFull : PAL.apEmpty;
-        drawRect(18+i*12, 10, 10, 6, col);
-        drawRect(18+i*12, 10, 10, 1, '#ffffff33');
+// Draw hired employees at desks
+function drawEmployees() {
+    // Devs sit at top-right desks (13,2) and (14,2)
+    for (let i = 0; i < gs.devs; i++) {
+        const dx = (13 + i) * T + 4;
+        const dy = 3 * T + 2;
+        px(dx, dy+11, 8, 2, PAL.shadow);
+        px(dx+1, dy+8, 3, 4, PAL.pants); px(dx+4, dy+8, 3, 4, PAL.pants);
+        px(dx, dy+3, 8, 6, '#4488aa');
+        px(dx+1, dy-1, 6, 5, PAL.skinTone);
+        px(dx+1, dy-2, 6, 3, '#5a3a2a');
+        px(dx+2, dy+1, 1, 1, PAL.bgDark);
+        px(dx+4, dy+1, 1, 1, PAL.bgDark);
     }
-
-    // Morale
-    let moraleCol = gameState.morale < 30 ? PAL.hudRed : gameState.morale < 60 ? PAL.hudYellow : PAL.hudGreen;
-    bctx.fillStyle = moraleCol;
-    bctx.fillText('Morale: ' + gameState.morale + '%', 90, 10);
-
-    // Burn rate
-    bctx.fillStyle = PAL.hudRed;
-    bctx.fillText('-$' + gameState.burnRate + '/d', 170, 10);
-
-    // Team
-    bctx.fillStyle = PAL.neutral;
-    bctx.fillText('Team: ' + gameState.teamDevs + 'D ' + gameState.teamSales + 'S ' + gameState.teamSupport + 'C', 230, 10);
+    // Sales sit at bottom-left desks (2,11) and (3,11)
+    for (let i = 0; i < gs.sales; i++) {
+        const sx = (2 + i) * T + 4;
+        const sy = 12 * T + 2;
+        px(sx, sy+11, 8, 2, PAL.shadow);
+        px(sx+1, sy+8, 3, 4, PAL.pants); px(sx+4, sy+8, 3, 4, PAL.pants);
+        px(sx, sy+3, 8, 6, '#aa6644');
+        px(sx+1, sy-1, 6, 5, PAL.skinTone);
+        px(sx+1, sy-2, 6, 3, '#8a4a2a');
+        px(sx+2, sy+1, 1, 1, PAL.bgDark);
+        px(sx+4, sy+1, 1, 1, PAL.bgDark);
+    }
 }
 
 // ============================================================
-// NOTIFICATIONS DRAWING
+// NOTIFICATIONS
 // ============================================================
-function drawNotifications(){
-    let ny = 24;
-    for(let i=gameState.notifications.length-1;i>=0;i--){
-        let n = gameState.notifications[i];
-        let alpha = Math.min(1, n.timer / 30);
+function addNotification(text, color) {
+    gs.notifications.push({ text, color: color || PAL.white, timer: 120, y: 0 });
+}
+
+function updateNotifications() {
+    for (let i = gs.notifications.length - 1; i >= 0; i--) {
+        gs.notifications[i].timer--;
+        if (gs.notifications[i].timer <= 0) gs.notifications.splice(i, 1);
+    }
+}
+
+function drawNotifications() {
+    let ny = 40;
+    for (const n of gs.notifications) {
+        const alpha = Math.min(1, n.timer / 30);
         bctx.globalAlpha = alpha;
-        drawRect(4, ny, NATIVE_W-8, 10, '#0f0f1aCC');
-        bctx.font = '7px monospace';
-        bctx.fillStyle = n.color;
-        bctx.textBaseline = 'top';
-        bctx.fillText(n.text, 8, ny+1);
+        drawTextShadow(n.text, NATIVE_W / 2, ny, n.color, 8, 'center');
         bctx.globalAlpha = 1;
         ny += 12;
-        if(ny > 80) break;
     }
 }
 
 // ============================================================
-// DIALOG DRAWING
+// DIALOG / MENU SYSTEM
 // ============================================================
-function drawDialog(){
-    if(!gameState.dialogActive || !gameState.currentDialog) return;
-    let d = gameState.currentDialog;
-    let dx = 10, dy = NATIVE_H - 56, dw = NATIVE_W - 20, dh = 48;
-    // Border
-    drawRect(dx-1,dy-1,dw+2,dh+2,PAL.dialogBdr);
-    drawRect(dx,dy,dw,dh,PAL.dialogBg);
-    // Inner highlight
-    drawRect(dx+1,dy+1,dw-2,1,'#333355');
+function showDialog(text, callback) {
+    if (gs.menuActive) return;
+    if (gs.dialogActive) {
+        gs.dialogQueue.push({ text, callback });
+        return;
+    }
+    gs.dialogActive = true;
+    gs.dialogText = text;
+    gs.dialogCallback = callback || null;
+}
 
-    bctx.font = '8px monospace';
-    bctx.textBaseline = 'top';
-    bctx.fillStyle = PAL.wallTrim;
-    bctx.fillText(d.speaker, dx+6, dy+4);
+function advanceDialog() {
+    if (gs.dialogCallback) {
+        const cb = gs.dialogCallback;
+        gs.dialogCallback = null;
+        gs.dialogActive = false;
+        gs.dialogText = '';
+        cb();
+    } else if (gs.dialogQueue.length > 0) {
+        const next = gs.dialogQueue.shift();
+        gs.dialogText = next.text;
+        gs.dialogCallback = next.callback || null;
+    } else {
+        gs.dialogActive = false;
+        gs.dialogText = '';
+    }
+}
 
-    bctx.fillStyle = PAL.dialogTxt;
-    // Word wrap
-    let words = d.text.split(' ');
+function showMenu(title, items, callback) {
+    gs.menuActive = true;
+    gs.menuTitle = title;
+    gs.menuItems = items;
+    gs.menuSel = 0;
+    gs.menuCallback = callback;
+    gs.dialogActive = false;
+}
+
+function closeMenu() {
+    gs.menuActive = false;
+    gs.menuItems = [];
+    gs.menuCallback = null;
+}
+
+function drawDialog() {
+    if (!gs.dialogActive) return;
+    const dw = 280;
+    const dh = 52;
+    const dx = (NATIVE_W - dw) / 2;
+    const dy = NATIVE_H - dh - 10;
+    // border
+    px(dx - 2, dy - 2, dw + 4, dh + 4, PAL.dialogBdr);
+    px(dx, dy, dw, dh, PAL.dialogBg);
+    // text wrapping
+    const words = gs.dialogText.split(' ');
+    let lines = [];
     let line = '';
-    let lineY = dy + 16;
-    let maxW = dw - 16;
-    for(let w of words){
-        let test = line + w + ' ';
-        if(bctx.measureText(test).width > maxW){
-            bctx.fillText(line, dx+8, lineY);
-            line = w + ' ';
-            lineY += 10;
-        } else {
-            line = test;
+    for (const w of words) {
+        if ((line + w).length > 42) { lines.push(line.trim()); line = ''; }
+        line += w + ' ';
+    }
+    if (line.trim()) lines.push(line.trim());
+    for (let i = 0; i < Math.min(lines.length, 4); i++) {
+        drawText(lines[i], dx + 8, dy + 6 + i * 11, PAL.dialogTxt, 8);
+    }
+    // prompt
+    if (gs.tick % 40 < 25) drawText('▼', dx + dw - 14, dy + dh - 12, PAL.dialogBdr, 8);
+}
+
+function drawMenu() {
+    if (!gs.menuActive) return;
+    const itemH = 14;
+    const mw = 220;
+    const mh = 20 + gs.menuItems.length * itemH + 8;
+    const mx = (NATIVE_W - mw) / 2;
+    const my = (NATIVE_H - mh) / 2;
+    px(mx - 2, my - 2, mw + 4, mh + 4, PAL.dialogBdr);
+    px(mx, my, mw, mh, PAL.dialogBg);
+    drawTextShadow(gs.menuTitle, mx + mw / 2, my + 4, PAL.dialogBdr, 8, 'center');
+    for (let i = 0; i < gs.menuItems.length; i++) {
+        const iy = my + 18 + i * itemH;
+        if (i === gs.menuSel) {
+            px(mx + 4, iy, mw - 8, itemH - 2, '#333355');
+            drawText('►', mx + 8, iy + 2, PAL.dialogBdr, 8);
+        }
+        const item = gs.menuItems[i];
+        const col = item.disabled ? PAL.neutral : (item.color || PAL.dialogTxt);
+        drawText(item.label, mx + 20, iy + 2, col, 8);
+        if (item.cost) {
+            drawText(item.cost, mx + mw - 10, iy + 2, PAL.hudYellow, 7, 'right');
         }
     }
-    bctx.fillText(line, dx+8, lineY);
-
-    // Advance prompt
-    let blink = Math.floor(Date.now()/400)%2;
-    if(blink){
-        drawRect(dx+dw-12, dy+dh-10, 6, 6, PAL.wallTrim);
-    }
 }
 
 // ============================================================
-// MENU DRAWING
+// HUD
 // ============================================================
-function drawMenu(){
-    if(!gameState.menuOpen) return;
-    let items = gameState.menuItems;
-    let mw = 160;
-    let mh = items.length * 14 + 10;
-    let mx = (NATIVE_W - mw) / 2;
-    let my = (NATIVE_H - mh) / 2 - 10;
+function drawHUD() {
+    // top bar
+    px(0, 0, NATIVE_W, 18, PAL.hudBg);
+    px(0, 18, NATIVE_W, 1, PAL.wallTrim);
+    drawTextShadow('Day ' + gs.day, 4, 4, PAL.hudGreen, 8);
+    // cash
+    const cashCol = gs.cash < 10000 ? PAL.hudRed : PAL.hudGreen;
+    drawTextShadow('$' + formatNum(gs.cash), 50, 4, cashCol, 8);
+    // customers
+    drawTextShadow('Cust:' + gs.customers, 120, 4, PAL.custBlue, 8);
+    // product
+    const msName = getCurrentMilestoneName();
+    drawTextShadow('Prod:' + gs.product + (msName ? ' [' + msName + ']' : ''), 180, 4, PAL.hudGold, 8);
+    // AP bar - bottom left
+    const apY = NATIVE_H - 14;
+    drawTextShadow('AP:', 4, apY, PAL.hudTxt, 7);
+    for (let i = 0; i < gs.maxAp; i++) {
+        px(22 + i * 10, apY + 1, 8, 6, i < gs.ap ? PAL.apFull : PAL.apEmpty);
+    }
+    // morale bar
+    const morCol = gs.morale > 50 ? PAL.hudGreen : (gs.morale > 25 ? PAL.hudYellow : PAL.hudRed);
+    drawTextShadow('Morale:' + gs.morale, 65, apY, morCol, 7);
+    // team
+    drawTextShadow('Dev:' + gs.devs + ' Sales:' + gs.sales, 135, apY, PAL.neutral, 7);
+    // revenue
+    drawTextShadow('Rev:$' + formatNum(gs.revenue) + '/d', 220, apY, PAL.positive, 7);
+}
 
-    drawRect(mx-1,my-1,mw+2,mh+2,PAL.dialogBdr);
-    drawRect(mx,my,mw,mh,PAL.dialogBg);
-    drawRect(mx+1,my+1,mw-2,1,'#333355');
+function getCurrentMilestoneName() {
+    for (let i = MILESTONES.length - 1; i >= 0; i--) {
+        if (gs.product >= MILESTONES[i].threshold && MILESTONES[i].announced) return MILESTONES[i].name;
+    }
+    return '';
+}
 
-    bctx.font = '8px monospace';
-    bctx.textBaseline = 'top';
-    bctx.fillStyle = PAL.wallTrim;
-    bctx.fillText(gameState.menuContext, mx+6, my+2);
+function formatNum(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return '' + n;
+}
 
-    for(let i=0;i<items.length;i++){
-        let iy = my + 14 + i * 14;
-        if(i === gameState.menuIndex){
-            drawRect(mx+2, iy-1, mw-4, 12, '#333355');
-            bctx.fillStyle = PAL.white;
-            bctx.fillText('>', mx+6, iy);
-        } else {
-            bctx.fillStyle = PAL.neutral;
+// ============================================================
+// INTERACTION LOGIC
+// ============================================================
+function getFacingTile() {
+    const gcx = Math.floor((gs.px + 4) / T);
+    const gcy = Math.floor((gs.py + 7) / T);
+    let fx = gcx, fy = gcy;
+    if (gs.pdir === 0) fy++;
+    else if (gs.pdir === 3) fy--;
+    else if (gs.pdir === 1) fx--;
+    else if (gs.pdir === 2) fx++;
+    return { tx: fx, ty: fy, tile: getTile(fx, fy) };
+}
+
+function interact() {
+    const f = getFacingTile();
+    switch (f.tile) {
+        case TERMINAL: openTerminalMenu(); break;
+        case WHITEBOARD: openWhiteboardMenu(); break;
+        case DOOR: openDoorMenu(); break;
+        case COFFEE_MACHINE: drinkCoffee(); break;
+        case COFOUNDER_SPOT: talkCofounder(); break;
+        default:
+            // check if facing a desk with hire potential
+            if (f.tile === DESK) {
+                showDialog('A desk. Could be for a new hire...');
+            }
+            break;
+    }
+}
+
+function openTerminalMenu() {
+    if (gs.ap <= 0) { showDialog('No action points left. End the day.'); return; }
+    const items = [
+        { label: 'Build Product (+' + getBuildAmount() + ' prog)', value: 'build' },
+        { label: 'Research (+tech insight)', value: 'research' },
+        { label: 'Check Metrics', value: 'metrics', noAp: true },
+        { label: 'Cancel', value: 'cancel', noAp: true },
+    ];
+    showMenu('Terminal', items, (sel) => {
+        if (sel.value === 'cancel') return;
+        if (sel.value === 'metrics') { showMetrics(); return; }
+        if (sel.value === 'build') {
+            gs.ap--;
+            const amt = getBuildAmount();
+            gs.product += amt;
+            addNotification('+' + amt + ' Product Progress!', PAL.hudGold);
+            checkMilestones();
+        } else if (sel.value === 'research') {
+            gs.ap--;
+            const bonus = 3 + Math.floor(Math.random() * 4);
+            gs.product += bonus;
+            addNotification('+' + bonus + ' Research Insight!', PAL.positive);
+            checkMilestones();
         }
-        bctx.fillText(items[i].label, mx+16, iy);
+    });
+}
+
+function getBuildAmount() {
+    return 5 + gs.devs * 3;
+}
+
+function openWhiteboardMenu() {
+    const items = [
+        { label: 'Hire Developer ($8K/day, +3 prod/build)', value: 'dev', cost: '$8K' },
+        { label: 'Hire Salesperson ($6K/day, +cust)', value: 'sales', cost: '$6K' },
+        { label: 'Team Status', value: 'status', noAp: true },
+        { label: 'Cancel', value: 'cancel' },
+    ];
+    showMenu('Hiring Board', items, (sel) => {
+        if (sel.value === 'cancel') return;
+        if (sel.value === 'status') {
+            showDialog('Team: ' + gs.devs + ' devs, ' + gs.sales + ' sales. Daily burn: $' + formatNum(calcBurn()));
+            return;
+        }
+        if (sel.value === 'dev') {
+            if (gs.devs >= 3) { showDialog('No more desk space for developers!'); return; }
+            if (gs.cash < 8000) { showDialog('Not enough cash to hire!'); return; }
+            gs.cash -= 8000;
+            gs.devs++;
+            addNotification('Developer hired!', PAL.hudGreen);
+            showDialog('Welcome aboard! Your new dev will boost product progress.');
+        } else if (sel.value === 'sales') {
+            if (gs.sales >= 3) { showDialog('No more desk space for salespeople!'); return; }
+            if (gs.cash < 6000) { showDialog('Not enough cash to hire!'); return; }
+            gs.cash -= 6000;
+            gs.sales++;
+            addNotification('Salesperson hired!', PAL.hudGreen);
+            showDialog('New sales rep will bring in customers every day.');
+        }
+    });
+}
+
+function openDoorMenu() {
+    if (gs.ap <= 0) { showDialog('No action points left. End the day.'); return; }
+    const items = [
+        { label: 'Go Sell (pitch customers)', value: 'sell' },
+        { label: 'Network (random bonus)', value: 'network' },
+        { label: 'End Day', value: 'endday', noAp: true },
+        { label: 'Cancel', value: 'cancel' },
+    ];
+    showMenu('Leave Office?', items, (sel) => {
+        if (sel.value === 'cancel') return;
+        if (sel.value === 'endday') { endDay(); return; }
+        if (sel.value === 'sell') {
+            gs.ap--;
+            const gained = 1 + gs.sales + Math.floor(Math.random() * (2 + gs.sales));
+            gs.customers += gained;
+            addNotification('+' + gained + ' customers!', PAL.custBlue);
+        } else if (sel.value === 'network') {
+            gs.ap--;
+            const roll = Math.random();
+            if (roll < 0.3) {
+                const bonus = 3000 + Math.floor(Math.random() * 5000);
+                gs.cash += bonus;
+                addNotification('Networking win! +$' + formatNum(bonus), PAL.hudGreen);
+            } else if (roll < 0.6) {
+                const c = 1 + Math.floor(Math.random() * 3);
+                gs.customers += c;
+                addNotification('Met ' + c + ' potential customers!', PAL.custBlue);
+            } else {
+                gs.morale = Math.min(100, gs.morale + 10);
+                addNotification('Great connections! Morale up!', PAL.positive);
+            }
+        }
+    });
+}
+
+function drinkCoffee() {
+    if (gs.ap >= gs.maxAp) { showDialog('Already fully caffeinated!'); return; }
+    gs.ap = Math.min(gs.maxAp, gs.ap + 1);
+    addNotification('+1 AP from coffee!', PAL.hudGreen);
+    showDialog('*sip* Ahh, that\'s the good stuff. +1 Action Point!');
+}
+
+function talkCofounder() {
+    const lines = [
+        '"I\'m working on something big. You\'ll see."',
+        '"Just optimizing our... synergies."',
+        '"Have you tried turning the revenue off and on again?"',
+        '"I had a vision. We pivot to blockchain. Just kidding. ...Maybe."',
+        '"I\'ve been on 47 calls today. None were customers."',
+        '"My title? Chief Vibes Officer."',
+        '"I\'m reading \'The Lean Startup\' for the 12th time."',
+        '"Don\'t worry about what I\'m doing. Worry about product-market fit."',
+    ];
+    if (gs.day >= 30 && Math.random() < 0.3) {
+        showDialog('"Listen... I\'ve been meaning to tell you something. I actually DO stuff around here. I\'ve been quietly building partnerships."', () => {
+            gs.customers += 5;
+            addNotification('Co-founder brought 5 customers!', PAL.custGreen);
+        });
+    } else {
+        showDialog(lines[Math.floor(Math.random() * lines.length)]);
+    }
+}
+
+function showMetrics() {
+    const burn = calcBurn();
+    const rev = calcRevenue();
+    const runway = burn > rev ? Math.floor(gs.cash / (burn - rev)) : 999;
+    const nextMs = MILESTONES.find(m => !m.announced);
+    const msText = nextMs ? (nextMs.name + ' at ' + nextMs.threshold) : 'All milestones reached!';
+    showDialog(
+        'Day ' + gs.day + ' | Cash: $' + formatNum(gs.cash) +
+        ' | Cust: ' + gs.customers + ' | Prod: ' + gs.product +
+        ' | Burn: $' + formatNum(burn) + '/d | Rev: $' + formatNum(rev) + '/d' +
+        ' | Runway: ' + (runway > 500 ? 'Infinite' : runway + 'd') +
+        ' | Next: ' + msText
+    );
+}
+
+function calcBurn() {
+    return 500 + gs.devs * 800 + gs.sales * 600;
+}
+
+function calcRevenue() {
+    // Each customer = $50/day base, product milestones multiply
+    let mult = 1;
+    if (gs.product >= 150) mult = 2.5;
+    else if (gs.product >= 100) mult = 2;
+    else if (gs.product >= 60) mult = 1.5;
+    else if (gs.product >= 30) mult = 1.2;
+    return Math.floor(gs.customers * 50 * mult);
+}
+
+// ============================================================
+// MILESTONES
+// ============================================================
+function checkMilestones() {
+    for (const ms of MILESTONES) {
+        if (!ms.announced && gs.product >= ms.threshold) {
+            ms.announced = true;
+            gs.passiveCustPerDay += ms.custBonus;
+            gs.milestoneQueue.push(ms);
+        }
+    }
+}
+
+function showNextMilestone() {
+    if (gs.milestoneQueue.length === 0) return false;
+    const ms = gs.milestoneQueue.shift();
+    showDialog('★ MILESTONE: ' + ms.name + '! ★ ' + ms.desc + ' (+' + ms.custBonus + ' customers/day)', () => {
+        addNotification(ms.name + ' milestone reached!', PAL.goldMile);
+    });
+    return true;
+}
+
+// ============================================================
+// RANDOM EVENT SYSTEM
+// ============================================================
+function rollForEvent() {
+    if (gs.day <= 5) return null;
+    if (Math.random() > 0.4) return null;
+
+    // Filter pool: remove events on cooldown
+    const available = EVENT_POOL.filter(ev => {
+        const lastFired = gs.eventHistory[ev.id] || 0;
+        return (gs.day - lastFired) >= 5;
+    });
+    if (available.length === 0) return null;
+
+    return available[Math.floor(Math.random() * available.length)];
+}
+
+function triggerEvent(event) {
+    gs.eventHistory[event.id] = gs.day;
+    const titleColor = PAL[event.colorTag] || PAL.eventGold;
+    const items = [
+        { label: event.choiceA, value: 'a', color: PAL.eventGreen },
+        { label: event.choiceB, value: 'b', color: PAL.eventGold },
+    ];
+    showDialog('⚡ ' + event.title + ' ⚡ ' + event.text, () => {
+        showMenu('What do you do?', items, (sel) => {
+            const effects = sel.value === 'a' ? event.effectA : event.effectB;
+            applyEventEffects(effects);
+        });
+    });
+}
+
+function applyEventEffects(effects) {
+    if (!effects) return;
+    let msgs = [];
+    if (effects.cash) {
+        gs.cash += effects.cash;
+        const col = effects.cash > 0 ? PAL.hudGreen : PAL.hudRed;
+        msgs.push((effects.cash > 0 ? '+' : '') + '$' + formatNum(effects.cash));
+        addNotification((effects.cash > 0 ? '+' : '') + '$' + formatNum(Math.abs(effects.cash)), col);
+    }
+    if (effects.customers) {
+        gs.customers = Math.max(0, gs.customers + effects.customers);
+        const col = effects.customers > 0 ? PAL.custBlue : PAL.hudRed;
+        addNotification((effects.customers > 0 ? '+' : '') + effects.customers + ' customers', col);
+    }
+    if (effects.product) {
+        gs.product = Math.max(0, gs.product + effects.product);
+        const col = effects.product > 0 ? PAL.hudGold : PAL.hudRed;
+        addNotification((effects.product > 0 ? '+' : '') + effects.product + ' product', col);
+        if (effects.product > 0) checkMilestones();
+    }
+    if (effects.morale) {
+        gs.morale = Math.max(0, Math.min(100, gs.morale + effects.morale));
+        const col = effects.morale > 0 ? PAL.positive : PAL.hudRed;
+        addNotification((effects.morale > 0 ? '+' : '') + effects.morale + ' morale', col);
+    }
+    if (effects.devs) {
+        if (gs.devs < 3) {
+            gs.devs += effects.devs;
+            addNotification('+1 Developer joined!', PAL.hudGreen);
+        } else {
+            addNotification('No desk space — dev couldn\'t join', PAL.neutral);
+        }
     }
 }
 
 // ============================================================
-// INTERACTION INDICATOR
+// END DAY / DAY TRANSITION
 // ============================================================
-function drawInteractIndicator(){
-    if(gameState.dialogActive || gameState.menuOpen) return;
-    let {gx,gy,tile} = getInteractTile();
-    let interactable = [TERMINAL,DESK,WHITEBOARD,COFFEE_MACHINE,DOOR].includes(tile);
-    // Check cofounder
-    if(Math.abs(gx-cofounder.gx)<=1 && Math.abs(gy-cofounder.gy)<=1) interactable=true;
-    if(!interactable) return;
-    let blink = Math.floor(Date.now()/500)%2;
-    if(blink){
-        bctx.font='7px monospace';
-        bctx.fillStyle=PAL.hudYellow;
-        bctx.textBaseline='top';
-        bctx.fillText('[Z]', gx*T+3, gy*T-4);
+function endDay() {
+    gs.dayTransition = true;
+    gs.dayTransAlpha = 0;
+    gs.dayTransDir = 1;
+    gs.dayTransCallback = () => {
+        processEndDay();
+    };
+}
+
+function processEndDay() {
+    gs.day++;
+    // Revenue
+    gs.revenue = calcRevenue();
+    gs.burn = calcBurn();
+    gs.cash += gs.revenue;
+    gs.cash -= gs.burn;
+    gs.totalRevenue += gs.revenue;
+
+    // Passive customers from milestones
+    if (gs.passiveCustPerDay > 0) {
+        gs.customers += gs.passiveCustPerDay;
+    }
+
+    // Sales team brings customers
+    if (gs.sales > 0) {
+        const saleCust = gs.sales * (1 + Math.floor(Math.random() * 2));
+        gs.customers += saleCust;
+    }
+
+    // Devs auto-build
+    if (gs.devs > 0) {
+        const devProd = gs.devs * 2;
+        gs.product += devProd;
+        checkMilestones();
+    }
+
+    // Churn (small %)
+    if (gs.customers > 5) {
+        const churn = Math.max(0, Math.floor(gs.customers * 0.03));
+        if (churn > 0) {
+            gs.customers -= churn;
+        }
+    }
+
+    // Morale drift
+    if (gs.cash < 10000) gs.morale = Math.max(0, gs.morale - 3);
+    else if (gs.revenue > gs.burn) gs.morale = Math.min(100, gs.morale + 1);
+    if (gs.morale < 20) {
+        // low morale penalty
+        if (Math.random() < 0.2 && gs.devs > 0) {
+            gs.devs--;
+            addNotification('A developer quit! Low morale...', PAL.hudRed);
+        }
+        if (Math.random() < 0.2 && gs.sales > 0) {
+            gs.sales--;
+            addNotification('A salesperson quit! Low morale...', PAL.hudRed);
+        }
+    }
+
+    // Reset AP
+    gs.ap = gs.maxAp;
+
+    // Check game over
+    if (gs.cash <= 0) {
+        gs.gameOver = true;
+        gs.endType = 'bankrupt';
+        return;
+    }
+
+    // Check endgame wins
+    checkEndgame();
+
+    // Roll for random event
+    gs.pendingEvent = rollForEvent();
+
+    // check milestones
+    checkMilestones();
+}
+
+function checkEndgame() {
+    // IPO Glory: 200+ customers, 150+ product, $200K+ cash
+    if (gs.customers >= 200 && gs.product >= 150 && gs.cash >= 200000) {
+        gs.gameOver = true;
+        gs.endType = 'ipo';
+        return;
+    }
+    // Profit Machine: Revenue > 5x burn for 3+ days consecutively
+    if (gs.revenue >= gs.burn * 5 && gs.cash >= 100000) {
+        gs.gameOver = true;
+        gs.endType = 'profit';
+        return;
+    }
+    // R&D Utopia: Product 200+
+    if (gs.product >= 200) {
+        gs.gameOver = true;
+        gs.endType = 'rnd';
+        return;
+    }
+    // World Domination: 500+ customers
+    if (gs.customers >= 500) {
+        gs.gameOver = true;
+        gs.endType = 'domination';
+        return;
     }
 }
 
 // ============================================================
-// DAY/NIGHT TINT OVERLAY
+// DAY TRANSITION RENDERING
 // ============================================================
-function drawDayNightTint(){
-    // dayPhase goes from 0 (morning) to 1 (night) based on AP spent
-    let spent = gameState.maxAP - gameState.ap;
-    let t = spent / gameState.maxAP; // 0=full AP (morning), 1=no AP (night)
-    gameState.dayPhase = t;
-
-    // Morning: warm golden overlay; Evening: cool blue overlay
-    if(t < 0.3){
-        // Morning glow
-        let alpha = (0.3 - t) / 0.3 * 0.1;
-        bctx.fillStyle = 'rgba(255,230,150,' + alpha.toFixed(3) + ')';
-        bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
-    } else if(t > 0.5){
-        // Evening/night darkening
-        let alpha = (t - 0.5) / 0.5 * 0.35;
-        bctx.fillStyle = 'rgba(10,10,50,' + alpha.toFixed(3) + ')';
-        bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
+function updateDayTransition() {
+    if (!gs.dayTransition) return;
+    if (gs.dayTransDir === 1) {
+        gs.dayTransAlpha += 0.04;
+        if (gs.dayTransAlpha >= 1) {
+            gs.dayTransAlpha = 1;
+            if (gs.dayTransCallback) {
+                gs.dayTransCallback();
+                gs.dayTransCallback = null;
+            }
+            gs.dayTransDir = -1;
+        }
+    } else {
+        gs.dayTransAlpha -= 0.04;
+        if (gs.dayTransAlpha <= 0) {
+            gs.dayTransAlpha = 0;
+            gs.dayTransition = false;
+            gs.dayTransDir = 0;
+            // After transition: show event or milestone
+            afterDayTransition();
+        }
     }
+}
 
-    // Window tiles reflect time of day
-    // (handled visually by tint overlay)
+function afterDayTransition() {
+    if (gs.gameOver) return;
+    // Show milestones first
+    if (showNextMilestone()) return;
+    // Then show event
+    if (gs.pendingEvent) {
+        const ev = gs.pendingEvent;
+        gs.pendingEvent = null;
+        triggerEvent(ev);
+    }
+}
+
+function drawDayTransition() {
+    if (!gs.dayTransition) return;
+    bctx.fillStyle = 'rgba(10,10,30,' + gs.dayTransAlpha + ')';
+    bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
+    if (gs.dayTransAlpha > 0.5) {
+        bctx.globalAlpha = (gs.dayTransAlpha - 0.5) * 2;
+        drawTextShadow('Day ' + gs.day, NATIVE_W / 2, NATIVE_H / 2 - 10, PAL.hudGreen, 12, 'center');
+        if (gs.day > 1) {
+            drawTextShadow('Cash: $' + formatNum(gs.cash), NATIVE_W / 2, NATIVE_H / 2 + 6, gs.cash < 10000 ? PAL.hudRed : PAL.hudGreen, 8, 'center');
+            drawTextShadow('Revenue: $' + formatNum(gs.revenue) + '  Burn: $' + formatNum(gs.burn), NATIVE_W / 2, NATIVE_H / 2 + 18, PAL.neutral, 7, 'center');
+        }
+        bctx.globalAlpha = 1;
+    }
 }
 
 // ============================================================
 // TITLE SCREEN
 // ============================================================
-function drawTitleScreen(){
+function drawTitle() {
     bctx.fillStyle = PAL.titleBg;
-    bctx.fillRect(0,0,NATIVE_W,NATIVE_H);
+    bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
 
-    // Animated stars
-    gameState.titleTimer++;
-    for(let s of gameState.titleStarField){
-        s.twinkle += 0.03;
-        let bright = s.bright * (0.5 + 0.5 * Math.sin(s.twinkle));
-        bctx.fillStyle = 'rgba(255,255,255,' + bright.toFixed(2) + ')';
-        bctx.fillRect(Math.floor(s.x), Math.floor(s.y), 1, 1);
-        s.y -= s.speed;
-        if(s.y < 0){ s.y = NATIVE_H; s.x = Math.random()*NATIVE_W; }
+    // Animated background grid
+    for (let x = 0; x < NATIVE_W; x += 16) {
+        for (let y = 0; y < NATIVE_H; y += 16) {
+            if ((x + y + gs.tick) % 48 < 16) {
+                bctx.fillStyle = '#12122a';
+                bctx.fillRect(x, y, 16, 16);
+            }
+        }
     }
 
-    // Scanline effect (subtle)
-    for(let i=0;i<NATIVE_H;i+=2){
-        bctx.fillStyle = 'rgba(0,0,0,0.08)';
-        bctx.fillRect(0,i,NATIVE_W,1);
+    // Title
+    const bounce = Math.sin(gs.tick * 0.05) * 3;
+    drawTextShadow('SaaS STARTUP', NATIVE_W / 2, 40 + bounce, PAL.titleGreen, 14, 'center');
+    drawTextShadow('SIMULATOR', NATIVE_W / 2, 58 + bounce, PAL.titlePurple, 12, 'center');
+
+    // Pixel art building
+    px(130, 90, 60, 50, PAL.wallFace);
+    px(132, 92, 56, 3, PAL.wallTrim);
+    for (let wx = 0; wx < 4; wx++) {
+        const lit = (gs.tick + wx * 17) % 80 < 50;
+        px(137 + wx * 14, 100, 8, 8, lit ? PAL.monGlow : PAL.monitor);
     }
+    px(152, 125, 16, 15, PAL.desk);
+    // ground
+    px(100, 140, 120, 4, PAL.wallTrim);
 
-    // Big pixel title "SaaS Startup"
-    let titleY = 40;
-    drawPixelTitle(titleY);
-
-    // Subtitle
-    bctx.font = '8px monospace';
-    bctx.textBaseline = 'top';
-    bctx.fillStyle = PAL.neutral;
-    let subText = 'S I M U L A T O R';
-    let sw = bctx.measureText(subText).width;
-    bctx.fillText(subText, (NATIVE_W - sw)/2, titleY + 42);
-
-    // Decorative line
-    let lineW = 120;
-    let lineX = (NATIVE_W - lineW)/2;
-    drawRect(lineX, titleY+54, lineW, 1, PAL.wallTrim);
-    drawRect(lineX+10, titleY+56, lineW-20, 1, '#333355');
-
-    // Version tag
-    bctx.fillStyle = '#555577';
-    bctx.fillText('v0.14 alpha', 4, NATIVE_H - 12);
-
-    // Blinking prompt
-    gameState.titleCursorBlink += 0.05;
-    let promptAlpha = 0.4 + 0.6 * Math.abs(Math.sin(gameState.titleCursorBlink));
-    bctx.globalAlpha = promptAlpha;
-    bctx.fillStyle = PAL.white;
-    let pText = 'Press Z to Start';
-    let pw = bctx.measureText(pText).width;
-    bctx.fillText(pText, (NATIVE_W - pw)/2, titleY + 80);
-    bctx.globalAlpha = 1;
-
-    // Small office preview at bottom
-    drawMiniOffice(titleY + 100);
-
-    // Credits
-    bctx.fillStyle = '#444466';
-    bctx.font = '7px monospace';
-    let cText = 'GTM Studio';
-    let cw = bctx.measureText(cText).width;
-    bctx.fillText(cText, (NATIVE_W - cw)/2, NATIVE_H - 12);
-}
-
-function drawPixelTitle(baseY){
-    // Render "SaaS Startup" as large pixel text
-    bctx.font = '16px monospace';
-    bctx.textBaseline = 'top';
-
-    // Shadow
-    bctx.fillStyle = '#000011';
-    let t1 = 'SaaS';
-    let t1w = bctx.measureText(t1).width;
-    bctx.fillText(t1, (NATIVE_W - t1w)/2 + 1, baseY + 1);
-
-    // Main color - green accent
-    bctx.fillStyle = PAL.wallTrim;
-    bctx.fillText(t1, (NATIVE_W - t1w)/2, baseY);
-
-    // Second line
-    bctx.font = '12px monospace';
-    let t2 = 'Startup';
-    let t2w = bctx.measureText(t2).width;
-    bctx.fillStyle = '#000011';
-    bctx.fillText(t2, (NATIVE_W - t2w)/2 + 1, baseY + 21);
-    bctx.fillStyle = PAL.titleAccent;
-    bctx.fillText(t2, (NATIVE_W - t2w)/2, baseY + 20);
-}
-
-function drawMiniOffice(baseY){
-    // Tiny preview of office scene
-    let ox = (NATIVE_W - 80)/2;
-    let oy = baseY;
-    // Floor
-    drawRect(ox, oy, 80, 40, PAL.floorA);
-    // Walls
-    drawRect(ox, oy, 80, 4, PAL.wallTop);
-    drawRect(ox, oy, 2, 40, PAL.wallFace);
-    drawRect(ox+78, oy, 2, 40, PAL.wallFace);
-    // Mini desk
-    drawRect(ox+10, oy+12, 12, 6, PAL.desk);
-    drawRect(ox+12, oy+10, 8, 4, PAL.monGlow);
-    // Mini player
-    drawRect(ox+12, oy+22, 6, 8, PAL.hoodie);
-    drawRect(ox+13, oy+19, 4, 4, PAL.skinTone);
-    // Mini cofounder
-    drawRect(ox+55, oy+25, 6, 8, PAL.cofHoodie);
-    drawRect(ox+56, oy+22, 4, 4, PAL.skinTone);
-    // Mini plant
-    drawRect(ox+68, oy+28, 4, 5, PAL.plant);
-    drawRect(ox+67, oy+33, 6, 4, PAL.pot);
-    // Mini rug
-    drawRect(ox+30, oy+15, 20, 14, PAL.rug);
-    drawRect(ox+30, oy+15, 20, 1, PAL.wallTrim);
-    // Trim
-    drawRect(ox, oy+38, 80, 2, PAL.wallTrim);
+    // Instructions
+    if (gs.tick % 60 < 40) {
+        drawTextShadow('Press ENTER or Z to start', NATIVE_W / 2, 165, PAL.white, 8, 'center');
+    }
+    drawTextShadow('Arrow keys: Move | Z: Interact | X: Cancel', NATIVE_W / 2, 185, PAL.neutral, 7, 'center');
+    drawTextShadow('Build your startup from nothing to IPO!', NATIVE_W / 2, 198, PAL.hudYellow, 7, 'center');
 }
 
 // ============================================================
 // GAME OVER SCREEN
 // ============================================================
-function drawGameOver(){
-    bctx.fillStyle = 'rgba(10,10,20,0.85)';
-    bctx.fillRect(0,0,NATIVE_W,NATIVE_H);
+function drawGameOver() {
+    bctx.fillStyle = '#0a0a1a';
+    bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
 
-    bctx.font = '16px monospace';
-    bctx.textBaseline = 'top';
-    bctx.fillStyle = PAL.hudRed;
-    let goText = 'GAME OVER';
-    let gow = bctx.measureText(goText).width;
-    bctx.fillText(goText, (NATIVE_W-gow)/2, 60);
-
-    bctx.font = '8px monospace';
-    bctx.fillStyle = PAL.neutral;
-    let stats = [
-        'Survived ' + gameState.day + ' days',
-        'Peak customers: ' + gameState.customers,
-        'Product progress: ' + gameState.productProgress,
-        'Team size: ' + (gameState.teamDevs + gameState.teamSales + gameState.teamSupport),
-    ];
-    for(let i=0;i<stats.length;i++){
-        let sw = bctx.measureText(stats[i]).width;
-        bctx.fillText(stats[i], (NATIVE_W-sw)/2, 90 + i*14);
-    }
-
-    let blink = Math.floor(Date.now()/500)%2;
-    if(blink){
-        bctx.fillStyle = PAL.white;
-        let rt = 'Press Z to Restart';
-        let rw = bctx.measureText(rt).width;
-        bctx.fillText(rt, (NATIVE_W-rw)/2, 160);
-    }
-}
-
-// ============================================================
-// CO-FOUNDER AI
-// ============================================================
-function updateCofounder(){
-    cofounder.wanderTimer--;
-    if(cofounder.wanderTimer <= 0){
-        cofounder.wanderTimer = 120 + Math.floor(Math.random()*180);
-        if(Math.random() > 0.4){
-            let dirs = [[0,-1],[1,0],[0,1],[-1,0]];
-            let d = dirs[Math.floor(Math.random()*4)];
-            let nx = cofounder.gx + d[0];
-            let ny = cofounder.gy + d[1];
-            if(!isSolid(nx,ny) && !(nx===Math.round(player.px/T)&&ny===Math.round(player.py/T))){
-                cofounder.gx = nx;
-                cofounder.gy = ny;
-                cofounder.dir = dirs.indexOf(d);
-                cofounder.idle = false;
-                cofounder.frameTimer = 15;
-            }
+    const endings = {
+        bankrupt: {
+            title: 'GAME OVER',
+            sub: 'You ran out of money...',
+            desc: 'The startup dream fizzled out on Day ' + gs.day + '.',
+            col: PAL.hudRed
+        },
+        ipo: {
+            title: '★ IPO GLORY! ★',
+            sub: 'Your company went public!',
+            desc: '$' + formatNum(gs.cash) + ' valuation. ' + gs.customers + ' customers. You did it!',
+            col: PAL.hudGold
+        },
+        profit: {
+            title: '★ PROFIT MACHINE! ★',
+            sub: 'Sustainable profits achieved!',
+            desc: 'Revenue crushes burn rate. The rarest startup: a profitable one!',
+            col: PAL.hudGreen
+        },
+        rnd: {
+            title: '★ R&D UTOPIA! ★',
+            sub: 'Your tech is legendary!',
+            desc: 'Product score ' + gs.product + '. Silicon Valley\'s most admired engineering team.',
+            col: PAL.positive
+        },
+        domination: {
+            title: '★ WORLD DOMINATION! ★',
+            sub: gs.customers + ' customers strong!',
+            desc: 'You\'ve cornered the market. Competitors weep. VCs worship you.',
+            col: PAL.custPurple
         }
-    }
-    // Smooth movement
-    let tpx = cofounder.gx * T;
-    let tpy = cofounder.gy * T;
-    cofounder.px += (tpx - cofounder.px) * 0.1;
-    cofounder.py += (tpy - cofounder.py) * 0.1;
-    if(cofounder.frameTimer > 0){
-        cofounder.frameTimer--;
-        cofounder.frame = Math.floor(cofounder.frameTimer/8)%2;
-    } else {
-        cofounder.idle = true;
-        cofounder.frame = 0;
+    };
+
+    const e = endings[gs.endType] || endings.bankrupt;
+    const pulse = Math.sin(gs.tick * 0.08) * 2;
+
+    drawTextShadow(e.title, NATIVE_W / 2, 40 + pulse, e.col, 14, 'center');
+    drawTextShadow(e.sub, NATIVE_W / 2, 62, PAL.white, 9, 'center');
+    drawTextShadow(e.desc, NATIVE_W / 2, 82, PAL.neutral, 7, 'center');
+
+    // Stats
+    drawTextShadow('— Final Stats —', NATIVE_W / 2, 108, PAL.dialogBdr, 8, 'center');
+    drawTextShadow('Days: ' + gs.day, NATIVE_W / 2, 124, PAL.hudTxt, 7, 'center');
+    drawTextShadow('Cash: $' + formatNum(gs.cash), NATIVE_W / 2, 136, PAL.hudGreen, 7, 'center');
+    drawTextShadow('Customers: ' + gs.customers, NATIVE_W / 2, 148, PAL.custBlue, 7, 'center');
+    drawTextShadow('Product: ' + gs.product, NATIVE_W / 2, 160, PAL.hudGold, 7, 'center');
+    drawTextShadow('Total Revenue: $' + formatNum(gs.totalRevenue), NATIVE_W / 2, 172, PAL.positive, 7, 'center');
+    drawTextShadow('Team: ' + gs.devs + ' devs, ' + gs.sales + ' sales', NATIVE_W / 2, 184, PAL.neutral, 7, 'center');
+
+    if (gs.tick % 60 < 40) {
+        drawTextShadow('Press ENTER to play again', NATIVE_W / 2, 205, PAL.white, 8, 'center');
     }
 }
 
 // ============================================================
-// PLAYER UPDATE
+// PLAYER MOVEMENT
 // ============================================================
-function updatePlayer(){
-    if(gameState.dialogActive || gameState.menuOpen || gameState.phase !== 'gameplay') return;
+function updatePlayer() {
+    if (gs.dialogActive || gs.menuActive || gs.dayTransition || gs.gameOver) return;
 
+    const spd = 1.5;
     let dx = 0, dy = 0;
-    if(keys['ArrowUp']||keys['w']) { dy = -1; player.dir = 2; }
-    if(keys['ArrowDown']||keys['s']) { dy = 1; player.dir = 0; }
-    if(keys['ArrowLeft']||keys['a']) { dx = -1; player.dir = 3; }
-    if(keys['ArrowRight']||keys['d']) { dx = 1; player.dir = 1; }
+    gs.pMoving = false;
 
-    if(dx !== 0 || dy !== 0){
-        player.moving = true;
-        let npx = player.px + dx * player.speed;
-        let npy = player.py + dy * player.speed;
-        let ngx = Math.round(npx / T);
-        let ngy = Math.round(npy / T);
-        // Check collision separately for each axis
-        let cpx = player.px, cpy = player.py;
-        // X axis
-        let txgx = Math.round((player.px + dx*player.speed)/T);
-        let tygy = Math.round(player.py/T);
-        if(!isSolid(txgx, tygy)){
-            cpx = player.px + dx*player.speed;
-        }
-        // Y axis
-        let rxgx = Math.round(cpx/T);
-        let rygy = Math.round((player.py + dy*player.speed)/T);
-        if(!isSolid(rxgx, rygy)){
-            cpy = player.py + dy*player.speed;
-        }
-        // Bounds
-        cpx = Math.max(T, Math.min((MAP_W-2)*T, cpx));
-        cpy = Math.max(T, Math.min((MAP_H-2)*T, cpy));
-        player.px = cpx;
-        player.py = cpy;
+    if (keys['ArrowLeft'] || keys['a']) { dx = -spd; gs.pdir = 1; gs.pMoving = true; }
+    if (keys['ArrowRight'] || keys['d']) { dx = spd; gs.pdir = 2; gs.pMoving = true; }
+    if (keys['ArrowUp'] || keys['w']) { dy = -spd; gs.pdir = 3; gs.pMoving = true; }
+    if (keys['ArrowDown'] || keys['s']) { dy = spd; gs.pdir = 0; gs.pMoving = true; }
 
-        player.frameTimer++;
-        if(player.frameTimer > 8){ player.frameTimer = 0; player.frame = (player.frame+1)%4; }
-    } else {
-        player.moving = false;
-        player.frame = 0;
+    if (gs.pMoving) gs.pframe += 0.15;
+
+    // Collision — check tile at player bounding box corners
+    const pw = 7, ph = 6;
+    const newX = gs.px + dx;
+    const newY = gs.py + dy;
+
+    // X movement
+    if (dx !== 0) {
+        const checkX = dx > 0 ? newX + pw : newX;
+        const ty1 = Math.floor((gs.py + 8) / T);
+        const ty2 = Math.floor((gs.py + 13) / T);
+        const tx = Math.floor(checkX / T);
+        if (!isSolid(tx, ty1) && !isSolid(tx, ty2)) {
+            gs.px = newX;
+        }
     }
+    // Y movement
+    if (dy !== 0) {
+        const checkY = dy > 0 ? newY + 14 : newY + 6;
+        const tx1 = Math.floor(gs.px / T);
+        const tx2 = Math.floor((gs.px + pw) / T);
+        const ty = Math.floor(checkY / T);
+        if (!isSolid(tx1, ty) && !isSolid(tx2, ty)) {
+            gs.py = newY;
+        }
+    }
+
+    // Clamp to map
+    gs.px = Math.max(T, Math.min(gs.px, (MAP_W - 1) * T - 8));
+    gs.py = Math.max(T + 4, Math.min(gs.py, (MAP_H - 1) * T - 16));
 }
 
 // ============================================================
-// MAIN UPDATE
+// INPUT HANDLING
 // ============================================================
-function update(){
-    // Title screen
-    if(gameState.phase === 'titleScreen'){
-        if(consumeKey('z') || consumeKey('Z') || consumeKey('Enter')){
-            gameState.phase = 'intro';
-            // Queue intro dialogs
-            for(let d of gameState.introDialogs){
-                gameState.dialogQueue.push(d);
-            }
+function handleInput() {
+    if (gs.phase === 'title') {
+        if (wasPressed('Enter') || wasPressed('z') || wasPressed('Z') || wasPressed(' ')) {
+            gs.phase = 'play';
+            showDialog('Welcome to your startup! You\'ve got $50K in angel funding and a dream.', () => {
+                showDialog('Use Arrow keys to move. Z to interact with objects. Check the terminal, whiteboard, door, and coffee machine.', () => {
+                    showDialog('Survive the burn, build your product, and grow your company!');
+                });
+            });
+        }
+        return;
+    }
+
+    if (gs.gameOver) {
+        if (wasPressed('Enter') || wasPressed('z') || wasPressed('Z')) {
+            resetGame();
+        }
+        return;
+    }
+
+    if (gs.dayTransition) return;
+
+    // Dialog
+    if (gs.dialogActive) {
+        if (wasPressed('z') || wasPressed('Z') || wasPressed('Enter') || wasPressed(' ')) {
             advanceDialog();
         }
         return;
     }
 
-    // Intro phase - only dialog advances
-    if(gameState.phase === 'intro'){
-        if(consumeKey('z') || consumeKey('Z') || consumeKey('Enter')){
-            if(gameState.dialogActive){
-                advanceDialog();
+    // Menu
+    if (gs.menuActive) {
+        if (wasPressed('ArrowUp') || wasPressed('w')) {
+            gs.menuSel = (gs.menuSel - 1 + gs.menuItems.length) % gs.menuItems.length;
+        }
+        if (wasPressed('ArrowDown') || wasPressed('s')) {
+            gs.menuSel = (gs.menuSel + 1) % gs.menuItems.length;
+        }
+        if (wasPressed('z') || wasPressed('Z') || wasPressed('Enter')) {
+            const sel = gs.menuItems[gs.menuSel];
+            if (sel && !sel.disabled) {
+                const cb = gs.menuCallback;
+                closeMenu();
+                if (cb) cb(sel);
             }
         }
-        return;
-    }
-
-    // Game over
-    if(gameState.phase === 'gameOver'){
-        if(consumeKey('z') || consumeKey('Z') || consumeKey('Enter')){
-            restartGame();
-        }
-        return;
-    }
-
-    // Gameplay
-    if(gameState.phase !== 'gameplay') return;
-
-    // Dialog advance
-    if(gameState.dialogActive){
-        if(consumeKey('z') || consumeKey('Z') || consumeKey('Enter')){
-            advanceDialog();
-        }
-        return;
-    }
-
-    // Menu navigation
-    if(gameState.menuOpen){
-        if(consumeKey('ArrowUp') || consumeKey('w')){
-            gameState.menuIndex = (gameState.menuIndex - 1 + gameState.menuItems.length) % gameState.menuItems.length;
-        }
-        if(consumeKey('ArrowDown') || consumeKey('s')){
-            gameState.menuIndex = (gameState.menuIndex + 1) % gameState.menuItems.length;
-        }
-        if(consumeKey('z') || consumeKey('Z') || consumeKey('Enter')){
-            let item = gameState.menuItems[gameState.menuIndex];
-            if(item && item.action) item.action();
-        }
-        if(consumeKey('x') || consumeKey('X') || consumeKey('Escape')){
+        if (wasPressed('x') || wasPressed('X') || wasPressed('Escape')) {
             closeMenu();
         }
         return;
     }
 
-    // Player movement
-    updatePlayer();
-
-    // Interaction
-    if(consumeKey('z') || consumeKey('Z')){
+    // World interaction
+    if (wasPressed('z') || wasPressed('Z') || wasPressed('Enter')) {
         interact();
     }
 
-    // Open end day with X
-    if(consumeKey('x') || consumeKey('X')){
-        openMenu([
-            {label:'End Day', action:()=>{ closeMenu(); endDay(); }},
-            {label:'View Metrics', action:()=>{ closeMenu(); showMetrics(); }},
-            {label:'Cancel', action:closeMenu},
-        ], 'Quick Menu');
-    }
-
-    // Co-founder
-    updateCofounder();
-
-    // Notifications
-    for(let i=gameState.notifications.length-1;i>=0;i--){
-        gameState.notifications[i].timer--;
-        if(gameState.notifications[i].timer<=0) gameState.notifications.splice(i,1);
+    // Quick end day with X when at 0 AP
+    if (wasPressed('x') || wasPressed('X')) {
+        if (gs.ap <= 0) {
+            endDay();
+        }
     }
 }
 
 // ============================================================
-// RESTART
+// RESET
 // ============================================================
-function restartGame(){
-    gameState.phase = 'titleScreen';
-    gameState.day = 1;
-    gameState.ap = 5;
-    gameState.cash = 10000;
-    gameState.burnRate = 200;
-    gameState.revenue = 0;
-    gameState.customers = 0;
-    gameState.churnRate = 0.05;
-    gameState.productProgress = 0;
-    gameState.productQuality = 1;
-    gameState.morale = 80;
-    gameState.bugs = 0;
-    gameState.teamDevs = 0;
-    gameState.teamSales = 0;
-    gameState.teamSupport = 0;
-    gameState.notifications = [];
-    gameState.dialogQueue = [];
-    gameState.dialogActive = false;
-    gameState.currentDialog = null;
-    gameState.menuOpen = false;
-    gameState.cofDialogIndex = 0;
-    gameState.eventLog = [];
-    gameState.dayPhase = 0;
-    gameState.introStep = 0;
-    gameState.titleTimer = 0;
-    gameState.titleCursorBlink = 0;
-    for(let m of MILESTONES) m.announced = false;
-    for(let m of REVENUE_MILESTONES) m.announced = false;
-    player.px = 9*T; player.py = 7*T; player.gx=9; player.gy=7; player.dir=0;
-    cofounder.gx=14; cofounder.gy=10; cofounder.px=14*T; cofounder.py=10*T;
+function resetGame() {
+    gs.phase = 'title';
+    gs.day = 1;
+    gs.cash = 50000;
+    gs.customers = 0;
+    gs.product = 0;
+    gs.morale = 70;
+    gs.ap = 3;
+    gs.maxAp = 3;
+    gs.devs = 0;
+    gs.sales = 0;
+    gs.revenue = 0;
+    gs.burn = 500;
+    gs.totalRevenue = 0;
+    gs.px = 9 * T + 4;
+    gs.py = 7 * T + 4;
+    gs.pdir = 0;
+    gs.pframe = 0;
+    gs.menuActive = false;
+    gs.dialogActive = false;
+    gs.dialogQueue = [];
+    gs.dayTransition = false;
+    gs.dayTransAlpha = 0;
+    gs.gameOver = false;
+    gs.endType = '';
+    gs.eventHistory = {};
+    gs.pendingEvent = null;
+    gs.milestoneQueue = [];
+    gs.passiveCustPerDay = 0;
+    gs.notifications = [];
+    for (const ms of MILESTONES) ms.announced = false;
 }
 
 // ============================================================
 // MAIN RENDER
 // ============================================================
-function render(){
-    bctx.fillStyle = PAL.bgDark;
-    bctx.fillRect(0,0,NATIVE_W,NATIVE_H);
-
-    if(gameState.phase === 'titleScreen'){
-        drawTitleScreen();
-    } else if(gameState.phase === 'intro'){
-        // Show office dimly behind intro dialog
-        drawOfficeScene();
-        bctx.fillStyle = 'rgba(10,10,30,0.5)';
-        bctx.fillRect(0,0,NATIVE_W,NATIVE_H);
-        drawDialog();
-    } else if(gameState.phase === 'gameplay' || gameState.phase === 'gameOver'){
-        drawOfficeScene();
-        drawDayNightTint();
-        drawHUD();
-        drawNotifications();
-        drawInteractIndicator();
-        drawMenu();
-        drawDialog();
-        if(gameState.phase === 'gameOver') drawGameOver();
+function drawMap() {
+    for (let ty = 0; ty < MAP_H; ty++) {
+        for (let tx = 0; tx < MAP_W; tx++) {
+            drawTile(tx, ty);
+        }
     }
-
-    // Scale buffer to main canvas
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(buf, 0, 0, NATIVE_W, NATIVE_H, 0, 0, NATIVE_W*SCALE, NATIVE_H*SCALE);
 }
 
-function drawOfficeScene(){
-    // Draw all tiles
-    for(let ty=0;ty<MAP_H;ty++){
-        for(let tx=0;tx<MAP_W;tx++){
-            drawTile(tx,ty);
+function drawScene() {
+    bctx.fillStyle = PAL.bgDark;
+    bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
+
+    // Draw map
+    drawMap();
+
+    // Draw rug highlight
+    // Morning/evening ambiance overlay
+    if (gs.day % 3 === 0) {
+        bctx.fillStyle = PAL.morningGold;
+        bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
+    }
+
+    // Draw employees
+    drawEmployees();
+
+    // Draw co-founder
+    drawCofounder(14 * T + 4, 10 * T + 2);
+
+    // Draw player (sorted by Y for overlap)
+    drawPlayer(gs.px, gs.py, gs.pdir, gs.pframe, gs.pMoving);
+
+    // Interaction prompt
+    if (!gs.dialogActive && !gs.menuActive && !gs.dayTransition) {
+        const f = getFacingTile();
+        const interactables = [TERMINAL, WHITEBOARD, DOOR, COFFEE_MACHINE, COFOUNDER_SPOT, DESK];
+        if (interactables.includes(f.tile)) {
+            const labels = {
+                [TERMINAL]: 'Terminal',
+                [WHITEBOARD]: 'Hiring Board',
+                [DOOR]: 'Door',
+                [COFFEE_MACHINE]: 'Coffee',
+                [COFOUNDER_SPOT]: 'Co-founder',
+                [DESK]: 'Desk',
+            };
+            if (gs.tick % 50 < 35) {
+                drawTextShadow('[Z] ' + (labels[f.tile] || 'Interact'), gs.px - 4, gs.py - 10, PAL.hudYellow, 7);
+            }
         }
     }
 
-    // Sort sprites by Y for depth
-    let sprites = [
-        {type:'player', y:player.py},
-        {type:'cofounder', y:cofounder.py},
-    ];
-    sprites.sort((a,b) => a.y - b.y);
+    // HUD
+    drawHUD();
 
-    for(let s of sprites){
-        if(s.type === 'player') drawPlayer(player.px, player.py, player.dir, player.frame);
-        if(s.type === 'cofounder') drawCofounder(cofounder.px, cofounder.py, cofounder.dir, cofounder.frame);
-    }
+    // Notifications
+    drawNotifications();
+
+    // Dialog
+    drawDialog();
+
+    // Menu
+    drawMenu();
+
+    // Day transition
+    drawDayTransition();
 }
 
 // ============================================================
 // GAME LOOP
 // ============================================================
-function gameLoop(){
+function update() {
+    gs.tick++;
+    gs.cofAnimTick++;
+
+    if (gs.phase === 'title') {
+        // just animate
+    } else if (gs.phase === 'play') {
+        updatePlayer();
+        updateDayTransition();
+        updateNotifications();
+    }
+
+    handleInput();
+    clearInput();
+}
+
+function render() {
+    bctx.clearRect(0, 0, NATIVE_W, NATIVE_H);
+
+    if (gs.phase === 'title') {
+        drawTitle();
+    } else if (gs.gameOver) {
+        drawGameOver();
+    } else {
+        drawScene();
+    }
+
+    // Blit buffer to main canvas
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(buf, 0, 0, NATIVE_W, NATIVE_H, 0, 0, canvas.width, canvas.height);
+}
+
+function gameLoop() {
     update();
     render();
-    // Clear justPressed
-    for(let k in justPressed) justPressed[k] = false;
     requestAnimationFrame(gameLoop);
 }
 
