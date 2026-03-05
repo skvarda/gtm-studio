@@ -14,7 +14,7 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 <canvas id="game"></canvas>
 <script>
 // ============================================================
-// SaaS STARTUP SIMULATOR — Round 12
+// SaaS STARTUP SIMULATOR — Round 13
 // ============================================================
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -56,6 +56,9 @@ const PAL = {
     window:'#4488cc', windowLt:'#88bbee',
     whiteboard:'#d0d0e0', wbBorder:'#888899',
     coffee:'#6b4423', coffeeMug:'#ddddee',
+    greenCash:'#53a653', redChurn:'#c0392b', goldMile:'#f5c842',
+    custBlue:'#5588cc', custGreen:'#44aa66', custOrange:'#cc8833',
+    custPurple:'#8855aa', custPink:'#cc5577',
 };
 
 // ============================================================
@@ -76,7 +79,7 @@ const SOLID={[EMPTY]:1,[FLOOR]:0,[WALL_TOP]:1,[WALL_FACE]:1,[DESK]:1,
 const map = [
     [2,2,2,13,2,2,2,13,2,2,2,2,13,2,2,2,13,2,2,2],
     [3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3],
-    [3,1,6,4,1,1,11,1,1,1,1,1,1,4,4,1,1,7,1,3],
+    [3,1,6,4,1,1,11,11,11,1,1,1,1,4,4,1,1,7,1,3],
     [3,1,1,5,1,1,1,1,1,1,1,1,1,5,5,1,1,1,1,3],
     [3,1,1,1,1,1,1,1,10,10,10,10,1,1,1,1,1,1,1,3],
     [3,1,1,1,1,1,1,1,10,10,10,10,1,1,1,1,1,1,1,3],
@@ -102,6 +105,16 @@ const MILESTONES = [
     { name:'V1.0', threshold:100, announced:false, desc:'Version 1.0 shipped! Market ready.' },
     { name:'Scale', threshold:150, announced:false, desc:'Platform at scale! Enterprise deals unlocked.' },
 ];
+
+// ============================================================
+// REVENUE MILESTONES
+// ============================================================
+const REVENUE_MILESTONES = [
+    { name:'First Dollar', threshold:1, announced:false, desc:'Your first dollar of revenue! The dream is real.', bonus:'morale' },
+    { name:'Ramen Profitable', threshold:0, announced:false, desc:'Revenue covers burn! You can survive on ramen forever.', bonus:'confidence', checkFn: (gs) => gs.revenue >= gs.burnRate && gs.customers >= 3 },
+    { name:'PMF Signal', threshold:0, announced:false, desc:'Product-Market Fit! Growth is accelerating.', bonus:'growth', checkFn: (gs) => gs.customers >= 15 && gs.churnRate < 0.06 },
+];
+
 function getCurrentMilestone(pts){
     let m = null;
     for(let i=MILESTONES.length-1;i>=0;i--){if(pts>=MILESTONES[i].threshold){m=MILESTONES[i];break;}}
@@ -119,169 +132,141 @@ const EVENTS = [
     {
         id:'server_outage', type:'negative', weight:3, minDay:5,
         title:'Server Outage!',
-        desc:'Your cloud provider is down. Customers are furious.',
-        choiceA:'Throw money at it (-$8,000, quick fix)', choiceB:'Have devs fix it manually (-1 product pts, save cash)',
-        effectA:(gs)=>{gs.cash-=8000; return 'Paid for emergency migration. Crisis averted.';},
-        effectB:(gs)=>{gs.productPoints=Math.max(0,gs.productPoints-3); return 'Devs pulled an all-nighter. Some features rolled back.';},
+        desc:'Your cloud provider is down. Customers are unhappy.',
+        effect(gs){ gs.productQuality = Math.max(0, gs.productQuality - 5); gs.morale = Math.max(0, gs.morale - 10); addChurnBurst(gs, 2); }
     },
     {
-        id:'viral_tweet', type:'positive', weight:3, minDay:5,
+        id:'viral_tweet', type:'positive', weight:2, minDay:3,
         title:'Viral Tweet!',
-        desc:'Someone influential tweeted about your product!',
-        choiceA:'Ride the wave (+5 customers)', choiceB:'Invest in content marketing (-$3,000, +8 customers)',
-        effectA:(gs)=>{gs.customers+=5; return 'Free press! 5 new signups.';},
-        effectB:(gs)=>{gs.cash-=3000;gs.customers+=8; return 'Doubled down on the buzz. 8 new signups!';},
+        desc:'Someone tweeted about your product. Traffic is spiking!',
+        effect(gs){ gs.customerFrac += 3; gs.morale = Math.min(100, gs.morale + 10); }
     },
     {
-        id:'dev_burnout', type:'negative', weight:2, minDay:7,
-        title:'Developer Burnout',
-        desc:'One of your developers is showing signs of burnout.',
-        choiceA:'Give them a week off (-1 AP this day)', choiceB:'Push through (risk: -1 morale, small prod boost)',
-        effectA:(gs)=>{gs.ap=Math.max(0,gs.ap-1); gs.teamMorale=Math.min(100,gs.teamMorale+10); return 'They came back refreshed. Morale improved.';},
-        effectB:(gs)=>{gs.teamMorale=Math.max(0,gs.teamMorale-15); gs.productPoints+=2; return 'Features shipped, but the team feels it.';},
-    },
-    {
-        id:'competitor_launch', type:'negative', weight:2, minDay:8,
-        title:'Competitor Launch!',
+        id:'competitor_launch', type:'negative', weight:2, minDay:10,
+        title:'Competitor Launched!',
         desc:'A well-funded competitor just launched a similar product.',
-        choiceA:'Differentiate - pivot a feature (+3 product pts, -$5,000)', choiceB:'Undercut their pricing (-$2,000/mo MRR temporarily)',
-        effectA:(gs)=>{gs.productPoints+=3;gs.cash-=5000; return 'Pivoted fast. Your niche is secure.';},
-        effectB:(gs)=>{gs.mrr=Math.max(0,gs.mrr-200); return 'Price war! MRR dipped but you held customers.';},
+        effect(gs){ gs.churnRate = Math.min(0.15, gs.churnRate + 0.02); gs.morale = Math.max(0, gs.morale - 5); }
     },
     {
-        id:'angel_interest', type:'positive', weight:2, minDay:6,
-        title:'Angel Investor Interest',
-        desc:'An angel investor saw your demo and wants to talk.',
-        choiceA:'Take the meeting - pitch for funding (+$25,000 if product>20)', choiceB:'Stay bootstrapped (+5 morale, independence)',
-        effectA:(gs)=>{if(gs.productPoints>=20){gs.cash+=25000;return 'Nailed the pitch! $25K investment secured.';}else{return 'They passed... product not ready yet.';}},
-        effectB:(gs)=>{gs.teamMorale=Math.min(100,gs.teamMorale+5); return 'Staying lean and mean. Team respects the hustle.';},
+        id:'angel_interest', type:'positive', weight:1, minDay:8,
+        title:'Angel Interest!',
+        desc:'An angel investor wants to put in $50K!',
+        effect(gs){ gs.cash += 50; }
     },
     {
-        id:'office_pest', type:'neutral', weight:2, minDay:5,
-        title:'Office Raccoon',
-        desc:'A raccoon somehow got into the server room.',
-        choiceA:'Call animal control (-$500)', choiceB:'Befriend it (new office mascot, +3 morale)',
-        effectA:(gs)=>{gs.cash-=500; return 'Raccoon relocated. Boring but effective.';},
-        effectB:(gs)=>{gs.teamMorale=Math.min(100,gs.teamMorale+3); return 'Meet Rocket, your new office mascot!';},
+        id:'feature_request', type:'neutral', weight:3, minDay:4,
+        title:'Big Feature Request',
+        desc:'A potential whale customer wants a custom feature. +10 quality if you have a dev.',
+        effect(gs){ if(gs.employees.some(e=>e.type==='dev')){ gs.productQuality += 10; } else { gs.morale = Math.max(0, gs.morale - 5); } }
     },
     {
-        id:'techcrunch', type:'positive', weight:1, minDay:12, requireMilestone:'MVP',
+        id:'coffee_machine_break', type:'negative', weight:2, minDay:1,
+        title:'Coffee Machine Broke!',
+        desc:'The coffee machine is broken. Team morale takes a hit.',
+        effect(gs){ gs.morale = Math.max(0, gs.morale - 15); }
+    },
+    {
+        id:'hackathon_win', type:'positive', weight:1, minDay:7,
+        title:'Hackathon Win!',
+        desc:'Your team won a local hackathon! Great PR.',
+        effect(gs){ gs.productQuality += 8; gs.morale = Math.min(100, gs.morale + 15); gs.customerFrac += 2; }
+    },
+    {
+        id:'tech_debt', type:'negative', weight:3, minDay:12,
+        title:'Tech Debt Crisis!',
+        desc:'Accumulated shortcuts are slowing everything down.',
+        effect(gs){ gs.productQuality = Math.max(0, gs.productQuality - 10); }
+    },
+    {
+        id:'press_coverage', type:'positive', weight:1, minDay:15,
         title:'TechCrunch Feature!',
-        desc:'TechCrunch wants to write about your startup!',
-        choiceA:'Full feature story (+10 customers, +$0)', choiceB:'Paid sponsorship (+15 customers, -$10,000)',
-        effectA:(gs)=>{gs.customers+=10; return 'Great press! 10 new customers from the article.';},
-        effectB:(gs)=>{gs.customers+=15;gs.cash-=10000; return 'Premium placement. 15 new customers!';},
+        desc:'A major tech blog covered your startup!',
+        effect(gs){ gs.customerFrac += 5; gs.morale = Math.min(100, gs.morale + 10); }
     },
     {
-        id:'key_hire_poach', type:'negative', weight:2, minDay:10,
+        id:'key_employee_poached', type:'negative', weight:1, minDay:20,
         title:'Poaching Attempt!',
-        desc:'Google is trying to recruit your best developer.',
-        choiceA:'Counter-offer with equity (-$3,000 + keep them)', choiceB:'Let them go (lose 1 dev, save cash)',
-        effectA:(gs)=>{gs.cash-=3000; gs.teamMorale=Math.min(100,gs.teamMorale+5); return 'They stayed! Loyalty earned.';},
-        effectB:(gs)=>{let devs=gs.team.filter(t=>t.type==='dev');if(devs.length>0){gs.team.splice(gs.team.indexOf(devs[devs.length-1]),1);}return 'They left for Google. Team feels uneasy.';},
-    },
-    {
-        id:'tax_surprise', type:'negative', weight:2, minDay:8,
-        title:'Tax Surprise',
-        desc:'Your accountant found an issue. You owe back taxes.',
-        choiceA:'Pay immediately (-$6,000)', choiceB:'Contest it (-$2,000 lawyer fee, 50% chance of saving)',
-        effectA:(gs)=>{gs.cash-=6000; return 'Taxes paid. Painful but clean books.';},
-        effectB:(gs)=>{if(Math.random()>0.5){gs.cash-=2000;return 'Lawyer won! Only paid $2K in legal fees.';}else{gs.cash-=8000;return 'Lost the case. $2K legal + $6K taxes. Ouch.';}},
-    },
-    {
-        id:'product_hunt', type:'positive', weight:2, minDay:7, requireMilestone:'MVP',
-        title:'Product Hunt Launch!',
-        desc:'Your MVP is getting traction on Product Hunt!',
-        choiceA:'Engage the community (+7 customers, costs 1 AP)', choiceB:'Let it ride organically (+3 customers)',
-        effectA:(gs)=>{gs.customers+=7;gs.ap=Math.max(0,gs.ap-1); return 'Community loved it! 7 new customers.';},
-        effectB:(gs)=>{gs.customers+=3; return 'Steady organic growth. 3 new customers.';},
-    },
-    {
-        id:'intern_prodigy', type:'positive', weight:2, minDay:6,
-        title:'Intern Prodigy',
-        desc:'A college intern applied. They seem... surprisingly good.',
-        choiceA:'Hire them part-time (-$1,500/mo, +small dev output)', choiceB:'Pass (no cost, no gain)',
-        effectA:(gs)=>{gs.team.push({type:'intern',name:'Intern',salary:1500,output:0.4,icon:'intern'});return 'Welcome aboard! They\'re already shipping code.';},
-        effectB:(gs)=>{return 'Passed. Hope they don\'t end up at a competitor...';},
-    },
-    {
-        id:'feature_request_whale', type:'neutral', weight:2, minDay:10, requireMilestone:'MVP',
-        title:'Whale Customer Request',
-        desc:'A huge potential customer wants a custom feature.',
-        choiceA:'Build it (-5 product pts from roadmap, +$8,000 deal)', choiceB:'Decline (keep roadmap, +2 product pts)',
-        effectA:(gs)=>{gs.productPoints=Math.max(0,gs.productPoints-5);gs.cash+=8000;gs.customers+=1; return 'Custom feature built. Big deal closed!';},
-        effectB:(gs)=>{gs.productPoints+=2; return 'Stayed focused on the roadmap. Smart long-term play.';},
+        desc:'A big tech company is trying to hire your best people. Morale shaken.',
+        effect(gs){ gs.morale = Math.max(0, gs.morale - 20); }
     },
 ];
 
-function rollEvent(gs) {
-    if (gs.day < 5) return null;
-    if (Math.random() > 0.35) return null; // 35% chance per day
-    const curMilestone = getCurrentMilestone(gs.productPoints);
-    const eligible = EVENTS.filter(e => {
-        if (gs.day < e.minDay) return false;
-        if (e.requireMilestone) {
-            if (!curMilestone) return false;
-            const reqIdx = MILESTONES.findIndex(m => m.name === e.requireMilestone);
-            const curIdx = MILESTONES.indexOf(curMilestone);
-            if (curIdx < reqIdx) return false;
-        }
-        return true;
-    });
-    if (eligible.length === 0) return null;
-    // Weighted random selection
-    const totalWeight = eligible.reduce((s, e) => s + e.weight, 0);
-    let r = Math.random() * totalWeight;
-    for (const e of eligible) {
-        r -= e.weight;
-        if (r <= 0) return e;
+// ============================================================
+// CUSTOMER BOARD — Pixel Avatars
+// ============================================================
+const CUST_COLORS = [PAL.custBlue, PAL.custGreen, PAL.custOrange, PAL.custPurple, PAL.custPink, '#44aaaa', '#aa8844', '#7766bb'];
+const CUST_NAMES = ['Acme','Globex','Initech','Hooli','Umbrella','Soylent','Cyberdyn','Wonka','Weyland','Aperture','Oscorp','Tyrell','Abstergo','Massive','Vehement','Stark','Wayne','LexCo','Pied P.','Dunder'];
+
+class CustomerAvatar {
+    constructor(id) {
+        this.id = id;
+        this.name = CUST_NAMES[id % CUST_NAMES.length];
+        this.color = CUST_COLORS[id % CUST_COLORS.length];
+        this.flashTimer = 30; // green flash on acquire
+        this.dying = false;
+        this.deathTimer = 0;
+        this.slot = -1;
     }
-    return eligible[eligible.length - 1];
 }
 
 // ============================================================
 // GAME STATE
 // ============================================================
-const gameState = {
-    day: 1,
-    cash: 150000,
-    mrr: 0,
-    ap: 3,
-    maxAp: 3,
-    productPoints: 0,
-    customers: 0,
-    teamMorale: 70,
-    team: [],
-    phase: 'title', // title, play, dialog, menu, dayEnd, event, gameover, milestone
-    dialogQueue: [],
-    currentDialog: null,
-    menuOptions: [],
-    menuCallback: null,
-    menuIndex: 0,
-    currentEvent: null,
-    eventPhase: 'choice', // choice, result
-    eventResult: '',
-    milestoneAnnounce: null,
-    player: { gx:9, gy:7, dir:0, animFrame:0, animTimer:0, moving:false },
-    cofounder: { gx:14, gy:10, dir:2, animFrame:0, animTimer:0, bobTimer:0 },
-    hiredDesks: [],
-    dayEndSummary: null,
-    interactCooldown: 0,
-    dayTransition: 0,
-    dayTransitionPhase: '',
-    notifications: [],
-    particleEffects: [],
-    cameraBob: 0,
-    time: 0,
-    endgamePath: null,
-    gameOverReason: '',
-    totalRevenue: 0,
-    totalSpent: 0,
-};
+let GS = {};
+function resetGame() {
+    GS = {
+        day: 1, hour: 9, tick: 0, ticksPerHour: 120,
+        phase: 'title', // title, play, dialog, menu, gameover, milestone_popup
+        cash: 200, // $K
+        burnRate: 15, // $K per month (deducted daily as burnRate/30)
+        revenue: 0, // $K per month from customers
+        revenuePerCustomer: 3, // $K/month per customer
+        customers: 0,
+        customerFrac: 0, // fractional accumulator for acquisition
+        churnFrac: 0, // fractional accumulator for churn
+        churnRate: 0.12, // daily churn probability per customer (starts high)
+        productQuality: 0,
+        morale: 70,
+        ap: 4, apMax: 4,
+        employees: [],
+        nextEmployeeId: 1,
+        playerX: 9 * T + 4, playerY: 7 * T + 4,
+        playerDir: 0, // 0=down,1=up,2=left,3=right
+        playerFrame: 0, playerFrameTimer: 0,
+        dialogQueue: [],
+        currentDialog: null,
+        menuType: null,
+        menuItems: [],
+        menuIdx: 0,
+        eventCooldown: 0,
+        lastEvent: null,
+        milestonePopup: null,
+        milestoneTimer: 0,
+        // Customer board state
+        customerAvatars: [],
+        nextCustomerId: 0,
+        boardFlashes: [], // {x, y, timer, color} for churn/gain visual effects
+        // Cofounder
+        cofState: 'idle', cofTimer: 0, cofMsg: '',
+        cofX: 14 * T, cofY: 10 * T,
+        // Revenue milestones
+        revMilestones: REVENUE_MILESTONES.map(m => ({...m, announced: false})),
+        // Stats
+        totalRevenue: 0,
+        customersLost: 0,
+        peakCustomers: 0,
+        // Hire costs
+        hireCosts: { dev: 30, sales: 25, designer: 35 },
+        // Notifications
+        notifications: [],
+    };
+    MILESTONES.forEach(m => m.announced = false);
+}
+resetGame();
 
-const GS = gameState;
-
-// Input
+// ============================================================
+// INPUT
+// ============================================================
 const keys = {};
 const justPressed = {};
 document.addEventListener('keydown', e => {
@@ -291,972 +276,1263 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('keyup', e => { keys[e.key] = false; });
 function consumeKey(k) { if (justPressed[k]) { justPressed[k] = false; return true; } return false; }
+function clearJustPressed() { for (let k in justPressed) justPressed[k] = false; }
 
 // ============================================================
-// TEXT RENDERING (Pixel Font)
+// HELPERS
 // ============================================================
-const CHAR_W = 5, CHAR_H = 7, CHAR_GAP = 1;
-const FONT_CHARS = {
-    'A':[0x7C,0x12,0x11,0x12,0x7C],'B':[0x7F,0x49,0x49,0x49,0x36],'C':[0x3E,0x41,0x41,0x41,0x22],
-    'D':[0x7F,0x41,0x41,0x22,0x1C],'E':[0x7F,0x49,0x49,0x49,0x41],'F':[0x7F,0x09,0x09,0x09,0x01],
-    'G':[0x3E,0x41,0x49,0x49,0x7A],'H':[0x7F,0x08,0x08,0x08,0x7F],'I':[0x00,0x41,0x7F,0x41,0x00],
-    'J':[0x20,0x40,0x41,0x3F,0x01],'K':[0x7F,0x08,0x14,0x22,0x41],'L':[0x7F,0x40,0x40,0x40,0x40],
-    'M':[0x7F,0x02,0x0C,0x02,0x7F],'N':[0x7F,0x04,0x08,0x10,0x7F],'O':[0x3E,0x41,0x41,0x41,0x3E],
-    'P':[0x7F,0x09,0x09,0x09,0x06],'Q':[0x3E,0x41,0x51,0x21,0x5E],'R':[0x7F,0x09,0x19,0x29,0x46],
-    'S':[0x46,0x49,0x49,0x49,0x31],'T':[0x01,0x01,0x7F,0x01,0x01],'U':[0x3F,0x40,0x40,0x40,0x3F],
-    'V':[0x1F,0x20,0x40,0x20,0x1F],'W':[0x3F,0x40,0x38,0x40,0x3F],'X':[0x63,0x14,0x08,0x14,0x63],
-    'Y':[0x07,0x08,0x70,0x08,0x07],'Z':[0x61,0x51,0x49,0x45,0x43],
-    '0':[0x3E,0x51,0x49,0x45,0x3E],'1':[0x00,0x42,0x7F,0x40,0x00],'2':[0x42,0x61,0x51,0x49,0x46],
-    '3':[0x21,0x41,0x45,0x4B,0x31],'4':[0x18,0x14,0x12,0x7F,0x10],'5':[0x27,0x45,0x45,0x45,0x39],
-    '6':[0x3C,0x4A,0x49,0x49,0x30],'7':[0x01,0x71,0x09,0x05,0x03],'8':[0x36,0x49,0x49,0x49,0x36],
-    '9':[0x06,0x49,0x49,0x29,0x1E],
-    ' ':[0,0,0,0,0],'!':[0x00,0x00,0x5F,0x00,0x00],'?':[0x02,0x01,0x51,0x09,0x06],
-    '.':[0x00,0x60,0x60,0x00,0x00],',':[0x00,0x80,0x60,0x00,0x00],
-    '-':[0x08,0x08,0x08,0x08,0x08],'+':[0x08,0x08,0x3E,0x08,0x08],
-    ':':[0x00,0x36,0x36,0x00,0x00],'/':[0x20,0x10,0x08,0x04,0x02],
-    '$':[0x24,0x2A,0x7F,0x2A,0x12],'%':[0x23,0x13,0x08,0x64,0x62],
-    '(':[0x00,0x1C,0x22,0x41,0x00],')':[0x00,0x41,0x22,0x1C,0x00],
-    '#':[0x14,0x7F,0x14,0x7F,0x14],'@':[0x3E,0x41,0x5D,0x55,0x1E],
-    '\'':[0x00,0x00,0x07,0x00,0x00],'"':[0x00,0x07,0x00,0x07,0x00],
-    '<':[0x08,0x14,0x22,0x41,0x00],'>':[0x00,0x41,0x22,0x14,0x08],
-    '=':[0x14,0x14,0x14,0x14,0x14],'_':[0x40,0x40,0x40,0x40,0x40],
-    '&':[0x36,0x49,0x55,0x22,0x50],'*':[0x14,0x08,0x3E,0x08,0x14],
-};
+function rng(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function lerpColor(a, b, t) { return b; } // simple version
 
-function drawChar(ctx, ch, x, y, color) {
-    const data = FONT_CHARS[ch.toUpperCase()];
-    if (!data) return;
-    ctx.fillStyle = color;
-    for (let col = 0; col < 5; col++) {
-        for (let row = 0; row < 7; row++) {
-            if (data[col] & (1 << row)) {
-                ctx.fillRect(x + col, y + row, 1, 1);
-            }
+function addNotification(text, color) {
+    GS.notifications.push({ text, color: color || PAL.white, timer: 180, y: 0 });
+}
+
+function addChurnBurst(gs, count) {
+    for (let i = 0; i < count && gs.customers > 0; i++) {
+        removeCustomer(gs);
+    }
+}
+
+function addCustomer(gs) {
+    const av = new CustomerAvatar(gs.nextCustomerId++);
+    gs.customerAvatars.push(av);
+    gs.customers = gs.customerAvatars.filter(a => !a.dying).length;
+    if (gs.customers > gs.peakCustomers) gs.peakCustomers = gs.customers;
+    assignCustomerSlots(gs);
+    // Board flash
+    const slot = av.slot;
+    if (slot >= 0) {
+        const pos = getSlotPos(slot);
+        gs.boardFlashes.push({ x: pos.x, y: pos.y, timer: 20, color: PAL.greenCash });
+    }
+}
+
+function removeCustomer(gs) {
+    const alive = gs.customerAvatars.filter(a => !a.dying);
+    if (alive.length === 0) return;
+    const victim = alive[rng(0, alive.length - 1)];
+    victim.dying = true;
+    victim.deathTimer = 30;
+    gs.customersLost++;
+    // Board flash
+    const slot = victim.slot;
+    if (slot >= 0) {
+        const pos = getSlotPos(slot);
+        gs.boardFlashes.push({ x: pos.x, y: pos.y, timer: 25, color: PAL.redChurn });
+    }
+}
+
+// Whiteboard area: tiles (6,2) to (8,2), so pixel area ~96,32 to ~144,48
+// We'll draw the customer board on the whiteboard area
+const BOARD_X = 6 * T;
+const BOARD_Y = 2 * T;
+const BOARD_W = 3 * T; // 48px
+const BOARD_H = T; // 16px
+const SLOTS_PER_ROW = 8;
+const MAX_BOARD_SLOTS = 24; // 3 rows of 8
+
+function getSlotPos(slot) {
+    const row = Math.floor(slot / SLOTS_PER_ROW);
+    const col = slot % SLOTS_PER_ROW;
+    return { x: BOARD_X + 2 + col * 5, y: BOARD_Y + 2 + row * 5 };
+}
+
+function assignCustomerSlots(gs) {
+    let idx = 0;
+    for (const av of gs.customerAvatars) {
+        if (!av.dying) {
+            av.slot = idx++;
         }
     }
 }
 
-function drawText(ctx, text, x, y, color, scale) {
-    scale = scale || 1;
-    const str = String(text);
-    let cx = x;
-    for (let i = 0; i < str.length; i++) {
-        if (scale === 1) {
-            drawChar(ctx, str[i], cx, y, color);
-        } else {
-            // Render to temp then scale
-            for (let col = 0; col < 5; col++) {
-                const data = FONT_CHARS[str[i].toUpperCase()];
-                if (!data) continue;
-                for (let row = 0; row < 7; row++) {
-                    if (data[col] & (1 << row)) {
-                        ctx.fillStyle = color;
-                        ctx.fillRect(cx + col * scale, y + row * scale, scale, scale);
-                    }
-                }
-            }
-        }
-        cx += (CHAR_W + CHAR_GAP) * scale;
+// ============================================================
+// EMPLOYEE SYSTEM
+// ============================================================
+function hireEmployee(type) {
+    const cost = GS.hireCosts[type] || 25;
+    if (GS.cash < cost) {
+        showDialog([`Not enough cash! Need $${cost}K.`]);
+        return;
     }
-}
-
-function textWidth(text, scale) {
-    scale = scale || 1;
-    return String(text).length * (CHAR_W + CHAR_GAP) * scale - CHAR_GAP * scale;
-}
-
-function drawTextCentered(ctx, text, cx, y, color, scale) {
-    drawText(ctx, text, cx - textWidth(text, scale) / 2, y, color, scale);
-}
-
-function wordWrap(text, maxW, scale) {
-    scale = scale || 1;
-    const words = text.split(' ');
-    const lines = [];
-    let line = '';
-    for (const word of words) {
-        const test = line ? line + ' ' + word : word;
-        if (textWidth(test, scale) > maxW && line) {
-            lines.push(line);
-            line = word;
-        } else {
-            line = test;
-        }
+    if (GS.ap < 2) {
+        showDialog(["Not enough AP! Hiring costs 2 AP."]);
+        return;
     }
-    if (line) lines.push(line);
-    return lines;
+    GS.cash -= cost;
+    GS.ap -= 2;
+    const names_dev = ['Alex','Sam','Jordan','Casey','Riley','Morgan','Quinn','Avery'];
+    const names_sales = ['Blake','Taylor','Drew','Pat','Jamie','Dana','Logan','Reese'];
+    const names_design = ['Sage','Ash','Sky','Wren','Kai','Nova','Lux','Indigo'];
+    let name;
+    if (type === 'dev') name = names_dev[rng(0, names_dev.length - 1)];
+    else if (type === 'sales') name = names_sales[rng(0, names_sales.length - 1)];
+    else name = names_design[rng(0, names_design.length - 1)];
+
+    const emp = {
+        id: GS.nextEmployeeId++,
+        name, type,
+        skill: rng(40, 80),
+        morale: 70,
+        salary: type === 'dev' ? 12 : (type === 'sales' ? 10 : 13),
+        deskAssigned: false,
+    };
+    GS.employees.push(emp);
+    GS.burnRate += emp.salary;
+    showDialog([`Hired ${name} as ${type}!`, `Skill: ${emp.skill} | Salary: $${emp.salary}K/mo`, `Monthly burn is now $${GS.burnRate}K.`]);
+    addNotification(`${name} joined as ${type}!`, PAL.positive);
 }
 
 // ============================================================
-// SPRITE DRAWING
+// DIALOG SYSTEM
 // ============================================================
-function drawPlayer(ctx, x, y, dir, frame, time) {
-    const bob = Math.sin(time * 6) * 0.5;
-    const py = Math.round(y + bob);
-    // Shadow
-    ctx.fillStyle = PAL.shadow;
-    ctx.fillRect(x + 2, y + 14, 12, 3);
-    // Shoes
-    ctx.fillStyle = PAL.shoes;
-    ctx.fillRect(x + 3, py + 13, 4, 2);
-    ctx.fillRect(x + 9, py + 13, 4, 2);
-    // Pants
-    ctx.fillStyle = PAL.pants;
-    ctx.fillRect(x + 3, py + 10, 4, 3);
-    ctx.fillRect(x + 9, py + 10, 4, 3);
-    // Hoodie body
-    ctx.fillStyle = PAL.hoodie;
-    ctx.fillRect(x + 2, py + 4, 12, 7);
-    ctx.fillStyle = PAL.hoodieDk;
-    ctx.fillRect(x + 7, py + 4, 2, 7);
-    // Arms
-    const armSwing = Math.sin(time * 8) * 1.5;
-    ctx.fillStyle = PAL.hoodie;
-    ctx.fillRect(x + 0, py + 5 + Math.round(armSwing), 2, 5);
-    ctx.fillRect(x + 14, py + 5 - Math.round(armSwing), 2, 5);
-    // Hands
-    ctx.fillStyle = PAL.skinTone;
-    ctx.fillRect(x + 0, py + 9 + Math.round(armSwing), 2, 2);
-    ctx.fillRect(x + 14, py + 9 - Math.round(armSwing), 2, 2);
-    // Head
-    ctx.fillStyle = PAL.skinTone;
-    ctx.fillRect(x + 4, py + 0, 8, 5);
-    // Hair
-    ctx.fillStyle = PAL.hair;
-    ctx.fillRect(x + 3, py - 1, 10, 3);
-    // Eyes
-    ctx.fillStyle = '#fff';
-    if (dir === 0) { // down
-        ctx.fillRect(x + 5, py + 2, 2, 2);
-        ctx.fillRect(x + 9, py + 2, 2, 2);
-        ctx.fillStyle = '#222';
-        ctx.fillRect(x + 6, py + 3, 1, 1);
-        ctx.fillRect(x + 10, py + 3, 1, 1);
-    } else if (dir === 1) { // up
-        ctx.fillRect(x + 5, py + 1, 2, 2);
-        ctx.fillRect(x + 9, py + 1, 2, 2);
-    } else if (dir === 2) { // left
-        ctx.fillRect(x + 4, py + 2, 2, 2);
-        ctx.fillRect(x + 8, py + 2, 2, 2);
-        ctx.fillStyle = '#222';
-        ctx.fillRect(x + 4, py + 3, 1, 1);
-        ctx.fillRect(x + 8, py + 3, 1, 1);
-    } else { // right
-        ctx.fillRect(x + 6, py + 2, 2, 2);
-        ctx.fillRect(x + 10, py + 2, 2, 2);
-        ctx.fillStyle = '#222';
-        ctx.fillRect(x + 7, py + 3, 1, 1);
-        ctx.fillRect(x + 11, py + 3, 1, 1);
-    }
-    // Hood
-    ctx.fillStyle = PAL.hoodieDk;
-    ctx.fillRect(x + 3, py + 3, 1, 3);
-    ctx.fillRect(x + 12, py + 3, 1, 3);
-}
-
-function drawCofounder(ctx, x, y, time) {
-    const bob = Math.sin(time * 2 + 1) * 0.5;
-    const py = Math.round(y + bob);
-    ctx.fillStyle = PAL.shadow;
-    ctx.fillRect(x + 2, y + 14, 12, 3);
-    ctx.fillStyle = PAL.shoes;
-    ctx.fillRect(x + 3, py + 13, 4, 2);
-    ctx.fillRect(x + 9, py + 13, 4, 2);
-    ctx.fillStyle = PAL.pants;
-    ctx.fillRect(x + 3, py + 10, 4, 3);
-    ctx.fillRect(x + 9, py + 10, 4, 3);
-    ctx.fillStyle = PAL.cofHoodie;
-    ctx.fillRect(x + 2, py + 4, 12, 7);
-    ctx.fillStyle = PAL.cofounder;
-    ctx.fillRect(x + 0, py + 5, 2, 5);
-    ctx.fillRect(x + 14, py + 5, 2, 5);
-    ctx.fillStyle = PAL.skinTone;
-    ctx.fillRect(x + 4, py + 0, 8, 5);
-    ctx.fillStyle = '#444';
-    ctx.fillRect(x + 3, py - 1, 10, 3);
-    // Sunglasses
-    ctx.fillStyle = '#111';
-    ctx.fillRect(x + 4, py + 1, 3, 2);
-    ctx.fillRect(x + 9, py + 1, 3, 2);
-    ctx.fillRect(x + 7, py + 1, 2, 1);
-    // Mysterious glow
-    const glowAlpha = 0.15 + Math.sin(time * 3) * 0.1;
-    ctx.fillStyle = `rgba(102, 85, 119, ${glowAlpha})`;
-    ctx.fillRect(x - 1, py - 2, 18, 19);
-}
-
-function drawHiredNPC(ctx, x, y, type, time, idx) {
-    const bob = Math.sin(time * 2.5 + idx * 1.3) * 0.5;
-    const py = Math.round(y + bob);
-    ctx.fillStyle = PAL.shadow;
-    ctx.fillRect(x + 2, y + 14, 12, 3);
-    ctx.fillStyle = PAL.shoes;
-    ctx.fillRect(x + 3, py + 13, 4, 2);
-    ctx.fillRect(x + 9, py + 13, 4, 2);
-    ctx.fillStyle = PAL.pants;
-    ctx.fillRect(x + 3, py + 10, 4, 3);
-    ctx.fillRect(x + 9, py + 10, 4, 3);
-    const color = type === 'dev' ? '#44aa66' : type === 'sales' ? '#aa6644' : '#6688aa';
-    const colorDk = type === 'dev' ? '#338855' : type === 'sales' ? '#885533' : '#557799';
-    ctx.fillStyle = color;
-    ctx.fillRect(x + 2, py + 4, 12, 7);
-    ctx.fillStyle = colorDk;
-    ctx.fillRect(x + 0, py + 5, 2, 5);
-    ctx.fillRect(x + 14, py + 5, 2, 5);
-    ctx.fillStyle = PAL.skinTone;
-    ctx.fillRect(x + 4, py + 0, 8, 5);
-    ctx.fillStyle = type === 'dev' ? '#2a5a2a' : type === 'sales' ? '#5a3a2a' : '#3a4a5a';
-    ctx.fillRect(x + 3, py - 1, 10, 3);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(x + 5, py + 2, 2, 2);
-    ctx.fillRect(x + 9, py + 2, 2, 2);
-    ctx.fillStyle = '#222';
-    ctx.fillRect(x + 6, py + 3, 1, 1);
-    ctx.fillRect(x + 10, py + 3, 1, 1);
-}
-
-// ============================================================
-// TILE RENDERING
-// ============================================================
-function drawTile(ctx, tile, x, y, time) {
-    switch (tile) {
-        case FLOOR:
-            ctx.fillStyle = ((Math.floor(x/T) + Math.floor(y/T)) % 2 === 0) ? PAL.floorA : PAL.floorB;
-            ctx.fillRect(x, y, T, T);
-            break;
-        case WALL_TOP:
-            ctx.fillStyle = PAL.wallTop;
-            ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = PAL.wallFace;
-            ctx.fillRect(x, y + 12, T, 4);
-            break;
-        case WALL_FACE:
-            ctx.fillStyle = PAL.wallFace;
-            ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = PAL.wallTop;
-            ctx.fillRect(x + 2, y + 2, 12, 1);
-            break;
-        case WALL_TRIM_TILE:
-            ctx.fillStyle = PAL.wallFace;
-            ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = PAL.wallTrim;
-            ctx.fillRect(x, y, T, 3);
-            ctx.fillStyle = PAL.wallTop;
-            ctx.fillRect(x, y + 3, T, 2);
-            break;
-        case DESK:
-            ctx.fillStyle = ((Math.floor(x/T) + Math.floor(y/T)) % 2 === 0) ? PAL.floorA : PAL.floorB;
-            ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = PAL.deskLeg;
-            ctx.fillRect(x + 1, y + 12, 2, 4);
-            ctx.fillRect(x + 13, y + 12, 2, 4);
-            ctx.fillStyle = PAL.desk;
-            ctx.fillRect(x, y + 6, T, 6);
-            ctx.fillStyle = PAL.deskTop;
-            ctx.fillRect(x, y + 5, T, 2);
-            // Monitor
-            ctx.fillStyle = PAL.monitor;
-            ctx.fillRect(x + 4, y + 0, 8, 5);
-            const glow = Math.sin(time * 4 + x) > 0.5 ? PAL.monGlowLt : PAL.monGlow;
-            ctx.fillStyle = glow;
-            ctx.fillRect(x + 5, y + 1, 6, 3);
-            break;
-        case CHAIR:
-            ctx.fillStyle = ((Math.floor(x/T) + Math.floor(y/T)) % 2 === 0) ? PAL.floorA : PAL.floorB;
-            ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = PAL.chair;
-            ctx.fillRect(x + 3, y + 2, 10, 3);
-            ctx.fillStyle = PAL.chairSeat;
-            ctx.fillRect(x + 4, y + 5, 8, 6);
-            ctx.fillStyle = PAL.chair;
-            ctx.fillRect(x + 6, y + 11, 4, 4);
-            break;
-        case TERMINAL:
-            ctx.fillStyle = ((Math.floor(x/T) + Math.floor(y/T)) % 2 === 0) ? PAL.floorA : PAL.floorB;
-            ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = PAL.deskLeg;
-            ctx.fillRect(x + 1, y + 12, 2, 4);
-            ctx.fillRect(x + 13, y + 12, 2, 4);
-            ctx.fillStyle = PAL.desk;
-            ctx.fillRect(x, y + 6, T, 6);
-            ctx.fillStyle = PAL.deskTop;
-            ctx.fillRect(x, y + 5, T, 2);
-            ctx.fillStyle = '#111';
-            ctx.fillRect(x + 2, y - 1, 12, 6);
-            const tGlow = Math.sin(time * 3) > 0 ? '#33ff66' : '#22dd55';
-            ctx.fillStyle = tGlow;
-            ctx.fillRect(x + 3, y, 10, 4);
-            // Terminal text lines
-            ctx.fillStyle = '#115522';
-            for (let i = 0; i < 3; i++) ctx.fillRect(x + 4, y + i + 1, 6 - i, 1);
-            break;
-        case PLANT:
-            ctx.fillStyle = ((Math.floor(x/T) + Math.floor(y/T)) % 2 === 0) ? PAL.floorA : PAL.floorB;
-            ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = PAL.potDk;
-            ctx.fillRect(x + 4, y + 10, 8, 6);
-            ctx.fillStyle = PAL.pot;
-            ctx.fillRect(x + 3, y + 9, 10, 2);
-            ctx.fillStyle = PAL.plantDk;
-            ctx.fillRect(x + 6, y + 3, 4, 7);
-            ctx.fillStyle = PAL.plant;
-            ctx.fillRect(x + 3, y + 0, 10, 5);
-            ctx.fillRect(x + 5, y - 1, 6, 2);
-            const sway = Math.sin(time * 1.5 + x) * 1;
-            ctx.fillStyle = PAL.plant;
-            ctx.fillRect(x + 2 + Math.round(sway), y + 1, 3, 3);
-            ctx.fillRect(x + 11 - Math.round(sway), y + 1, 3, 3);
-            break;
-        case COFOUNDER_SPOT:
-            ctx.fillStyle = ((Math.floor(x/T) + Math.floor(y/T)) % 2 === 0) ? PAL.floorA : PAL.floorB;
-            ctx.fillRect(x, y, T, T);
-            break;
-        case DOOR:
-            ctx.fillStyle = PAL.floorA;
-            ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = '#6b4423';
-            ctx.fillRect(x + 2, y, 12, T);
-            ctx.fillStyle = '#8b6443';
-            ctx.fillRect(x + 3, y + 1, 10, 6);
-            ctx.fillRect(x + 3, y + 9, 10, 5);
-            ctx.fillStyle = '#ffd700';
-            ctx.fillRect(x + 11, y + 7, 2, 2);
-            break;
-        case RUG:
-            const rx = Math.floor(x / T), ry = Math.floor(y / T);
-            ctx.fillStyle = ((rx + ry) % 2 === 0) ? PAL.rug : PAL.rugB;
-            ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = PAL.rugB;
-            ctx.fillRect(x + 6, y + 6, 4, 4);
-            break;
-        case WHITEBOARD:
-            ctx.fillStyle = PAL.floorA;
-            ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = PAL.wbBorder;
-            ctx.fillRect(x + 1, y + 1, 14, 12);
-            ctx.fillStyle = PAL.whiteboard;
-            ctx.fillRect(x + 2, y + 2, 12, 10);
-            ctx.fillStyle = '#aa3333';
-            ctx.fillRect(x + 3, y + 4, 8, 1);
-            ctx.fillStyle = '#3333aa';
-            ctx.fillRect(x + 3, y + 6, 6, 1);
-            ctx.fillStyle = '#33aa33';
-            ctx.fillRect(x + 3, y + 8, 9, 1);
-            break;
-        case COFFEE_MACHINE:
-            ctx.fillStyle = ((Math.floor(x/T) + Math.floor(y/T)) % 2 === 0) ? PAL.floorA : PAL.floorB;
-            ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = PAL.coffee;
-            ctx.fillRect(x + 3, y + 2, 10, 12);
-            ctx.fillStyle = '#8b6443';
-            ctx.fillRect(x + 4, y + 3, 8, 4);
-            ctx.fillStyle = PAL.coffeeMug;
-            ctx.fillRect(x + 5, y + 9, 4, 4);
-            ctx.fillStyle = '#96643a';
-            ctx.fillRect(x + 6, y + 9, 2, 2);
-            // Steam
-            const steam = Math.sin(time * 5) > 0;
-            if (steam) {
-                ctx.fillStyle = 'rgba(255,255,255,0.3)';
-                ctx.fillRect(x + 6, y + 6, 1, 2);
-                ctx.fillRect(x + 8, y + 5, 1, 2);
-            }
-            break;
-        case WINDOW_TILE:
-            ctx.fillStyle = PAL.wallTop;
-            ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = PAL.window;
-            ctx.fillRect(x + 2, y + 2, 12, 10);
-            ctx.fillStyle = PAL.windowLt;
-            ctx.fillRect(x + 3, y + 3, 5, 4);
-            const clouds = Math.sin(time * 0.5 + x * 0.3);
-            if (clouds > 0.3) {
-                ctx.fillStyle = 'rgba(255,255,255,0.4)';
-                ctx.fillRect(x + 4 + Math.round(clouds * 3), y + 4, 3, 2);
-            }
-            ctx.fillStyle = PAL.wallFace;
-            ctx.fillRect(x, y + 12, T, 4);
-            break;
-    }
-}
-
-// ============================================================
-// NOTIFICATION SYSTEM
-// ============================================================
-function addNotification(text, color, duration) {
-    GS.notifications.push({ text, color: color || PAL.white, timer: 0, duration: duration || 120 });
-}
-
-// ============================================================
-// PARTICLE SYSTEM
-// ============================================================
-function spawnParticles(x, y, color, count) {
-    for (let i = 0; i < count; i++) {
-        GS.particleEffects.push({
-            x, y, vx: (Math.random() - 0.5) * 2, vy: -Math.random() * 2 - 1,
-            color, life: 30 + Math.random() * 30, maxLife: 60,
-        });
-    }
-}
-
-// ============================================================
-// DIALOG / MENU SYSTEM
-// ============================================================
-function showDialog(lines, callback) {
-    if (typeof lines === 'string') lines = [lines];
-    GS.dialogQueue = lines.slice(1);
-    GS.currentDialog = { text: lines[0], callback: lines.length <= 1 ? callback : null };
+function showDialog(lines, choices) {
+    GS.currentDialog = {
+        lines: lines || [],
+        choices: choices || null,
+        choiceIdx: 0,
+        lineIdx: 0,
+        charIdx: 0,
+        charTimer: 0,
+        done: false,
+    };
     GS.phase = 'dialog';
 }
 
-function showMenu(prompt, options, callback) {
-    GS.menuPrompt = prompt;
-    GS.menuOptions = options;
-    GS.menuCallback = callback;
-    GS.menuIndex = 0;
+function advanceDialog() {
+    const d = GS.currentDialog;
+    if (!d) return;
+    if (d.charIdx < d.lines[d.lineIdx].length) {
+        d.charIdx = d.lines[d.lineIdx].length;
+        return;
+    }
+    if (d.lineIdx < d.lines.length - 1) {
+        d.lineIdx++;
+        d.charIdx = 0;
+        return;
+    }
+    if (d.choices) {
+        d.done = true;
+        return;
+    }
+    closeDialog();
+}
+
+function closeDialog() {
+    GS.currentDialog = null;
+    if (GS.dialogQueue.length > 0) {
+        const next = GS.dialogQueue.shift();
+        showDialog(next.lines, next.choices);
+    } else {
+        GS.phase = 'play';
+    }
+}
+
+// ============================================================
+// MENU SYSTEM
+// ============================================================
+function openMenu(type) {
+    GS.menuType = type;
+    GS.menuIdx = 0;
+    if (type === 'terminal') {
+        GS.menuItems = [
+            { label: 'Code (1 AP) — Build product', action: 'code' },
+            { label: 'Review Metrics', action: 'metrics' },
+            { label: 'Check Email', action: 'email' },
+            { label: 'Cancel', action: 'cancel' },
+        ];
+    } else if (type === 'hire') {
+        const dc = GS.hireCosts.dev, sc = GS.hireCosts.sales, dsc = GS.hireCosts.designer;
+        GS.menuItems = [
+            { label: `Hire Developer ($${dc}K, 2 AP)`, action: 'hire_dev' },
+            { label: `Hire Salesperson ($${sc}K, 2 AP)`, action: 'hire_sales' },
+            { label: `Hire Designer ($${dsc}K, 2 AP)`, action: 'hire_designer' },
+            { label: 'Cancel', action: 'cancel' },
+        ];
+    } else if (type === 'coffee') {
+        GS.menuItems = [
+            { label: 'Drink Coffee (+10 Morale, 0 AP)', action: 'coffee' },
+            { label: 'Team Coffee Run (+5 All Morale, 1 AP)', action: 'team_coffee' },
+            { label: 'Cancel', action: 'cancel' },
+        ];
+    } else if (type === 'whiteboard') {
+        GS.menuItems = [
+            { label: 'Strategy Session (1 AP)', action: 'strategy' },
+            { label: 'View Customer Board', action: 'view_board' },
+            { label: 'Cancel', action: 'cancel' },
+        ];
+    }
     GS.phase = 'menu';
 }
 
-function advanceDialog() {
-    if (GS.dialogQueue.length > 0) {
-        const cb = GS.dialogQueue.length === 1 ? GS.currentDialog.callback : null;
-        GS.currentDialog = { text: GS.dialogQueue.shift(), callback: cb };
-    } else {
-        const cb = GS.currentDialog.callback;
-        GS.currentDialog = null;
-        GS.phase = 'play';
-        if (cb) cb();
-    }
-}
+function executeMenuAction(action) {
+    GS.phase = 'play';
+    GS.menuType = null;
+    if (action === 'cancel') return;
 
-// ============================================================
-// INTERACTION SYSTEM
-// ============================================================
-const HIRE_DESKS = [
-    { gx: 13, gy: 3 }, { gx: 14, gy: 3 }, { gx: 2, gy: 3 },
-    { gx: 2, gy: 12 }, { gx: 3, gy: 12 }, { gx: 13, gy: 12 }, { gx: 14, gy: 12 },
-];
-
-function getFacingTile() {
-    const p = GS.player;
-    const dx = [0, 0, -1, 1][p.dir];
-    const dy = [1, -1, 0, 0][p.dir];
-    return { gx: p.gx + dx, gy: p.gy + dy };
-}
-
-function interact() {
-    if (GS.interactCooldown > 0) return;
-    GS.interactCooldown = 10;
-    const facing = getFacingTile();
-    const tile = getTile(facing.gx, facing.gy);
-
-    // Co-founder interaction
-    if (facing.gx === GS.cofounder.gx && facing.gy === GS.cofounder.gy) {
-        interactCofounder();
-        return;
-    }
-
-    // Hired NPC at desk
-    for (const h of GS.hiredDesks) {
-        if (h.gx === facing.gx && h.gy === facing.gy && h.member) {
-            const m = h.member;
-            const output = m.type === 'dev' ? 'coding features' : m.type === 'sales' ? 'closing deals' : 'interning';
-            showDialog([`${m.name} is busy ${output}.`, `Salary: $${m.salary}/mo`]);
-            return;
-        }
-    }
-
-    switch (tile) {
-        case TERMINAL:
-            interactTerminal();
-            break;
-        case WHITEBOARD:
-            interactWhiteboard();
-            break;
-        case COFFEE_MACHINE:
-            interactCoffee();
-            break;
-        case DOOR:
-            interactDoor();
-            break;
-        case DESK:
-            // Check if it's a hire-able desk
-            const deskIdx = HIRE_DESKS.findIndex(d => d.gx === facing.gx && d.gy === facing.gy);
-            if (deskIdx >= 0 && !GS.hiredDesks.find(h => h.gx === facing.gx && h.gy === facing.gy)) {
-                interactEmptyDesk(facing);
-            } else {
-                showDialog('Just a desk with some clutter.');
-            }
-            break;
-        default:
-            break;
-    }
-}
-
-function interactTerminal() {
-    if (GS.ap <= 0) { showDialog('No action points left. End the day to continue.'); return; }
-    showMenu('Your Terminal', ['Code (+3 Product)', 'Review Metrics', 'End Day', 'Cancel'], (idx) => {
-        if (idx === 0) {
-            GS.ap--;
-            const bonus = GS.teamMorale >= 80 ? 1 : 0;
-            const pts = 3 + bonus;
-            GS.productPoints += pts;
-            spawnParticles(GS.player.gx * T + 8, GS.player.gy * T, PAL.monGlow, 8);
-            addNotification('+' + pts + ' PRODUCT', PAL.positive);
-            checkMilestones();
-            showDialog('You wrote some clean code.' + (bonus ? ' High morale boost!' : ''));
-        } else if (idx === 1) {
-            const next = getNextMilestone(GS.productPoints);
-            const cur = getCurrentMilestone(GS.productPoints);
-            const milestoneStr = cur ? cur.name : 'None';
-            const nextStr = next ? `${next.name} (${next.threshold - GS.productPoints} pts away)` : 'MAX';
+    if (action === 'code') {
+        if (GS.ap < 1) { showDialog(["No AP left! End the day to rest."]); return; }
+        GS.ap--;
+        const devBonus = GS.employees.filter(e => e.type === 'dev').reduce((s, e) => s + e.skill * 0.05, 0);
+        const moraleMultiplier = GS.morale >= 70 ? 1.2 : (GS.morale >= 40 ? 1.0 : 0.7);
+        const pts = Math.ceil((rng(5, 12) + devBonus) * moraleMultiplier);
+        GS.productQuality += pts;
+        showDialog([`Wrote code! Product quality +${pts}`, `Total quality: ${GS.productQuality}`]);
+        checkProductMilestones();
+    } else if (action === 'metrics') {
+        const devs = GS.employees.filter(e => e.type === 'dev').length;
+        const sales = GS.employees.filter(e => e.type === 'sales').length;
+        const designers = GS.employees.filter(e => e.type === 'designer').length;
+        const dailyBurn = (GS.burnRate / 30).toFixed(1);
+        const dailyRev = (GS.customers * GS.revenuePerCustomer / 30).toFixed(1);
+        const acqRate = (sales * 0.4 + (GS.productQuality > 50 ? 0.2 : 0)).toFixed(1);
+        const churn = (GS.churnRate * 100).toFixed(1);
+        const runway = GS.burnRate > GS.revenue ? Math.floor(GS.cash / ((GS.burnRate - GS.revenue) / 30)) : 999;
+        showDialog([
+            `Day ${GS.day} | Cash: $${GS.cash.toFixed(0)}K`,
+            `Customers: ${GS.customers} | Churn: ${churn}%/day`,
+            `Revenue: $${GS.revenue.toFixed(1)}K/mo | Burn: $${GS.burnRate}K/mo`,
+            `Team: ${devs}D ${sales}S ${designers}Ds | Morale: ${GS.morale}`,
+            `Acq Rate: ~${acqRate}/day | Runway: ${runway > 900 ? '∞' : runway + ' days'}`,
+            `Quality: ${GS.productQuality} | ${getNextMilestone(GS.productQuality) ? 'Next: ' + getNextMilestone(GS.productQuality).name + ' (' + getNextMilestone(GS.productQuality).threshold + ')' : 'All milestones reached!'}`,
+        ]);
+    } else if (action === 'email') {
+        const emails = [
+            "Subject: URGENT - Nigerian Prince wants to invest $10M",
+            "Subject: Re: Re: Re: Meeting about the meeting",
+            "Subject: Your free trial of CloudHostPro expires tomorrow",
+            "Subject: LinkedIn: 47 people viewed your profile",
+            "Subject: Recruiter here - have you considered a REAL job?",
+            "Subject: Y Combinator - Application received",
+            "Subject: Customer feedback: 'This changed my life'",
+            "Subject: AWS bill alert: You spent $0.03 this month",
+        ];
+        showDialog([emails[rng(0, emails.length - 1)]]);
+    } else if (action === 'hire_dev') {
+        hireEmployee('dev');
+    } else if (action === 'hire_sales') {
+        hireEmployee('sales');
+    } else if (action === 'hire_designer') {
+        hireEmployee('designer');
+    } else if (action === 'coffee') {
+        GS.morale = Math.min(100, GS.morale + 10);
+        showDialog(["Ahh, fresh coffee! Morale +10"]);
+        addNotification("Coffee boost! +10 morale", PAL.positive);
+    } else if (action === 'team_coffee') {
+        if (GS.ap < 1) { showDialog(["No AP left!"]); return; }
+        GS.ap--;
+        GS.morale = Math.min(100, GS.morale + 5);
+        GS.employees.forEach(e => e.morale = Math.min(100, e.morale + 5));
+        showDialog(["Team coffee run! Everyone's morale up."]);
+    } else if (action === 'strategy') {
+        if (GS.ap < 1) { showDialog(["No AP left!"]); return; }
+        GS.ap--;
+        const designerBonus = GS.employees.filter(e => e.type === 'designer').reduce((s, e) => s + e.skill * 0.03, 0);
+        const boost = Math.ceil(rng(3, 8) + designerBonus);
+        GS.productQuality += boost;
+        GS.morale = Math.min(100, GS.morale + 3);
+        showDialog([`Strategy session! Quality +${boost}, Morale +3`]);
+    } else if (action === 'view_board') {
+        const alive = GS.customerAvatars.filter(a => !a.dying);
+        if (alive.length === 0) {
+            showDialog(["The customer board is empty.", "Hire salespeople and improve your product!"]);
+        } else {
+            const names = alive.slice(0, 6).map(a => a.name).join(', ');
+            const more = alive.length > 6 ? ` +${alive.length - 6} more` : '';
             showDialog([
-                `Day ${GS.day} | Cash: $${GS.cash.toLocaleString()}`,
-                `MRR: $${GS.mrr.toLocaleString()} | Customers: ${GS.customers}`,
-                `Product: ${GS.productPoints} pts | Milestone: ${milestoneStr}`,
-                `Next: ${nextStr} | Morale: ${GS.teamMorale}%`,
-                `Team: ${GS.team.length} members | Burn: $${getMonthlyBurn().toLocaleString()}/mo`,
+                `Customer Board: ${alive.length} active`,
+                names + more,
+                `Churn rate: ${(GS.churnRate * 100).toFixed(1)}%/day`,
             ]);
-        } else if (idx === 2) {
-            endDay();
         }
-    });
-}
-
-function interactWhiteboard() {
-    if (GS.ap <= 0) { showDialog('No action points left.'); return; }
-    showMenu('Whiteboard', ['Plan Features (+2 Product, 1 AP)', 'Team Meeting (+5 Morale, 1 AP)', 'Cancel'], (idx) => {
-        if (idx === 0) {
-            GS.ap--;
-            GS.productPoints += 2;
-            spawnParticles(6 * T + 8, 2 * T, PAL.hudYellow, 6);
-            addNotification('+2 PRODUCT', PAL.positive);
-            checkMilestones();
-            showDialog('Feature roadmap updated!');
-        } else if (idx === 1) {
-            GS.ap--;
-            GS.teamMorale = Math.min(100, GS.teamMorale + 5);
-            addNotification('+5 MORALE', PAL.positive);
-            showDialog('Great team sync! Everyone feels aligned.');
-        }
-    });
-}
-
-function interactCoffee() {
-    if (GS.ap >= GS.maxAp) { showDialog('You\'re already fully caffeinated!'); return; }
-    GS.ap = Math.min(GS.maxAp, GS.ap + 1);
-    spawnParticles(5 * T + 8, 10 * T, '#fff', 5);
-    addNotification('+1 AP', PAL.hudYellow);
-    showDialog('Coffee! You feel energized. +1 AP');
-    GS.coffeeUsedToday = true;
-}
-
-function interactDoor() {
-    showMenu('Office Door', ['Go Networking (-$500, chance of customer)', 'Step Outside (End Day)', 'Stay Inside'], (idx) => {
-        if (idx === 0) {
-            if (GS.cash < 500) { showDialog('Not enough cash for networking.'); return; }
-            if (GS.ap <= 0) { showDialog('No AP left.'); return; }
-            GS.ap--;
-            GS.cash -= 500;
-            const mvp = getCurrentMilestone(GS.productPoints);
-            const chance = mvp ? 0.6 : 0.25;
-            if (Math.random() < chance) {
-                const gained = mvp ? 2 : 1;
-                GS.customers += gained;
-                GS.mrr += gained * 50;
-                addNotification('+' + gained + ' CUSTOMERS', PAL.positive);
-                showDialog(`Great networking! Signed ${gained} new customer${gained>1?'s':''}. ${mvp?'Having an MVP really helped!':''}`);
-            } else {
-                showDialog('Good conversations but no conversions today.');
-            }
-        } else if (idx === 1) {
-            endDay();
-        }
-    });
-}
-
-function interactEmptyDesk(pos) {
-    if (GS.ap <= 0) { showDialog('No AP left to hire today.'); return; }
-    showMenu('Empty Desk - Hire?', ['Developer ($5,000/mo)', 'Salesperson ($4,000/mo)', 'Not yet'], (idx) => {
-        if (idx === 0) {
-            if (GS.cash < 5000) { showDialog('Can\'t afford a developer right now.'); return; }
-            GS.ap--;
-            const dev = { type:'dev', name: randomName(), salary:5000, output:1.0, icon:'dev' };
-            GS.team.push(dev);
-            GS.hiredDesks.push({ gx: pos.gx, gy: pos.gy, member: dev });
-            addNotification('HIRED DEV: ' + dev.name, PAL.positive);
-            spawnParticles(pos.gx * T + 8, pos.gy * T + 8, PAL.positive, 10);
-            showDialog(`Welcome ${dev.name}! They\'ll start coding tomorrow.`);
-        } else if (idx === 1) {
-            if (GS.cash < 4000) { showDialog('Can\'t afford a salesperson right now.'); return; }
-            GS.ap--;
-            const sales = { type:'sales', name: randomName(), salary:4000, output:1.0, icon:'sales' };
-            GS.team.push(sales);
-            GS.hiredDesks.push({ gx: pos.gx, gy: pos.gy, member: sales });
-            addNotification('HIRED SALES: ' + sales.name, PAL.positive);
-            spawnParticles(pos.gx * T + 8, pos.gy * T + 8, PAL.hudYellow, 10);
-            showDialog(`Welcome ${sales.name}! They\'ll start selling tomorrow.`);
-        }
-    });
-}
-
-function interactCofounder() {
-    const msgs = [
-        ['...', 'Your co-founder stares at his laptop intensely.'],
-        ['He adjusts his sunglasses.', '"We should pivot to AI."'],
-        ['"I\'ve been thinking about our strategy."', '"Actually, never mind."'],
-        ['He\'s reading Hacker News.', '"Did you see this thread about us? ...Oh wait, that\'s someone else."'],
-        ['"Trust the process."', 'He goes back to whatever he was doing.'],
-        ['"I had a great meeting today."', 'You have no idea with whom.'],
-        ['He shows you a chart.', 'You can\'t tell if it\'s going up or down.'],
-        ['"Remember: we\'re not just building software."', '"We\'re building... the future."'],
-    ];
-    if (GS.day >= 20 && GS.productPoints >= 60) {
-        showDialog(['"Hey, I need to tell you something."', '"I\'ve been quietly talking to enterprise clients."', '"I think I might have landed us a big deal."', '"Just... keep building. Trust me."']);
-        return;
     }
-    if (GS.day >= 30 && GS.cash < 30000) {
-        showDialog(['"Look, things are tight."', '"But I moved some money around."', '"Don\'t ask how. We\'re going to be fine."', 'Your cash mysteriously increases by $10,000.']);
-        GS.cash += 10000;
-        return;
-    }
-    const pick = msgs[Math.floor(Math.random() * msgs.length)];
-    showDialog(pick);
-}
-
-const DEV_NAMES = ['Alex','Jordan','Sam','Riley','Casey','Quinn','Morgan','Taylor','Drew','Blake','Avery','Reese','Skyler','Jamie','Dakota'];
-const LAST_NAMES = ['K.','L.','M.','R.','S.','T.','W.','B.','C.','D.','F.','G.','H.','J.','N.'];
-function randomName() {
-    return DEV_NAMES[Math.floor(Math.random()*DEV_NAMES.length)] + ' ' + LAST_NAMES[Math.floor(Math.random()*LAST_NAMES.length)];
-}
-
-function getMonthlyBurn() {
-    let burn = 2000; // Base ops
-    for (const m of GS.team) burn += m.salary;
-    return burn;
 }
 
 // ============================================================
-// MILESTONE CHECK
+// CHECK MILESTONES
 // ============================================================
-function checkMilestones() {
+function checkProductMilestones() {
     for (const m of MILESTONES) {
-        if (!m.announced && GS.productPoints >= m.threshold) {
+        if (!m.announced && GS.productQuality >= m.threshold) {
             m.announced = true;
-            GS.milestoneAnnounce = m;
-            GS.phase = 'milestone';
-            spawnParticles(NATIVE_W / 2, NATIVE_H / 2, PAL.hudGold, 25);
-            addNotification('MILESTONE: ' + m.name + '!', PAL.hudGold, 180);
-            return;
+            GS.milestonePopup = m;
+            GS.milestoneTimer = 180;
+            addNotification(`MILESTONE: ${m.name}!`, PAL.goldMile);
+            if (m.name === 'MVP') {
+                GS.dialogQueue.push({ lines: [m.desc, "You can now start acquiring customers!"] });
+            } else {
+                GS.dialogQueue.push({ lines: [m.desc] });
+            }
+        }
+    }
+}
+
+function checkRevenueMilestones() {
+    for (const m of GS.revMilestones) {
+        if (m.announced) continue;
+        let triggered = false;
+        if (m.checkFn) {
+            triggered = m.checkFn(GS);
+        } else if (m.threshold > 0) {
+            triggered = GS.totalRevenue >= m.threshold;
+        }
+        if (triggered) {
+            m.announced = true;
+            GS.milestonePopup = m;
+            GS.milestoneTimer = 180;
+            addNotification(`${m.name}!`, PAL.goldMile);
+            if (m.bonus === 'morale') GS.morale = Math.min(100, GS.morale + 15);
+            if (m.bonus === 'confidence') { GS.morale = Math.min(100, GS.morale + 10); }
+            if (m.bonus === 'growth') { GS.churnRate = Math.max(0.02, GS.churnRate - 0.02); }
+            GS.dialogQueue.push({ lines: [m.desc] });
         }
     }
 }
 
 // ============================================================
-// DAY END LOGIC
+// DAY TICK — runs every ticksPerHour * 10 ticks (end of day)
 // ============================================================
-function endDay() {
-    GS.dayTransitionPhase = 'fadeout';
-    GS.dayTransition = 0;
-    GS.phase = 'dayEnd';
-}
-
 function processDayEnd() {
-    // Team output
-    let devOutput = 0, salesOutput = 0;
-    for (const m of GS.team) {
-        const moraleMod = GS.teamMorale / 100;
-        if (m.type === 'dev' || m.type === 'intern') {
-            devOutput += m.output * moraleMod;
-        } else if (m.type === 'sales') {
-            salesOutput += m.output * moraleMod;
+    GS.day++;
+    GS.hour = 9;
+    GS.ap = GS.apMax;
+
+    // Employee contributions
+    let devProductivity = 0;
+    let salesPower = 0;
+    let designPower = 0;
+    for (const emp of GS.employees) {
+        const mMult = emp.morale >= 60 ? 1.0 : 0.6;
+        if (emp.type === 'dev') devProductivity += emp.skill * 0.1 * mMult;
+        if (emp.type === 'sales') salesPower += emp.skill * 0.01 * mMult;
+        if (emp.type === 'designer') designPower += emp.skill * 0.05 * mMult;
+    }
+
+    // Auto product quality from devs
+    if (devProductivity > 0) {
+        const autoQuality = Math.ceil(devProductivity);
+        GS.productQuality += autoQuality;
+    }
+
+    // Design improves quality
+    if (designPower > 0) {
+        GS.productQuality += Math.ceil(designPower * 0.5);
+    }
+
+    // Customer acquisition
+    const salesCount = GS.employees.filter(e => e.type === 'sales').length;
+    const hasMVP = GS.productQuality >= 30;
+    if (hasMVP) {
+        const acqRate = salesCount * 0.4 + (GS.productQuality > 50 ? 0.2 : 0) + salesPower;
+        GS.customerFrac += acqRate;
+        while (GS.customerFrac >= 1) {
+            GS.customerFrac -= 1;
+            addCustomer(GS);
         }
     }
 
-    // Product growth from devs
-    const devProd = Math.floor(devOutput * 2);
-    GS.productPoints += devProd;
-
-    // Customer acquisition from sales (only if MVP reached)
-    let newCustomers = 0;
-    const hasMVP = GS.productPoints >= MILESTONES[0].threshold;
-    if (hasMVP && salesOutput > 0) {
-        newCustomers = Math.floor(salesOutput * 1.5);
-        if (Math.random() < salesOutput * 0.3) newCustomers++;
+    // Customer churn
+    GS.churnRate = Math.max(0.02, 0.15 - (GS.productQuality * 0.001));
+    if (GS.customers > 0) {
+        GS.churnFrac += GS.customers * GS.churnRate;
+        while (GS.churnFrac >= 1 && GS.customers > 0) {
+            GS.churnFrac -= 1;
+            removeCustomer(GS);
+        }
     }
-    GS.customers += newCustomers;
 
-    // MRR from customers
-    const pricePerCustomer = 50;
-    GS.mrr = GS.customers * pricePerCustomer;
+    // Clean up dead customer avatars
+    GS.customerAvatars = GS.customerAvatars.filter(a => !a.dying || a.deathTimer > 0);
+    GS.customers = GS.customerAvatars.filter(a => !a.dying).length;
+    assignCustomerSlots(GS);
 
-    // Daily cash flow (MRR is monthly, so /30 per day)
-    const dailyRevenue = Math.floor(GS.mrr / 30);
-    const dailyBurn = Math.floor(getMonthlyBurn() / 30);
-    GS.cash += dailyRevenue - dailyBurn;
-    GS.totalRevenue += dailyRevenue;
-    GS.totalSpent += dailyBurn;
+    // Revenue
+    GS.revenue = GS.customers * GS.revenuePerCustomer;
+    const dailyRev = GS.revenue / 30;
+    const dailyBurn = GS.burnRate / 30;
+    GS.cash += dailyRev - dailyBurn;
+    GS.totalRevenue += dailyRev;
 
     // Morale drift
-    if (GS.cash < 20000) GS.teamMorale = Math.max(10, GS.teamMorale - 2);
-    if (GS.cash > 100000 && GS.teamMorale < 70) GS.teamMorale = Math.min(100, GS.teamMorale + 1);
-    // Natural drift toward 60
-    if (GS.teamMorale > 65) GS.teamMorale -= 1;
-    else if (GS.teamMorale < 55) GS.teamMorale += 1;
+    if (GS.cash < 30) GS.morale = Math.max(0, GS.morale - 3);
+    if (GS.customers > 5) GS.morale = Math.min(100, GS.morale + 1);
+    GS.employees.forEach(e => {
+        e.morale += (GS.morale > 60 ? 1 : -1);
+        e.morale = clamp(e.morale, 10, 100);
+    });
 
-    // Churn (small %)
-    if (GS.customers > 5) {
-        const churn = Math.random() < 0.1 ? 1 : 0;
-        GS.customers = Math.max(0, GS.customers - churn);
+    // Random events
+    if (GS.eventCooldown > 0) GS.eventCooldown--;
+    if (GS.eventCooldown <= 0 && Math.random() < 0.25) {
+        const eligible = EVENTS.filter(e => GS.day >= e.minDay && e.id !== GS.lastEvent);
+        if (eligible.length > 0) {
+            const totalWeight = eligible.reduce((s, e) => s + e.weight, 0);
+            let roll = Math.random() * totalWeight;
+            let chosen = eligible[0];
+            for (const ev of eligible) {
+                roll -= ev.weight;
+                if (roll <= 0) { chosen = ev; break; }
+            }
+            chosen.effect(GS);
+            GS.lastEvent = chosen.id;
+            GS.eventCooldown = 3;
+            const typeColor = chosen.type === 'positive' ? PAL.greenCash : (chosen.type === 'negative' ? PAL.redChurn : PAL.hudYellow);
+            addNotification(chosen.title, typeColor);
+            GS.dialogQueue.push({ lines: [chosen.title, chosen.desc] });
+        }
     }
 
-    const summary = {
-        devProd, newCustomers, dailyRevenue, dailyBurn,
-        netCash: dailyRevenue - dailyBurn,
-    };
+    // Check milestones
+    checkProductMilestones();
+    checkRevenueMilestones();
 
-    GS.day++;
-    GS.ap = GS.maxAp;
-    GS.coffeeUsedToday = false;
-
-    // Check game over
+    // Game over check
     if (GS.cash <= 0) {
         GS.phase = 'gameover';
-        GS.gameOverReason = 'ran out of cash';
-        return null;
     }
 
-    // Check endgame paths
-    if (GS.day >= 60) {
-        checkEndgame();
-        if (GS.endgamePath) return null;
+    // Cofounder behavior
+    GS.cofTimer = rng(60, 300);
+    const cofMsgs = [
+        "...", "*typing intensely*", "*sips coffee*", "*stares at spreadsheet*",
+        "*on a mysterious call*", "*adjusts glasses*", "*scribbles on napkin*",
+        "*reading HN*", "*nods thoughtfully*",
+    ];
+    if (GS.day >= 15) {
+        cofMsgs.push("We should talk soon...", "*looks concerned*", "*checks bank account*");
     }
-
-    return summary;
+    GS.cofMsg = cofMsgs[rng(0, cofMsgs.length - 1)];
 }
 
-function checkEndgame() {
-    if (GS.customers >= 100 && GS.mrr >= 5000) {
-        GS.endgamePath = 'ipo';
-        GS.phase = 'gameover';
-        GS.gameOverReason = 'IPO GLORY! Your SaaS unicorn goes public!';
-    } else if (GS.mrr >= 3000 && GS.team.length <= 3) {
-        GS.endgamePath = 'profit';
-        GS.phase = 'gameover';
-        GS.gameOverReason = 'PROFIT MACHINE! Lean team, massive margins!';
-    } else if (GS.productPoints >= 200) {
-        GS.endgamePath = 'rnd';
-        GS.phase = 'gameover';
-        GS.gameOverReason = 'R&D UTOPIA! Your tech is years ahead!';
-    } else if (GS.customers >= 150 && GS.productPoints >= 150) {
-        GS.endgamePath = 'domination';
-        GS.phase = 'gameover';
-        GS.gameOverReason = 'WORLD DOMINATION! You own the market!';
+// ============================================================
+// PIXEL DRAWING HELPERS
+// ============================================================
+function drawPixelRect(x, y, w, h, color) {
+    bctx.fillStyle = color;
+    bctx.fillRect(Math.floor(x), Math.floor(y), w, h);
+}
+
+function drawPixelText(text, x, y, color, size) {
+    bctx.fillStyle = color || PAL.white;
+    bctx.font = (size || 7) + 'px monospace';
+    bctx.fillText(text, Math.floor(x), Math.floor(y));
+}
+
+// ============================================================
+// TILE RENDERER
+// ============================================================
+function drawTile(gx, gy) {
+    const px = gx * T;
+    const py = gy * T;
+    const tile = getTile(gx, gy);
+    const checker = (gx + gy) % 2 === 0;
+
+    switch (tile) {
+        case FLOOR:
+            drawPixelRect(px, py, T, T, checker ? PAL.floorA : PAL.floorB);
+            // subtle floor detail
+            if ((gx * 7 + gy * 13) % 5 === 0) {
+                drawPixelRect(px + 6, py + 6, 2, 2, PAL.floorB);
+            }
+            break;
+        case WALL_TOP:
+            drawPixelRect(px, py, T, T, PAL.wallTop);
+            drawPixelRect(px, py + 14, T, 2, PAL.wallTrim);
+            break;
+        case WALL_FACE:
+            drawPixelRect(px, py, T, T, PAL.wallFace);
+            drawPixelRect(px, py, T, 1, PAL.wallTop);
+            break;
+        case WALL_TRIM_TILE:
+            drawPixelRect(px, py, T, T, PAL.wallTrim);
+            drawPixelRect(px, py, T, 2, '#4a9a5a');
+            drawPixelRect(px, py + 14, T, 2, '#3a7a4a');
+            break;
+        case WINDOW_TILE:
+            drawPixelRect(px, py, T, T, PAL.wallTop);
+            drawPixelRect(px + 2, py + 3, 12, 9, PAL.window);
+            drawPixelRect(px + 3, py + 4, 4, 7, PAL.windowLt);
+            drawPixelRect(px + 9, py + 4, 4, 7, PAL.windowLt);
+            drawPixelRect(px + 7, py + 3, 2, 9, PAL.wallTop);
+            drawPixelRect(px, py + 14, T, 2, PAL.wallTrim);
+            break;
+        case DESK:
+            drawPixelRect(px, py, T, T, checker ? PAL.floorA : PAL.floorB);
+            // desk top
+            drawPixelRect(px, py + 2, T, 10, PAL.desk);
+            drawPixelRect(px + 1, py + 1, T - 2, 3, PAL.deskTop);
+            // legs
+            drawPixelRect(px + 1, py + 12, 2, 3, PAL.deskLeg);
+            drawPixelRect(px + 13, py + 12, 2, 3, PAL.deskLeg);
+            // monitor
+            drawPixelRect(px + 4, py - 2, 8, 6, PAL.monitor);
+            drawPixelRect(px + 5, py - 1, 6, 4, PAL.monGlow);
+            // screen flicker
+            if (Math.random() > 0.95) {
+                drawPixelRect(px + 5, py - 1, 6, 4, PAL.monGlowLt);
+            }
+            break;
+        case CHAIR:
+            drawPixelRect(px, py, T, T, checker ? PAL.floorA : PAL.floorB);
+            drawPixelRect(px + 4, py + 4, 8, 8, PAL.chair);
+            drawPixelRect(px + 5, py + 5, 6, 6, PAL.chairSeat);
+            break;
+        case TERMINAL:
+            drawPixelRect(px, py, T, T, checker ? PAL.floorA : PAL.floorB);
+            // big terminal
+            drawPixelRect(px + 2, py + 2, 12, 10, '#222240');
+            drawPixelRect(px + 3, py + 3, 10, 7, PAL.monGlow);
+            // text lines on screen
+            drawPixelRect(px + 4, py + 4, 6, 1, '#1a1a2e');
+            drawPixelRect(px + 4, py + 6, 8, 1, '#1a1a2e');
+            drawPixelRect(px + 4, py + 8, 4, 1, '#1a1a2e');
+            // cursor blink
+            if (Math.floor(GS.tick / 30) % 2 === 0) {
+                drawPixelRect(px + 9, py + 8, 2, 1, PAL.monGlowLt);
+            }
+            drawPixelRect(px + 5, py + 12, 6, 2, '#333355');
+            break;
+        case PLANT:
+            drawPixelRect(px, py, T, T, checker ? PAL.floorA : PAL.floorB);
+            drawPixelRect(px + 5, py + 9, 6, 6, PAL.pot);
+            drawPixelRect(px + 4, py + 8, 8, 2, PAL.potDk);
+            drawPixelRect(px + 6, py + 2, 4, 7, PAL.plant);
+            drawPixelRect(px + 3, py + 3, 3, 4, PAL.plantDk);
+            drawPixelRect(px + 10, py + 4, 3, 3, PAL.plant);
+            break;
+        case COFOUNDER_SPOT:
+            drawPixelRect(px, py, T, T, checker ? PAL.floorA : PAL.floorB);
+            break;
+        case DOOR:
+            drawPixelRect(px, py, T, T, checker ? PAL.floorA : PAL.floorB);
+            drawPixelRect(px + 3, py, 10, 15, '#5a4a3a');
+            drawPixelRect(px + 4, py + 1, 8, 13, '#7a6a5a');
+            drawPixelRect(px + 10, py + 7, 2, 2, PAL.hudGold);
+            break;
+        case RUG:
+            drawPixelRect(px, py, T, T, PAL.rug);
+            if (checker) drawPixelRect(px + 2, py + 2, T - 4, T - 4, PAL.rugB);
+            break;
+        case WHITEBOARD:
+            drawPixelRect(px, py, T, T, checker ? PAL.floorA : PAL.floorB);
+            drawPixelRect(px, py, T, 14, PAL.wbBorder);
+            drawPixelRect(px + 1, py + 1, T - 2, 12, PAL.whiteboard);
+            break;
+        case COFFEE_MACHINE:
+            drawPixelRect(px, py, T, T, checker ? PAL.floorA : PAL.floorB);
+            drawPixelRect(px + 3, py + 4, 10, 10, '#444466');
+            drawPixelRect(px + 4, py + 5, 8, 4, '#333355');
+            drawPixelRect(px + 5, py + 6, 2, 2, PAL.hudRed);
+            drawPixelRect(px + 6, py + 10, 4, 3, PAL.coffeeMug);
+            // steam
+            if (Math.floor(GS.tick / 20) % 3 !== 0) {
+                drawPixelRect(px + 7, py + 2 + (GS.tick % 3), 1, 2, '#aaaaaa44');
+            }
+            break;
     }
 }
 
 // ============================================================
-// EVENT PRESENTATION
+// SPRITE RENDERERS
 // ============================================================
-function showEvent(event) {
-    GS.currentEvent = event;
-    GS.eventPhase = 'choice';
-    GS.eventResult = '';
-    GS.menuIndex = 0;
-    GS.phase = 'event';
+function drawPlayer(px, py, dir, frame) {
+    const x = Math.floor(px);
+    const y = Math.floor(py);
+    const bobY = Math.abs(Math.sin(frame * 0.3)) * 1;
+
+    // Shadow
+    drawPixelRect(x + 2, y + 13, 10, 3, PAL.shadow);
+
+    // Body
+    const bodyY = y + 3 - bobY;
+    drawPixelRect(x + 3, bodyY + 4, 10, 8, PAL.hoodie);
+    drawPixelRect(x + 4, bodyY + 4, 8, 2, PAL.hoodieDk); // collar
+
+    // Head
+    drawPixelRect(x + 4, bodyY - 1, 8, 6, PAL.skinTone);
+    // Hair
+    drawPixelRect(x + 4, bodyY - 2, 8, 3, PAL.hair);
+
+    // Eyes based on direction
+    if (dir === 0) { // down
+        drawPixelRect(x + 5, bodyY + 2, 2, 2, '#1a1a2e');
+        drawPixelRect(x + 9, bodyY + 2, 2, 2, '#1a1a2e');
+    } else if (dir === 1) { // up
+        drawPixelRect(x + 5, bodyY + 1, 2, 1, PAL.hair);
+        drawPixelRect(x + 9, bodyY + 1, 2, 1, PAL.hair);
+    } else if (dir === 2) { // left
+        drawPixelRect(x + 4, bodyY + 2, 2, 2, '#1a1a2e');
+    } else { // right
+        drawPixelRect(x + 10, bodyY + 2, 2, 2, '#1a1a2e');
+    }
+
+    // Legs
+    const legFrame = Math.floor(frame * 0.3) % 2;
+    drawPixelRect(x + 4, bodyY + 12, 3, 3, PAL.pants);
+    drawPixelRect(x + 9, bodyY + 12, 3, 3, PAL.pants);
+    if (keys['ArrowLeft'] || keys['ArrowRight'] || keys['ArrowUp'] || keys['ArrowDown'] ||
+        keys['a'] || keys['d'] || keys['w'] || keys['s']) {
+        if (legFrame) {
+            drawPixelRect(x + 4, bodyY + 12, 3, 3 + 1, PAL.pants);
+            drawPixelRect(x + 9, bodyY + 12, 3, 3, PAL.pants);
+        } else {
+            drawPixelRect(x + 4, bodyY + 12, 3, 3, PAL.pants);
+            drawPixelRect(x + 9, bodyY + 12, 3, 3 + 1, PAL.pants);
+        }
+    }
+}
+
+function drawCofounder(px, py) {
+    const x = Math.floor(px);
+    const y = Math.floor(py);
+
+    drawPixelRect(x + 2, y + 13, 10, 3, PAL.shadow);
+
+    // Body
+    drawPixelRect(x + 3, y + 4, 10, 8, PAL.cofHoodie);
+    drawPixelRect(x + 4, y + 4, 8, 2, '#554466');
+
+    // Head
+    drawPixelRect(x + 4, y + 0, 8, 6, '#e0b890');
+    drawPixelRect(x + 4, y - 1, 8, 3, '#4a3a2a');
+
+    // Glasses
+    drawPixelRect(x + 4, y + 2, 3, 2, '#333355');
+    drawPixelRect(x + 9, y + 2, 3, 2, '#333355');
+    drawPixelRect(x + 7, y + 2, 2, 1, '#333355');
+
+    // Mystery aura (subtle)
+    if (GS.day >= 20 && Math.floor(GS.tick / 40) % 3 === 0) {
+        drawPixelRect(x + 1, y - 2, 1, 1, '#8855aa44');
+        drawPixelRect(x + 13, y + 1, 1, 1, '#8855aa44');
+    }
+}
+
+function drawEmployeeSprite(emp, px, py) {
+    const x = Math.floor(px);
+    const y = Math.floor(py);
+    const colors = {
+        dev: ['#44aa66', '#339955'],
+        sales: ['#cc8833', '#aa6622'],
+        designer: ['#aa44cc', '#8833aa'],
+    };
+    const [main, dark] = colors[emp.type] || ['#888888', '#666666'];
+
+    drawPixelRect(x + 2, y + 13, 10, 3, PAL.shadow);
+    drawPixelRect(x + 3, y + 4, 10, 8, main);
+    drawPixelRect(x + 4, y + 4, 8, 2, dark);
+    drawPixelRect(x + 4, y + 0, 8, 6, PAL.skinTone);
+    drawPixelRect(x + 4, y - 1, 8, 2, '#5a4a3a');
+    drawPixelRect(x + 5, y + 2, 2, 2, '#1a1a2e');
+    drawPixelRect(x + 9, y + 2, 2, 2, '#1a1a2e');
+    drawPixelRect(x + 4, y + 12, 3, 3, '#2a2a4a');
+    drawPixelRect(x + 9, y + 12, 3, 3, '#2a2a4a');
+}
+
+// ============================================================
+// CUSTOMER BOARD RENDERER
+// ============================================================
+function drawCustomerBoard() {
+    // The whiteboard spans tiles (6,2), (7,2), (8,2)
+    const bx = 6 * T;
+    const by = 2 * T;
+    const bw = 3 * T;
+    const bh = T;
+
+    // Already drawn as whiteboard tiles, but draw customer icons on top
+    // Draw inside the whiteboard area
+    const alive = GS.customerAvatars.filter(a => !a.dying);
+    const dying = GS.customerAvatars.filter(a => a.dying && a.deathTimer > 0);
+
+    // Draw alive customer dots/icons
+    for (let i = 0; i < alive.length && i < MAX_BOARD_SLOTS; i++) {
+        const av = alive[i];
+        const pos = getSlotPos(i);
+        // Tiny 3x3 pixel avatar
+        drawPixelRect(pos.x, pos.y, 4, 4, av.color);
+        drawPixelRect(pos.x + 1, pos.y, 2, 1, av.color === PAL.custBlue ? '#88bbee' : '#ffffff');
+        // Flash on new
+        if (av.flashTimer > 0) {
+            const alpha = av.flashTimer / 30;
+            bctx.globalAlpha = alpha * 0.5;
+            drawPixelRect(pos.x - 1, pos.y - 1, 6, 6, PAL.greenCash);
+            bctx.globalAlpha = 1;
+        }
+    }
+
+    // Draw dying customers with red flash
+    for (const av of dying) {
+        if (av.slot >= 0 && av.slot < MAX_BOARD_SLOTS) {
+            const pos = getSlotPos(av.slot);
+            const flash = Math.floor(av.deathTimer / 5) % 2;
+            if (flash) {
+                drawPixelRect(pos.x - 1, pos.y - 1, 6, 6, PAL.redChurn);
+            }
+        }
+    }
+
+    // Board flashes
+    for (const f of GS.boardFlashes) {
+        if (f.timer > 0) {
+            bctx.globalAlpha = f.timer / 25 * 0.6;
+            drawPixelRect(f.x - 2, f.y - 2, 8, 8, f.color);
+            bctx.globalAlpha = 1;
+        }
+    }
+
+    // Customer count on whiteboard
+    if (alive.length > 0) {
+        drawPixelText(alive.length + '', bx + bw - 8, by + bh - 3, '#555577', 5);
+    }
+}
+
+// ============================================================
+// HUD
+// ============================================================
+function drawHUD() {
+    // Top bar
+    drawPixelRect(0, 0, NATIVE_W, 18, '#0f0f1aDD');
+    drawPixelRect(0, 18, NATIVE_W, 1, PAL.wallTrim);
+
+    // Day & Time
+    const timeStr = `Day ${GS.day}  ${GS.hour}:00`;
+    drawPixelText(timeStr, 4, 8, PAL.hudTxt, 7);
+
+    // Cash
+    const cashColor = GS.cash < 30 ? PAL.hudRed : (GS.cash < 80 ? PAL.hudYellow : PAL.hudGreen);
+    drawPixelText(`$${GS.cash.toFixed(0)}K`, 80, 8, cashColor, 7);
+
+    // Customers
+    const custStr = `Cust:${GS.customers}`;
+    drawPixelText(custStr, 125, 8, GS.customers > 0 ? PAL.greenCash : PAL.neutral, 7);
+
+    // Revenue vs Burn indicator
+    const netDaily = ((GS.revenue - GS.burnRate) / 30).toFixed(1);
+    const netColor = parseFloat(netDaily) >= 0 ? PAL.greenCash : PAL.hudRed;
+    drawPixelText(`${parseFloat(netDaily) >= 0 ? '+' : ''}${netDaily}/d`, 178, 8, netColor, 7);
+
+    // AP pips
+    for (let i = 0; i < GS.apMax; i++) {
+        const apx = 228 + i * 8;
+        drawPixelRect(apx, 4, 6, 8, i < GS.ap ? PAL.apFull : PAL.apEmpty);
+        if (i < GS.ap) {
+            drawPixelRect(apx + 1, 5, 4, 2, '#8efa8e');
+        }
+    }
+
+    // Morale bar
+    drawPixelRect(266, 4, 42, 8, '#333355');
+    const moraleW = Math.floor(40 * GS.morale / 100);
+    const moraleColor = GS.morale >= 60 ? PAL.hudGreen : (GS.morale >= 30 ? PAL.hudYellow : PAL.hudRed);
+    drawPixelRect(267, 5, moraleW, 6, moraleColor);
+    drawPixelText('M', 260, 10, PAL.neutral, 6);
+
+    // Bottom bar - quality & milestone
+    drawPixelRect(0, NATIVE_H - 14, NATIVE_W, 14, '#0f0f1aDD');
+    drawPixelRect(0, NATIVE_H - 14, NATIVE_W, 1, PAL.wallTrim);
+
+    const current = getCurrentMilestone(GS.productQuality);
+    const next = getNextMilestone(GS.productQuality);
+    const mileStr = current ? current.name : 'Pre-MVP';
+    drawPixelText(`Q:${GS.productQuality}`, 4, NATIVE_H - 6, PAL.hudTxt, 6);
+    drawPixelText(mileStr, 42, NATIVE_H - 6, PAL.goldMile, 6);
+
+    if (next) {
+        // Progress bar to next milestone
+        const prev = current ? current.threshold : 0;
+        const progress = (GS.productQuality - prev) / (next.threshold - prev);
+        drawPixelRect(90, NATIVE_H - 10, 60, 6, '#333355');
+        drawPixelRect(91, NATIVE_H - 9, Math.floor(58 * clamp(progress, 0, 1)), 4, PAL.goldMile);
+        drawPixelText(next.name, 155, NATIVE_H - 6, PAL.neutral, 6);
+    }
+
+    // Team count
+    const devs = GS.employees.filter(e => e.type === 'dev').length;
+    const sales = GS.employees.filter(e => e.type === 'sales').length;
+    const designers = GS.employees.filter(e => e.type === 'designer').length;
+    drawPixelText(`Team: ${devs}D ${sales}S ${designers}X`, 210, NATIVE_H - 6, PAL.neutral, 6);
+
+    // Runway warning
+    if (GS.burnRate > GS.revenue && GS.cash > 0) {
+        const runway = Math.floor(GS.cash / ((GS.burnRate - GS.revenue) / 30));
+        if (runway < 30) {
+            const blink = Math.floor(GS.tick / 20) % 2;
+            if (blink) {
+                drawPixelText(`! ${runway}d runway !`, NATIVE_W / 2 - 30, 28, PAL.hudRed, 7);
+            }
+        }
+    }
+}
+
+// ============================================================
+// INTERACTION PROMPTS
+// ============================================================
+function getInteraction() {
+    const pgx = Math.floor((GS.playerX + 7) / T);
+    const pgy = Math.floor((GS.playerY + 8) / T);
+
+    // Check adjacent tiles based on direction
+    const dirOffsets = [[0, 1], [0, -1], [-1, 0], [1, 0]];
+    const [dx, dy] = dirOffsets[GS.playerDir];
+    const tx = pgx + dx;
+    const ty = pgy + dy;
+    const tile = getTile(tx, ty);
+
+    // Also check current tile neighbors
+    const facingTile = tile;
+
+    if (facingTile === TERMINAL) return { type: 'terminal', label: '[Z] Use Terminal' };
+    if (facingTile === DOOR) return { type: 'hire', label: '[Z] Recruitment' };
+    if (facingTile === COFFEE_MACHINE) return { type: 'coffee', label: '[Z] Coffee' };
+    if (facingTile === WHITEBOARD) return { type: 'whiteboard', label: '[Z] Whiteboard' };
+    if (facingTile === COFOUNDER_SPOT) return { type: 'cofounder', label: '[Z] Talk' };
+
+    // Check if near cofounder
+    const cofGx = Math.floor(GS.cofX / T);
+    const cofGy = Math.floor(GS.cofY / T);
+    if (Math.abs(pgx - cofGx) <= 1 && Math.abs(pgy - cofGy) <= 1) {
+        return { type: 'cofounder', label: '[Z] Talk to Co-founder' };
+    }
+
+    return null;
+}
+
+// ============================================================
+// DRAW DIALOG BOX
+// ============================================================
+function drawDialog() {
+    const d = GS.currentDialog;
+    if (!d) return;
+
+    const bx = 16;
+    const by = NATIVE_H - 70;
+    const bw = NATIVE_W - 32;
+    const bh = 54;
+
+    // Box
+    drawPixelRect(bx - 1, by - 1, bw + 2, bh + 2, PAL.dialogBdr);
+    drawPixelRect(bx, by, bw, bh, PAL.dialogBg);
+    drawPixelRect(bx + 1, by + 1, bw - 2, 1, PAL.dialogBdr + '44');
+
+    // Text
+    const line = d.lines[d.lineIdx];
+    const visibleText = line.substring(0, d.charIdx);
+    // Word wrap
+    const maxChars = 38;
+    const words = visibleText.split(' ');
+    let lines = [''];
+    for (const word of words) {
+        if (lines[lines.length - 1].length + word.length + 1 > maxChars) {
+            lines.push(word);
+        } else {
+            lines[lines.length - 1] += (lines[lines.length - 1] ? ' ' : '') + word;
+        }
+    }
+    for (let i = 0; i < lines.length && i < 4; i++) {
+        drawPixelText(lines[i], bx + 8, by + 12 + i * 10, PAL.dialogTxt, 7);
+    }
+
+    // Line indicator
+    if (d.charIdx >= line.length) {
+        const triX = bx + bw - 14;
+        const triY = by + bh - 8 + (Math.floor(GS.tick / 15) % 2);
+        drawPixelRect(triX, triY, 5, 3, PAL.dialogBdr);
+        drawPixelRect(triX + 1, triY + 1, 3, 1, PAL.dialogBdr);
+    }
+
+    // Choices
+    if (d.done && d.choices) {
+        for (let i = 0; i < d.choices.length; i++) {
+            const cy = by + 10 + i * 12;
+            const sel = i === d.choiceIdx;
+            if (sel) drawPixelRect(bx + 4, cy - 2, bw - 8, 11, PAL.wallTrim + '44');
+            drawPixelText((sel ? '> ' : '  ') + d.choices[i].label, bx + 8, cy + 5, sel ? PAL.hudGreen : PAL.dialogTxt, 7);
+        }
+    }
+
+    // Page indicator
+    if (d.lines.length > 1) {
+        drawPixelText(`${d.lineIdx + 1}/${d.lines.length}`, bx + bw - 30, by + 6, PAL.neutral, 5);
+    }
+}
+
+// ============================================================
+// DRAW MENU
+// ============================================================
+function drawMenu() {
+    const bx = 40;
+    const by = 40;
+    const bw = NATIVE_W - 80;
+    const bh = 20 + GS.menuItems.length * 16;
+
+    drawPixelRect(bx - 1, by - 1, bw + 2, bh + 2, PAL.dialogBdr);
+    drawPixelRect(bx, by, bw, bh, PAL.dialogBg);
+
+    const title = GS.menuType === 'terminal' ? 'TERMINAL' :
+                  GS.menuType === 'hire' ? 'RECRUITMENT' :
+                  GS.menuType === 'coffee' ? 'COFFEE MACHINE' :
+                  GS.menuType === 'whiteboard' ? 'WHITEBOARD' : 'MENU';
+    drawPixelText(title, bx + bw / 2 - title.length * 2.5, by + 8, PAL.hudGold, 7);
+
+    for (let i = 0; i < GS.menuItems.length; i++) {
+        const iy = by + 18 + i * 16;
+        const sel = i === GS.menuIdx;
+        if (sel) {
+            drawPixelRect(bx + 4, iy - 1, bw - 8, 14, PAL.wallTrim + '33');
+        }
+        drawPixelText((sel ? '> ' : '  ') + GS.menuItems[i].label, bx + 10, iy + 7, sel ? PAL.hudGreen : PAL.dialogTxt, 7);
+    }
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+function drawNotifications() {
+    let ny = 24;
+    for (let i = GS.notifications.length - 1; i >= 0; i--) {
+        const n = GS.notifications[i];
+        if (n.timer <= 0) continue;
+        const alpha = Math.min(1, n.timer / 30);
+        bctx.globalAlpha = alpha;
+        drawPixelRect(NATIVE_W / 2 - 60, ny, 120, 10, '#0f0f1aCC');
+        drawPixelText(n.text, NATIVE_W / 2 - 56, ny + 7, n.color, 6);
+        bctx.globalAlpha = 1;
+        ny += 12;
+    }
+}
+
+// ============================================================
+// MILESTONE POPUP
+// ============================================================
+function drawMilestonePopup() {
+    if (!GS.milestonePopup || GS.milestoneTimer <= 0) return;
+
+    const alpha = Math.min(1, GS.milestoneTimer / 30);
+    bctx.globalAlpha = alpha;
+
+    const bx = NATIVE_W / 2 - 70;
+    const by = 30;
+    const bw = 140;
+    const bh = 24;
+
+    // Glow effect
+    drawPixelRect(bx - 2, by - 2, bw + 4, bh + 4, PAL.goldMile + '44');
+    drawPixelRect(bx - 1, by - 1, bw + 2, bh + 2, PAL.goldMile);
+    drawPixelRect(bx, by, bw, bh, '#1a1a2eEE');
+
+    const stars = '★ ';
+    drawPixelText(stars + GS.milestonePopup.name + ' ' + stars, bx + 10, by + 10, PAL.goldMile, 8);
+    if (GS.milestonePopup.desc) {
+        drawPixelText(GS.milestonePopup.desc.substring(0, 30), bx + 6, by + 19, PAL.white, 5);
+    }
+
+    bctx.globalAlpha = 1;
+}
+
+// ============================================================
+// TITLE SCREEN
+// ============================================================
+function drawTitleScreen() {
+    bctx.fillStyle = PAL.bgDark;
+    bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
+
+    // Animated background grid
+    for (let x = 0; x < NATIVE_W; x += 16) {
+        for (let y = 0; y < NATIVE_H; y += 16) {
+            const t = GS.tick * 0.02;
+            const d = Math.sin(x * 0.05 + t) * Math.cos(y * 0.05 + t);
+            if (d > 0.3) {
+                drawPixelRect(x, y, 14, 14, '#1a1a3e');
+            }
+        }
+    }
+
+    // Title
+    const ty = 40 + Math.sin(GS.tick * 0.03) * 3;
+    drawPixelText('SaaS STARTUP', NATIVE_W / 2 - 48, ty, PAL.hudGreen, 10);
+    drawPixelText('SIMULATOR', NATIVE_W / 2 - 36, ty + 16, PAL.hudGold, 10);
+
+    // Subtitle
+    drawPixelText('A 16-bit journey in venture capital', NATIVE_W / 2 - 90, ty + 38, PAL.neutral, 6);
+
+    // Version
+    drawPixelText('v0.13', NATIVE_W / 2 - 12, ty + 50, PAL.neutral, 5);
+
+    // Instructions
+    const blink = Math.floor(GS.tick / 30) % 2;
+    if (blink) {
+        drawPixelText('Press ENTER or Z to start', NATIVE_W / 2 - 65, ty + 80, PAL.white, 7);
+    }
+
+    // Controls help
+    drawPixelText('Arrow keys / WASD to move', NATIVE_W / 2 - 65, ty + 100, PAL.neutral, 6);
+    drawPixelText('Z / Enter to interact', NATIVE_W / 2 - 55, ty + 112, PAL.neutral, 6);
+    drawPixelText('X to end day early', NATIVE_W / 2 - 48, ty + 124, PAL.neutral, 6);
+
+    // Pixel art decoration
+    drawPixelRect(30, ty + 70, 8, 8, PAL.monGlow);
+    drawPixelRect(32, ty + 72, 4, 4, '#1a1a2e');
+    drawPixelRect(NATIVE_W - 38, ty + 70, 8, 8, PAL.monGlow);
+    drawPixelRect(NATIVE_W - 36, ty + 72, 4, 4, '#1a1a2e');
+}
+
+// ============================================================
+// GAME OVER SCREEN
+// ============================================================
+function drawGameOver() {
+    bctx.fillStyle = '#0a0a15';
+    bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
+
+    drawPixelText('GAME OVER', NATIVE_W / 2 - 36, 50, PAL.hudRed, 10);
+    drawPixelText('Your startup ran out of cash.', NATIVE_W / 2 - 75, 75, PAL.neutral, 7);
+
+    // Stats
+    drawPixelText(`Survived ${GS.day} days`, NATIVE_W / 2 - 50, 100, PAL.white, 7);
+    drawPixelText(`Peak Customers: ${GS.peakCustomers}`, NATIVE_W / 2 - 55, 115, PAL.white, 7);
+    drawPixelText(`Total Revenue: $${GS.totalRevenue.toFixed(1)}K`, NATIVE_W / 2 - 60, 130, PAL.greenCash, 7);
+    drawPixelText(`Team Size: ${GS.employees.length}`, NATIVE_W / 2 - 40, 145, PAL.white, 7);
+
+    const milestone = getCurrentMilestone(GS.productQuality);
+    if (milestone) {
+        drawPixelText(`Reached: ${milestone.name}`, NATIVE_W / 2 - 45, 160, PAL.goldMile, 7);
+    }
+
+    const blink = Math.floor(GS.tick / 30) % 2;
+    if (blink) {
+        drawPixelText('Press ENTER to try again', NATIVE_W / 2 - 62, 190, PAL.white, 7);
+    }
+}
+
+// ============================================================
+// EMPLOYEE POSITIONS (wandering)
+// ============================================================
+function getEmployeePos(emp, idx) {
+    // Employees hang around desks or wander
+    const spots = [
+        { x: 2 * T, y: 3 * T }, { x: 3 * T, y: 3 * T },
+        { x: 13 * T, y: 3 * T }, { x: 14 * T, y: 3 * T },
+        { x: 2 * T, y: 12 * T }, { x: 3 * T, y: 12 * T },
+        { x: 13 * T, y: 12 * T }, { x: 14 * T, y: 12 * T },
+        { x: 5 * T, y: 7 * T }, { x: 15 * T, y: 7 * T },
+    ];
+    const spot = spots[idx % spots.length];
+    // Gentle wobble
+    const wobbleX = Math.sin(GS.tick * 0.01 + idx * 2) * 2;
+    const wobbleY = Math.cos(GS.tick * 0.015 + idx * 3) * 1;
+    return { x: spot.x + wobbleX, y: spot.y + wobbleY };
+}
+
+// ============================================================
+// INTERACTION PROMPT DRAW
+// ============================================================
+function drawInteractionPrompt() {
+    const inter = getInteraction();
+    if (!inter) return;
+
+    const px = NATIVE_W / 2 - 40;
+    const py = NATIVE_H - 82;
+    drawPixelRect(px - 2, py - 2, 84, 12, PAL.dialogBg + 'CC');
+    drawPixelRect(px - 2, py - 2, 84, 1, PAL.wallTrim);
+    drawPixelText(inter.label, px, py + 5, PAL.hudGreen, 6);
 }
 
 // ============================================================
 // UPDATE
 // ============================================================
-function update(dt) {
-    GS.time += dt;
-    if (GS.interactCooldown > 0) GS.interactCooldown--;
+function update() {
+    GS.tick++;
 
-    // Update notifications
-    for (let i = GS.notifications.length - 1; i >= 0; i--) {
-        GS.notifications[i].timer++;
-        if (GS.notifications[i].timer > GS.notifications[i].duration) {
-            GS.notifications.splice(i, 1);
+    // Update notification timers
+    GS.notifications = GS.notifications.filter(n => { n.timer--; return n.timer > 0; });
+
+    // Update customer flash timers
+    for (const av of GS.customerAvatars) {
+        if (av.flashTimer > 0) av.flashTimer--;
+        if (av.dying && av.deathTimer > 0) av.deathTimer--;
+    }
+    // Clean dead avatars with expired timers
+    const beforeLen = GS.customerAvatars.length;
+    GS.customerAvatars = GS.customerAvatars.filter(a => !a.dying || a.deathTimer > 0);
+    if (GS.customerAvatars.length !== beforeLen) {
+        GS.customers = GS.customerAvatars.filter(a => !a.dying).length;
+        assignCustomerSlots(GS);
+    }
+
+    // Board flashes
+    GS.boardFlashes = GS.boardFlashes.filter(f => { f.timer--; return f.timer > 0; });
+
+    // Milestone popup timer
+    if (GS.milestoneTimer > 0) GS.milestoneTimer--;
+
+    // TITLE SCREEN
+    if (GS.phase === 'title') {
+        if (consumeKey('Enter') || consumeKey('z') || consumeKey('Z')) {
+            GS.phase = 'play';
+            showDialog([
+                "Welcome to your new startup!",
+                "You're a tech co-founder with $200K in angel funding.",
+                "Use the TERMINAL to code, the DOOR to hire,",
+                "the WHITEBOARD for strategy, and COFFEE for morale.",
+                "Survive the burn. Ship the product. Get customers.",
+                "Arrow keys move. Z interacts. X ends the day.",
+            ]);
         }
+        clearJustPressed();
+        return;
     }
 
-    // Update particles
-    for (let i = GS.particleEffects.length - 1; i >= 0; i--) {
-        const p = GS.particleEffects[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vy += 0.05;
-        p.life--;
-        if (p.life <= 0) GS.particleEffects.splice(i, 1);
+    // GAME OVER
+    if (GS.phase === 'gameover') {
+        if (consumeKey('Enter')) {
+            resetGame();
+            GS.phase = 'title';
+        }
+        clearJustPressed();
+        return;
     }
 
-    switch (GS.phase) {
-        case 'title':
-            if (consumeKey('Enter') || consumeKey('z') || consumeKey(' ')) {
-                GS.phase = 'play';
-                showDialog([
-                    'Welcome to SaaS Startup Simulator!',
-                    'You\'re a tech co-founder with $150K in angel funding.',
-                    'Build your product, hire a team, and grow your startup!',
-                    'Use ARROW KEYS to move, Z to interact, X to cancel.',
-                    'Each day you have 3 Action Points. Spend them wisely!',
-                    'Reach milestones: MVP (30pts) > Beta (60) > V1.0 (100) > Scale (150)',
-                    'Good luck! Your mysterious co-founder is already here...',
-                ]);
-            }
-            break;
-
-        case 'play':
-            updatePlayer(dt);
-            if (consumeKey('z') || consumeKey('Enter')) interact();
-            break;
-
-        case 'dialog':
-            if (consumeKey('z') || consumeKey('Enter') || consumeKey(' ')) advanceDialog();
-            break;
-
-        case 'menu':
-            if (consumeKey('ArrowUp')) GS.menuIndex = (GS.menuIndex - 1 + GS.menuOptions.length) % GS.menuOptions.length;
-            if (consumeKey('ArrowDown')) GS.menuIndex = (GS.menuIndex + 1) % GS.menuOptions.length;
-            if (consumeKey('z') || consumeKey('Enter')) {
-                const idx = GS.menuIndex;
-                const cb = GS.menuCallback;
-                GS.phase = 'play';
-                GS.menuCallback = null;
-                if (cb) cb(idx);
-            }
-            if (consumeKey('x') || consumeKey('Escape')) {
-                const opts = GS.menuOptions;
-                const cancelIdx = opts.length - 1; // Last option is usually cancel
-                const cb = GS.menuCallback;
-                GS.phase = 'play';
-                GS.menuCallback = null;
-                if (cb) cb(cancelIdx);
-            }
-            break;
-
-        case 'event':
-            if (GS.eventPhase === 'choice') {
-                if (consumeKey('ArrowUp') || consumeKey('ArrowDown')) {
-                    GS.menuIndex = GS.menuIndex === 0 ? 1 : 0;
-                }
-                if (consumeKey('z') || consumeKey('Enter')) {
-                    const ev = GS.currentEvent;
-                    const result = GS.menuIndex === 0 ? ev.effectA(GS) : ev.effectB(GS);
-                    GS.eventResult = result;
-                    GS.eventPhase = 'result';
-                    checkMilestones();
-                }
-            } else if (GS.eventPhase === 'result') {
-                if (consumeKey('z') || consumeKey('Enter') || consumeKey(' ')) {
-                    GS.currentEvent = null;
-                    GS.phase = 'play';
+    // DIALOG
+    if (GS.phase === 'dialog') {
+        const d = GS.currentDialog;
+        if (d) {
+            // Auto-type
+            if (d.charIdx < d.lines[d.lineIdx].length) {
+                d.charTimer++;
+                if (d.charTimer >= 2) {
+                    d.charTimer = 0;
+                    d.charIdx++;
                 }
             }
-            break;
 
-        case 'milestone':
-            if (consumeKey('z') || consumeKey('Enter') || consumeKey(' ')) {
-                GS.milestoneAnnounce = null;
-                GS.phase = 'play';
-            }
-            break;
-
-        case 'dayEnd':
-            GS.dayTransition += dt * 2;
-            if (GS.dayTransitionPhase === 'fadeout' && GS.dayTransition >= 1) {
-                const summary = processDayEnd();
-                if (GS.phase === 'gameover') return;
-                GS.dayEndSummary = summary;
-                GS.dayTransitionPhase = 'summary';
-                GS.dayTransition = 0;
-                // Roll for random event
-                const event = rollEvent(GS);
-                if (event) {
-                    GS.pendingEvent = event;
+            if (consumeKey('z') || consumeKey('Z') || consumeKey('Enter') || consumeKey(' ')) {
+                if (d.done && d.choices) {
+                    d.choices[d.choiceIdx].action();
+                    closeDialog();
+                } else {
+                    advanceDialog();
                 }
             }
-            if (GS.dayTransitionPhase === 'summary') {
-                if (consumeKey('z') || consumeKey('Enter') || consumeKey(' ')) {
-                    if (GS.pendingEvent) {
-                        const ev = GS.pendingEvent;
-                        GS.pendingEvent = null;
-                        showEvent(ev);
-                    } else {
-                        GS.dayTransitionPhase = 'fadein';
-                        GS.dayTransition = 0;
+            if (d && d.done && d.choices) {
+                if (consumeKey('ArrowUp') || consumeKey('w')) d.choiceIdx = Math.max(0, d.choiceIdx - 1);
+                if (consumeKey('ArrowDown') || consumeKey('s')) d.choiceIdx = Math.min(d.choices.length - 1, d.choiceIdx + 1);
+            }
+        }
+        clearJustPressed();
+        return;
+    }
+
+    // MENU
+    if (GS.phase === 'menu') {
+        if (consumeKey('ArrowUp') || consumeKey('w')) GS.menuIdx = Math.max(0, GS.menuIdx - 1);
+        if (consumeKey('ArrowDown') || consumeKey('s')) GS.menuIdx = Math.min(GS.menuItems.length - 1, GS.menuIdx + 1);
+        if (consumeKey('z') || consumeKey('Z') || consumeKey('Enter')) {
+            executeMenuAction(GS.menuItems[GS.menuIdx].action);
+        }
+        if (consumeKey('x') || consumeKey('X') || consumeKey('Escape')) {
+            GS.phase = 'play';
+            GS.menuType = null;
+        }
+        clearJustPressed();
+        return;
+    }
+
+    // PLAY STATE
+    if (GS.phase === 'play') {
+        // Player movement
+        let dx = 0, dy = 0;
+        const speed = 1.5;
+        if (keys['ArrowLeft'] || keys['a']) { dx = -speed; GS.playerDir = 2; }
+        if (keys['ArrowRight'] || keys['d']) { dx = speed; GS.playerDir = 3; }
+        if (keys['ArrowUp'] || keys['w']) { dy = -speed; GS.playerDir = 1; }
+        if (keys['ArrowDown'] || keys['s']) { dy = speed; GS.playerDir = 0; }
+
+        if (dx !== 0 || dy !== 0) {
+            GS.playerFrameTimer++;
+            if (GS.playerFrameTimer >= 8) { GS.playerFrameTimer = 0; GS.playerFrame++; }
+
+            // Collision check
+            const newX = GS.playerX + dx;
+            const newY = GS.playerY + dy;
+            const px = 3, pw = 10, py = 8, ph = 7; // collision box offsets
+
+            // Check X movement
+            const testGx1 = Math.floor((newX + px) / T);
+            const testGx2 = Math.floor((newX + px + pw - 1) / T);
+            const testGy1 = Math.floor((GS.playerY + py) / T);
+            const testGy2 = Math.floor((GS.playerY + py + ph - 1) / T);
+            let canMoveX = true;
+            for (let gx = testGx1; gx <= testGx2; gx++) {
+                for (let gy = testGy1; gy <= testGy2; gy++) {
+                    if (isSolid(gx, gy)) canMoveX = false;
+                }
+            }
+            if (canMoveX) GS.playerX = newX;
+
+            // Check Y movement
+            const testGx3 = Math.floor((GS.playerX + px) / T);
+            const testGx4 = Math.floor((GS.playerX + px + pw - 1) / T);
+            const testGy3 = Math.floor((newY + py) / T);
+            const testGy4 = Math.floor((newY + py + ph - 1) / T);
+            let canMoveY = true;
+            for (let gx = testGx3; gx <= testGx4; gx++) {
+                for (let gy = testGy3; gy <= testGy4; gy++) {
+                    if (isSolid(gx, gy)) canMoveY = false;
+                }
+            }
+            if (canMoveY) GS.playerY = newY;
+
+            // Clamp to map
+            GS.playerX = clamp(GS.playerX, T, (MAP_W - 2) * T);
+            GS.playerY = clamp(GS.playerY, T * 1.5, (MAP_H - 2) * T);
+        }
+
+        // Interaction
+        if (consumeKey('z') || consumeKey('Z') || consumeKey('Enter')) {
+            const inter = getInteraction();
+            if (inter) {
+                if (inter.type === 'cofounder') {
+                    const msgs = [
+                        ["*adjusts glasses*", "I'm working on something big. You'll see."],
+                        ["Metrics look interesting today...", "*goes back to typing*"],
+                        ["Have you checked our burn rate?", "Just... keep an eye on it."],
+                        ["*mysterious smile*", "Everything is going according to plan."],
+                        ["I sent some emails. Important ones.", "You'll thank me later."],
+                        ["*stares at screen*", "The patterns... they're emerging."],
+                    ];
+                    if (GS.day >= 20) {
+                        msgs.push(
+                            ["We should discuss equity splits soon...", "Not now. But soon."],
+                            ["I've been talking to some... people.", "Investor types. Don't worry about it."],
+                        );
                     }
+                    showDialog(msgs[rng(0, msgs.length - 1)]);
+                } else {
+                    openMenu(inter.type);
                 }
             }
-            if (GS.dayTransitionPhase === 'fadein' && GS.dayTransition >= 0.5) {
-                GS.phase = 'play';
-                GS.dayTransitionPhase = '';
-                checkMilestones();
-            }
-            break;
-
-        case 'gameover':
-            if (consumeKey('z') || consumeKey('Enter') || consumeKey(' ')) {
-                resetGame();
-            }
-            break;
-    }
-
-    // Clear justPressed
-    for (const k in justPressed) justPressed[k] = false;
-}
-
-function updatePlayer(dt) {
-    const p = GS.player;
-    let dx = 0, dy = 0;
-    if (keys['ArrowLeft'] || keys['a']) { dx = -1; p.dir = 2; }
-    if (keys['ArrowRight'] || keys['d']) { dx = 1; p.dir = 3; }
-    if (keys['ArrowUp'] || keys['w']) { dy = -1; p.dir = 1; }
-    if (keys['ArrowDown'] || keys['s']) { dy = 1; p.dir = 0; }
-
-    p.moving = dx !== 0 || dy !== 0;
-    if (p.moving) {
-        p.animTimer += dt;
-        if (p.animTimer > 0.15) {
-            p.animFrame = (p.animFrame + 1) % 4;
-            p.animTimer = 0;
         }
+
+        // End day early
+        if (consumeKey('x') || consumeKey('X')) {
+            processDayEnd();
+        }
+
+        // Time progression
+        GS.tick++;
+        if (GS.tick % GS.ticksPerHour === 0) {
+            GS.hour++;
+            if (GS.hour >= 19) { // End of day at 7 PM
+                processDayEnd();
+            }
+        }
+
+        // Cofounder timer
+        if (GS.cofTimer > 0) GS.cofTimer--;
     }
 
-    if (dx !== 0 && !isSolid(p.gx + dx, p.gy) && !isOccupied(p.gx + dx, p.gy)) {
-        p.moveTimer = (p.moveTimer || 0) + dt;
-        if (p.moveTimer > 0.12) { p.gx += dx; p.moveTimer = 0; }
-    } else if (dy !== 0 && !isSolid(p.gx, p.gy + dy) && !isOccupied(p.gx, p.gy + dy)) {
-        p.moveTimer = (p.moveTimer || 0) + dt;
-        if (p.moveTimer > 0.12) { p.gy += dy; p.moveTimer = 0; }
-    } else {
-        p.moveTimer = 0;
-    }
-}
-
-function isOccupied(gx, gy) {
-    if (gx === GS.cofounder.gx && gy === GS.cofounder.gy) return true;
-    for (const h of GS.hiredDesks) {
-        if (h.gx === gx && h.gy === gy) return false; // NPCs are AT desks, not blocking floor
-    }
-    return false;
-}
-
-function resetGame() {
-    GS.day = 1; GS.cash = 150000; GS.mrr = 0; GS.ap = 3; GS.maxAp = 3;
-    GS.productPoints = 0; GS.customers = 0; GS.teamMorale = 70;
-    GS.team = []; GS.phase = 'title'; GS.dialogQueue = []; GS.currentDialog = null;
-    GS.menuOptions = []; GS.menuCallback = null; GS.menuIndex = 0;
-    GS.currentEvent = null; GS.pendingEvent = null; GS.milestoneAnnounce = null;
-    GS.player = { gx:9, gy:7, dir:0, animFrame:0, animTimer:0, moving:false };
-    GS.cofounder = { gx:14, gy:10, dir:2, animFrame:0, animTimer:0, bobTimer:0 };
-    GS.hiredDesks = []; GS.dayEndSummary = null; GS.interactCooldown = 0;
-    GS.dayTransition = 0; GS.dayTransitionPhase = '';
-    GS.notifications = []; GS.particleEffects = [];
-    GS.endgamePath = null; GS.gameOverReason = '';
-    GS.totalRevenue = 0; GS.totalSpent = 0; GS.coffeeUsedToday = false;
-    for (const m of MILESTONES) m.announced = false;
+    clearJustPressed();
 }
 
 // ============================================================
@@ -1266,441 +1542,98 @@ function render() {
     bctx.fillStyle = PAL.bgDark;
     bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
 
-    switch (GS.phase) {
-        case 'title':
-            renderTitle();
-            break;
-        case 'gameover':
-            renderGameOver();
-            break;
-        default:
-            renderGame();
-            break;
+    if (GS.phase === 'title') {
+        drawTitleScreen();
+        ctx.drawImage(buf, 0, 0, NATIVE_W, NATIVE_H, 0, 0, NATIVE_W * SCALE, NATIVE_H * SCALE);
+        return;
     }
 
-    // Scale up
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(buf, 0, 0, NATIVE_W, NATIVE_H, 0, 0, NATIVE_W * SCALE, NATIVE_H * SCALE);
-}
-
-function renderTitle() {
-    // Animated background
-    const t = GS.time;
-    for (let i = 0; i < 40; i++) {
-        const sx = (i * 37 + t * 10) % NATIVE_W;
-        const sy = (i * 23 + Math.sin(t + i) * 5) % NATIVE_H;
-        bctx.fillStyle = `rgba(88, 184, 104, ${0.1 + Math.sin(t + i) * 0.05})`;
-        bctx.fillRect(sx, sy, 2, 2);
+    if (GS.phase === 'gameover') {
+        drawGameOver();
+        ctx.drawImage(buf, 0, 0, NATIVE_W, NATIVE_H, 0, 0, NATIVE_W * SCALE, NATIVE_H * SCALE);
+        return;
     }
 
-    // Title
-    const titleY = 40 + Math.sin(t * 1.5) * 3;
-    drawTextCentered(bctx, 'SAAS STARTUP', NATIVE_W / 2, titleY, PAL.hudGreen, 2);
-    drawTextCentered(bctx, 'SIMULATOR', NATIVE_W / 2, titleY + 20, PAL.white, 2);
-
-    // Subtitle
-    drawTextCentered(bctx, 'A 16-BIT ADVENTURE IN TECH', NATIVE_W / 2, 90, PAL.neutral);
-
-    // Blinking prompt
-    if (Math.sin(t * 3) > 0) {
-        drawTextCentered(bctx, 'PRESS Z OR ENTER TO START', NATIVE_W / 2, 140, PAL.hudYellow);
-    }
-
-    // Version
-    drawTextCentered(bctx, 'ROUND 12', NATIVE_W / 2, 170, PAL.neutral);
-
-    // Credits
-    drawTextCentered(bctx, 'GTM STUDIO', NATIVE_W / 2, 195, '#665577');
-}
-
-function renderGame() {
-    const t = GS.time;
-
-    // Draw tile map
+    // Draw map
     for (let gy = 0; gy < MAP_H; gy++) {
         for (let gx = 0; gx < MAP_W; gx++) {
-            drawTile(bctx, map[gy][gx], gx * T, gy * T, t);
+            drawTile(gx, gy);
         }
     }
 
-    // Draw hired NPCs at desks (draw them above their desk chair)
-    for (let i = 0; i < GS.hiredDesks.length; i++) {
-        const h = GS.hiredDesks[i];
-        if (h.member) {
-            drawHiredNPC(bctx, h.gx * T, (h.gy) * T - 2, h.member.type, t, i);
-        }
+    // Draw customer board on whiteboard
+    drawCustomerBoard();
+
+    // Draw employees (sorted by Y for depth)
+    const sprites = [];
+
+    // Add employees
+    for (let i = 0; i < GS.employees.length; i++) {
+        const pos = getEmployeePos(GS.employees[i], i);
+        sprites.push({ type: 'emp', emp: GS.employees[i], x: pos.x, y: pos.y, sortY: pos.y + 16 });
     }
 
-    // Draw co-founder
-    drawCofounder(bctx, GS.cofounder.gx * T, GS.cofounder.gy * T - 4, t);
+    // Add cofounder
+    sprites.push({ type: 'cof', x: GS.cofX, y: GS.cofY, sortY: GS.cofY + 16 });
 
-    // Draw player
-    drawPlayer(bctx, GS.player.gx * T, GS.player.gy * T - 4, GS.player.dir, GS.player.animFrame, GS.player.moving ? t : 0);
+    // Add player
+    sprites.push({ type: 'player', x: GS.playerX, y: GS.playerY, sortY: GS.playerY + 16 });
 
-    // Interaction indicator
-    if (GS.phase === 'play') {
-        const facing = getFacingTile();
-        const ft = getTile(facing.gx, facing.gy);
-        const isInteractable = ft === TERMINAL || ft === WHITEBOARD || ft === COFFEE_MACHINE || ft === DOOR ||
-            (ft === DESK && HIRE_DESKS.some(d => d.gx === facing.gx && d.gy === facing.gy)) ||
-            (facing.gx === GS.cofounder.gx && facing.gy === GS.cofounder.gy) ||
-            GS.hiredDesks.some(h => h.gx === facing.gx && h.gy === facing.gy);
-        if (isInteractable) {
-            const blink = Math.sin(t * 6) > 0;
-            if (blink) {
-                bctx.fillStyle = PAL.hudYellow;
-                bctx.fillRect(facing.gx * T + 6, facing.gy * T - 4, 5, 5);
-                drawText(bctx, 'Z', facing.gx * T + 6, facing.gy * T - 3, PAL.bgDark);
+    // Sort by Y
+    sprites.sort((a, b) => a.sortY - b.sortY);
+
+    for (const s of sprites) {
+        if (s.type === 'player') {
+            drawPlayer(s.x, s.y, GS.playerDir, GS.playerFrame);
+        } else if (s.type === 'cof') {
+            drawCofounder(s.x, s.y);
+            // Draw cofounder status
+            if (GS.cofMsg && GS.cofTimer > 0) {
+                const textW = GS.cofMsg.length * 4;
+                drawPixelRect(s.x - textW / 2 + 7, s.y - 10, textW + 4, 8, '#0f0f1aCC');
+                drawPixelText(GS.cofMsg, s.x - textW / 2 + 9, s.y - 4, PAL.neutral, 5);
             }
+        } else if (s.type === 'emp') {
+            drawEmployeeSprite(s.emp, s.x, s.y);
+            // Name tag
+            const nameW = s.emp.name.length * 4;
+            drawPixelRect(s.x + 7 - nameW / 2, s.y - 6, nameW + 2, 6, '#0f0f1aAA');
+            drawPixelText(s.emp.name, s.x + 8 - nameW / 2, s.y - 2, PAL.white, 5);
         }
     }
 
-    // Particles
-    for (const p of GS.particleEffects) {
-        const alpha = p.life / p.maxLife;
-        bctx.globalAlpha = alpha;
-        bctx.fillStyle = p.color;
-        bctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2);
-    }
-    bctx.globalAlpha = 1;
+    // Interaction prompt
+    if (GS.phase === 'play') drawInteractionPrompt();
 
     // HUD
-    renderHUD();
-
-    // Dialog overlay
-    if (GS.phase === 'dialog' && GS.currentDialog) renderDialog();
-    if (GS.phase === 'menu') renderMenu();
-    if (GS.phase === 'event') renderEvent();
-    if (GS.phase === 'milestone') renderMilestone();
-
-    // Day transition overlay
-    if (GS.phase === 'dayEnd') renderDayEnd();
+    drawHUD();
 
     // Notifications
-    renderNotifications();
-}
+    drawNotifications();
 
-function renderHUD() {
-    const hudH = 24;
-    bctx.fillStyle = PAL.hudBg;
-    bctx.fillRect(0, 0, NATIVE_W, hudH);
-    bctx.fillStyle = PAL.hudGreen;
-    bctx.fillRect(0, hudH, NATIVE_W, 1);
+    // Milestone popup
+    drawMilestonePopup();
 
-    // Day
-    drawText(bctx, 'DAY ' + GS.day, 4, 3, PAL.hudYellow);
+    // Dialog
+    if (GS.phase === 'dialog') drawDialog();
 
-    // Cash
-    const cashColor = GS.cash < 20000 ? PAL.hudRed : GS.cash < 50000 ? PAL.hudYellow : PAL.hudGreen;
-    drawText(bctx, '$' + GS.cash.toLocaleString(), 54, 3, cashColor);
+    // Menu
+    if (GS.phase === 'menu') drawMenu();
 
-    // MRR
-    drawText(bctx, 'MRR:$' + GS.mrr.toLocaleString(), 130, 3, PAL.hudTxt);
-
-    // Customers
-    drawText(bctx, 'CUS:' + GS.customers, 220, 3, PAL.hudTxt);
-
-    // Product points & milestone
-    const next = getNextMilestone(GS.productPoints);
-    const cur = getCurrentMilestone(GS.productPoints);
-    const mileName = cur ? cur.name : '---';
-    drawText(bctx, 'PRD:' + GS.productPoints, 270, 3, PAL.positive);
-
-    // AP row
-    drawText(bctx, 'AP', 4, 14, PAL.hudTxt);
-    for (let i = 0; i < GS.maxAp; i++) {
-        bctx.fillStyle = i < GS.ap ? PAL.apFull : PAL.apEmpty;
-        bctx.fillRect(18 + i * 8, 14, 6, 6);
-    }
-
-    // Team count
-    drawText(bctx, 'TEAM:' + GS.team.length, 54, 14, PAL.hudTxt);
-
-    // Morale
-    const moraleColor = GS.teamMorale >= 70 ? PAL.hudGreen : GS.teamMorale >= 40 ? PAL.hudYellow : PAL.hudRed;
-    drawText(bctx, 'MOR:' + GS.teamMorale + '%', 110, 14, moraleColor);
-
-    // Milestone
-    drawText(bctx, mileName, 175, 14, PAL.hudGold);
-
-    // Next milestone progress bar
-    if (next) {
-        const prev = cur ? cur.threshold : 0;
-        const progress = (GS.productPoints - prev) / (next.threshold - prev);
-        const barX = 210, barY = 15, barW = 50, barH = 4;
-        bctx.fillStyle = PAL.apEmpty;
-        bctx.fillRect(barX, barY, barW, barH);
-        bctx.fillStyle = PAL.hudGold;
-        bctx.fillRect(barX, barY, Math.floor(barW * Math.min(1, progress)), barH);
-        drawText(bctx, next.name, barX + barW + 3, 14, PAL.neutral);
-    }
-}
-
-function renderDialog() {
-    const dw = 280, dh = 48;
-    const dx = (NATIVE_W - dw) / 2, dy = NATIVE_H - dh - 8;
-    // BG
-    bctx.fillStyle = PAL.dialogBg;
-    bctx.fillRect(dx, dy, dw, dh);
-    // Border
-    bctx.strokeStyle = PAL.dialogBdr;
-    bctx.lineWidth = 1;
-    bctx.strokeRect(dx + 0.5, dy + 0.5, dw - 1, dh - 1);
-    // Text
-    const lines = wordWrap(GS.currentDialog.text, dw - 16);
-    for (let i = 0; i < lines.length && i < 4; i++) {
-        drawText(bctx, lines[i], dx + 8, dy + 8 + i * 10, PAL.dialogTxt);
-    }
-    // Continue indicator
-    if (Math.sin(GS.time * 4) > 0) {
-        drawText(bctx, '>', dx + dw - 14, dy + dh - 12, PAL.hudGreen);
-    }
-}
-
-function renderMenu() {
-    const dw = 220, dh = 16 + GS.menuOptions.length * 12 + (GS.menuPrompt ? 12 : 0);
-    const dx = (NATIVE_W - dw) / 2, dy = NATIVE_H - dh - 16;
-    bctx.fillStyle = PAL.dialogBg;
-    bctx.fillRect(dx, dy, dw, dh);
-    bctx.strokeStyle = PAL.dialogBdr;
-    bctx.lineWidth = 1;
-    bctx.strokeRect(dx + 0.5, dy + 0.5, dw - 1, dh - 1);
-
-    let cy = dy + 6;
-    if (GS.menuPrompt) {
-        drawText(bctx, GS.menuPrompt, dx + 8, cy, PAL.hudYellow);
-        cy += 14;
-    }
-    for (let i = 0; i < GS.menuOptions.length; i++) {
-        const selected = i === GS.menuIndex;
-        if (selected) {
-            bctx.fillStyle = PAL.hudGreen;
-            bctx.fillRect(dx + 6, cy + 1, 4, 4);
-        }
-        drawText(bctx, GS.menuOptions[i], dx + 14, cy, selected ? PAL.white : PAL.neutral);
-        cy += 12;
-    }
-}
-
-function renderEvent() {
-    const ev = GS.currentEvent;
-    if (!ev) return;
-
-    // Full screen overlay
-    bctx.fillStyle = 'rgba(26, 26, 46, 0.85)';
-    bctx.fillRect(0, 25, NATIVE_W, NATIVE_H - 25);
-
-    // Event card
-    const cw = 280, ch = 140;
-    const cx = (NATIVE_W - cw) / 2, cy = 40;
-
-    // Card bg
-    bctx.fillStyle = PAL.dialogBg;
-    bctx.fillRect(cx, cy, cw, ch);
-
-    // Border color based on type
-    const borderColor = ev.type === 'positive' ? PAL.positive : ev.type === 'negative' ? PAL.accent : PAL.neutral;
-    bctx.strokeStyle = borderColor;
-    bctx.lineWidth = 2;
-    bctx.strokeRect(cx, cy, cw, ch);
-
-    // Title banner
-    bctx.fillStyle = borderColor;
-    bctx.fillRect(cx, cy, cw, 14);
-    drawTextCentered(bctx, ev.title, NATIVE_W / 2, cy + 3, PAL.bgDark);
-
-    if (GS.eventPhase === 'choice') {
-        // Description
-        const descLines = wordWrap(ev.desc, cw - 20);
-        for (let i = 0; i < descLines.length; i++) {
-            drawText(bctx, descLines[i], cx + 10, cy + 22 + i * 10, PAL.dialogTxt);
-        }
-
-        // Choices
-        const choiceY = cy + 60;
-        const choices = [ev.choiceA, ev.choiceB];
-        for (let i = 0; i < 2; i++) {
-            const sel = i === GS.menuIndex;
-            const ly = choiceY + i * 30;
-            if (sel) {
-                bctx.fillStyle = 'rgba(88, 184, 104, 0.15)';
-                bctx.fillRect(cx + 5, ly - 2, cw - 10, 24);
-                bctx.fillStyle = PAL.hudGreen;
-                bctx.fillRect(cx + 8, ly + 4, 4, 4);
-            }
-            const choiceLines = wordWrap(choices[i], cw - 30);
-            for (let j = 0; j < choiceLines.length; j++) {
-                drawText(bctx, choiceLines[j], cx + 16, ly + j * 10, sel ? PAL.white : PAL.neutral);
-            }
-        }
-    } else {
-        // Result
-        const resultLines = wordWrap(GS.eventResult, cw - 20);
-        for (let i = 0; i < resultLines.length; i++) {
-            drawText(bctx, resultLines[i], cx + 10, cy + 30 + i * 12, PAL.dialogTxt);
-        }
-
-        // Cash display
-        drawText(bctx, 'CASH: $' + GS.cash.toLocaleString(), cx + 10, cy + 80, GS.cash < 20000 ? PAL.hudRed : PAL.hudGreen);
-        drawText(bctx, 'PRODUCT: ' + GS.productPoints + ' PTS', cx + 10, cy + 92, PAL.positive);
-
-        if (Math.sin(GS.time * 4) > 0) {
-            drawTextCentered(bctx, 'PRESS Z TO CONTINUE', NATIVE_W / 2, cy + ch - 14, PAL.hudYellow);
-        }
-    }
-}
-
-function renderMilestone() {
-    const m = GS.milestoneAnnounce;
-    if (!m) return;
-
-    // Full overlay
-    bctx.fillStyle = 'rgba(26, 26, 46, 0.9)';
-    bctx.fillRect(0, 25, NATIVE_W, NATIVE_H - 25);
-
-    // Sparkle banner
-    const bannerY = 60;
-    bctx.fillStyle = PAL.hudGold;
-    bctx.fillRect(20, bannerY, NATIVE_W - 40, 3);
-    bctx.fillRect(20, bannerY + 70, NATIVE_W - 40, 3);
-
-    // Title
-    drawTextCentered(bctx, 'MILESTONE REACHED!', NATIVE_W / 2, bannerY + 14, PAL.hudGold, 2);
-    drawTextCentered(bctx, m.name, NATIVE_W / 2, bannerY + 36, PAL.white, 2);
-
-    // Description
-    const descLines = wordWrap(m.desc, 250);
-    for (let i = 0; i < descLines.length; i++) {
-        drawTextCentered(bctx, descLines[i], NATIVE_W / 2, bannerY + 80 + i * 12, PAL.positive);
-    }
-
-    // Sparkle particles
-    for (let i = 0; i < 8; i++) {
-        const sx = 40 + Math.sin(GS.time * 3 + i * 0.8) * 120 + 120;
-        const sy = bannerY + 10 + Math.cos(GS.time * 2 + i * 1.1) * 30 + 30;
-        bctx.fillStyle = Math.sin(GS.time * 5 + i) > 0 ? PAL.hudGold : PAL.white;
-        bctx.fillRect(Math.round(sx), Math.round(sy), 2, 2);
-    }
-
-    if (Math.sin(GS.time * 4) > 0) {
-        drawTextCentered(bctx, 'PRESS Z TO CONTINUE', NATIVE_W / 2, bannerY + 110, PAL.hudYellow);
-    }
-}
-
-function renderDayEnd() {
-    if (GS.dayTransitionPhase === 'fadeout') {
-        const alpha = Math.min(1, GS.dayTransition);
-        bctx.fillStyle = `rgba(15, 15, 26, ${alpha})`;
-        bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
-    } else if (GS.dayTransitionPhase === 'summary') {
-        bctx.fillStyle = PAL.bgDark;
-        bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
-
-        drawTextCentered(bctx, 'DAY ' + (GS.day) + ' BEGINS', NATIVE_W / 2, 30, PAL.hudYellow, 2);
-
-        const s = GS.dayEndSummary;
-        if (s) {
-            let y = 65;
-            const gap = 14;
-            if (s.devProd > 0) { drawText(bctx, 'DEVS BUILT: +' + s.devProd + ' PRODUCT', 40, y, PAL.positive); y += gap; }
-            if (s.newCustomers > 0) { drawText(bctx, 'SALES CLOSED: +' + s.newCustomers + ' CUSTOMERS', 40, y, PAL.hudGreen); y += gap; }
-            drawText(bctx, 'REVENUE: +$' + s.dailyRevenue, 40, y, PAL.hudGreen); y += gap;
-            drawText(bctx, 'EXPENSES: -$' + s.dailyBurn, 40, y, PAL.hudRed); y += gap;
-            const netColor = s.netCash >= 0 ? PAL.hudGreen : PAL.hudRed;
-            drawText(bctx, 'NET: ' + (s.netCash >= 0 ? '+' : '') + '$' + s.netCash, 40, y, netColor); y += gap + 4;
-            drawText(bctx, 'CASH: $' + GS.cash.toLocaleString(), 40, y, PAL.white); y += gap;
-            drawText(bctx, 'PRODUCT: ' + GS.productPoints + ' PTS', 40, y, PAL.positive); y += gap;
-            drawText(bctx, 'MORALE: ' + GS.teamMorale + '%', 40, y, PAL.hudYellow);
-        }
-
-        if (Math.sin(GS.time * 4) > 0) {
-            drawTextCentered(bctx, 'PRESS Z TO CONTINUE', NATIVE_W / 2, 195, PAL.hudYellow);
-        }
-    } else if (GS.dayTransitionPhase === 'fadein') {
-        const alpha = Math.max(0, 1 - GS.dayTransition * 2);
-        bctx.fillStyle = `rgba(15, 15, 26, ${alpha})`;
-        bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
-    }
-}
-
-function renderNotifications() {
-    for (let i = 0; i < GS.notifications.length; i++) {
-        const n = GS.notifications[i];
-        const fadeIn = Math.min(1, n.timer / 10);
-        const fadeOut = Math.min(1, (n.duration - n.timer) / 20);
-        const alpha = Math.min(fadeIn, fadeOut);
-        const ny = 30 + i * 12;
-        const nx = NATIVE_W - textWidth(n.text) - 8;
-        bctx.globalAlpha = alpha;
-        bctx.fillStyle = 'rgba(15, 15, 26, 0.7)';
-        bctx.fillRect(nx - 3, ny - 2, textWidth(n.text) + 6, 10);
-        drawText(bctx, n.text, nx, ny, n.color);
-    }
-    bctx.globalAlpha = 1;
-}
-
-function renderGameOver() {
-    bctx.fillStyle = PAL.bgDark;
-    bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
-
-    const isWin = GS.endgamePath !== null;
-
-    if (isWin) {
-        // Victory screen
-        const paths = {
-            ipo: { title: 'IPO GLORY', color: PAL.hudGold, desc: 'YOUR STARTUP WENT PUBLIC!' },
-            profit: { title: 'PROFIT MACHINE', color: PAL.hudGreen, desc: 'LEAN, MEAN, PROFIT ENGINE!' },
-            rnd: { title: 'R&D UTOPIA', color: PAL.positive, desc: 'TECHNOLOGY YEARS AHEAD!' },
-            domination: { title: 'WORLD DOMINATION', color: PAL.accent, desc: 'YOU OWN THE MARKET!' },
-        };
-        const p = paths[GS.endgamePath] || paths.ipo;
-
-        // Victory sparkles
-        for (let i = 0; i < 20; i++) {
-            const sx = (i * 17 + GS.time * 30) % NATIVE_W;
-            const sy = (i * 13 + Math.sin(GS.time * 2 + i) * 20 + 100) % NATIVE_H;
-            bctx.fillStyle = Math.sin(GS.time * 4 + i) > 0 ? p.color : PAL.white;
-            bctx.fillRect(Math.round(sx), Math.round(sy), 2, 2);
-        }
-
-        drawTextCentered(bctx, p.title, NATIVE_W / 2, 30, p.color, 2);
-        drawTextCentered(bctx, p.desc, NATIVE_W / 2, 55, PAL.white);
-    } else {
-        drawTextCentered(bctx, 'GAME OVER', NATIVE_W / 2, 30, PAL.hudRed, 2);
-        drawTextCentered(bctx, 'YOUR STARTUP ' + GS.gameOverReason.toUpperCase(), NATIVE_W / 2, 55, PAL.accent);
-    }
-
-    // Stats
-    let y = 80;
-    const gap = 14;
-    drawTextCentered(bctx, 'FINAL STATS', NATIVE_W / 2, y, PAL.hudYellow); y += gap + 4;
-    drawText(bctx, 'DAYS SURVIVED: ' + GS.day, 60, y, PAL.white); y += gap;
-    drawText(bctx, 'FINAL CASH: $' + GS.cash.toLocaleString(), 60, y, PAL.white); y += gap;
-    drawText(bctx, 'PEAK MRR: $' + GS.mrr.toLocaleString(), 60, y, PAL.white); y += gap;
-    drawText(bctx, 'CUSTOMERS: ' + GS.customers, 60, y, PAL.white); y += gap;
-    drawText(bctx, 'PRODUCT: ' + GS.productPoints + ' PTS', 60, y, PAL.white); y += gap;
-    drawText(bctx, 'TEAM SIZE: ' + GS.team.length, 60, y, PAL.white); y += gap;
-    drawText(bctx, 'TOTAL REVENUE: $' + GS.totalRevenue.toLocaleString(), 60, y, PAL.hudGreen); y += gap;
-    drawText(bctx, 'TOTAL SPENT: $' + GS.totalSpent.toLocaleString(), 60, y, PAL.hudRed);
-
-    if (Math.sin(GS.time * 3) > 0) {
-        drawTextCentered(bctx, 'PRESS Z TO PLAY AGAIN', NATIVE_W / 2, 210, PAL.hudYellow);
-    }
+    // Blit to main canvas
+    ctx.drawImage(buf, 0, 0, NATIVE_W, NATIVE_H, 0, 0, NATIVE_W * SCALE, NATIVE_H * SCALE);
 }
 
 // ============================================================
 // GAME LOOP
 // ============================================================
-let lastTime = 0;
-function gameLoop(timestamp) {
-    const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
-    lastTime = timestamp;
-    update(dt);
+function gameLoop() {
+    update();
     render();
     requestAnimationFrame(gameLoop);
 }
-requestAnimationFrame(gameLoop);
 
+gameLoop();
 </script>
 </body>
 </html>
