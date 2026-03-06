@@ -1,1 +1,0 @@
-time was running way too fast in the last version. a day would only last a second or two not allowing the player to take actions
