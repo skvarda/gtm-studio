@@ -1,3 +1,5 @@
+Now I have the full codebase. Let me produce the Round 24 build with the status screen overlay.
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

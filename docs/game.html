@@ -14,7 +14,7 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 <canvas id="game"></canvas>
 <script>
 // ============================================================
-// SaaS STARTUP SIMULATOR — Round 23: "Make It Feel Alive"
+// SaaS STARTUP SIMULATOR — Round 24: "The Status Screen"
 // ============================================================
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -93,6 +93,19 @@ const PAL = {
     accentTeal: '#38b764',
     accentGold: '#f4c430',
     uiBorder:   '#566c86',
+    // Round 24 status panel colors
+    statusBg:      '#1a1a2e',
+    statusBdr:     '#4caf50',
+    statusBdrIn:   '#0a0a18',
+    statusTxt:     '#e8e8c8',
+    statusHeader:  '#52d45a',
+    runwayGreen:   '#52d45a',
+    runwayYellow:  '#f0c040',
+    runwayRed:     '#e84040',
+    statusDev:     '#5ba3e8',
+    statusSales:   '#e87d3e',
+    statusCursor:  '#f0c040',
+    inactiveTxt:   '#787878',
 };
 
 // ============================================================
@@ -174,7 +187,7 @@ const gameState = {
     productProgress: 0,
     customers: 0,
     marketInsight: 0,
-    phase: 'play',
+    phase: 'play', // play, dialog, menu, dayEnd, gameOver, titleScreen, statusMenu
     dayBurn: 2740,
     baseBurn: 2740,
     employees: [],
@@ -192,129 +205,10 @@ function recalcBurn() {
     gameState.dayBurn = burn;
 }
 
-// ============================================================
-// DAY PHASE SYSTEM (Cosmetic clock tied to AP)
-// ============================================================
-function getDayPhase() {
-    const spent = gameState.maxAp - gameState.ap;
-    if (spent === 0) return 'morning';
-    if (spent < gameState.maxAp) return 'afternoon';
-    return 'evening';
-}
-
-function getDayPhaseTint() {
-    const phase = getDayPhase();
-    switch (phase) {
-        case 'morning': return { color: '#f0a03020', label: 'Morning' };
-        case 'afternoon': return { color: '#2040a015', label: 'Afternoon' };
-        case 'evening': return { color: '#e0401830', label: 'Evening' };
-    }
-}
-
-// ============================================================
-// FLOATING TEXT SYSTEM (AP feedback)
-// ============================================================
-const floatingTexts = [];
-
-function spawnFloatingText(text, x, y, color) {
-    floatingTexts.push({
-        text,
-        x,
-        y,
-        startY: y,
-        color: color || PAL.hudGreen,
-        life: 0,
-        maxLife: 900,
-    });
-}
-
-function updateFloatingTexts(dt) {
-    for (let i = floatingTexts.length - 1; i >= 0; i--) {
-        const ft = floatingTexts[i];
-        ft.life += dt;
-        ft.y = ft.startY - (ft.life / ft.maxLife) * 20;
-        if (ft.life >= ft.maxLife) {
-            floatingTexts.splice(i, 1);
-        }
-    }
-}
-
-function drawFloatingTexts() {
-    for (const ft of floatingTexts) {
-        const alpha = Math.max(0, 1 - ft.life / ft.maxLife);
-        bctx.globalAlpha = alpha;
-        bctx.font = '7px monospace';
-        bctx.fillStyle = ft.color;
-        bctx.textAlign = 'center';
-        bctx.fillText(ft.text, Math.floor(ft.x), Math.floor(ft.y));
-        bctx.textAlign = 'left';
-        bctx.globalAlpha = 1;
-    }
-}
-
-// ============================================================
-// SCREEN FLASH SYSTEM (AP feedback)
-// ============================================================
-let screenFlash = { active: false, timer: 0, duration: 150, color: '#ffffff' };
-
-function triggerFlash(color) {
-    screenFlash.active = true;
-    screenFlash.timer = 0;
-    screenFlash.color = color || '#ffffff';
-}
-
-function updateFlash(dt) {
-    if (screenFlash.active) {
-        screenFlash.timer += dt;
-        if (screenFlash.timer >= screenFlash.duration) {
-            screenFlash.active = false;
-        }
-    }
-}
-
-function drawFlash() {
-    if (!screenFlash.active) return;
-    const alpha = Math.max(0, 0.3 * (1 - screenFlash.timer / screenFlash.duration));
-    bctx.fillStyle = screenFlash.color;
-    bctx.globalAlpha = alpha;
-    bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
-    bctx.globalAlpha = 1;
-}
-
-// ============================================================
-// IDLE ANIMATION STATE
-// ============================================================
-const idleAnims = {
-    cofounderBob: 0,
-    empFidgets: [0, 0, 0, 0],
-    empFidgetOffsets: [0, 0, 0, 0],
-    empFidgetTimers: [
-        2000 + Math.random() * 3000,
-        2500 + Math.random() * 3000,
-        3000 + Math.random() * 2000,
-        3500 + Math.random() * 2000,
-    ],
-    plantSway: 0,
-};
-
-function updateIdleAnims(dt) {
-    // Co-founder typing bob: 2px vertical, 1.2s cycle
-    idleAnims.cofounderBob = Math.sin(performance.now() / 600 * Math.PI) * 1;
-
-    // Employee fidgets
-    for (let i = 0; i < 4; i++) {
-        idleAnims.empFidgets[i] -= dt;
-        if (idleAnims.empFidgets[i] <= 0) {
-            // Trigger fidget
-            idleAnims.empFidgetOffsets[i] = (Math.random() > 0.5 ? 1 : -1);
-            idleAnims.empFidgets[i] = idleAnims.empFidgetTimers[i];
-            // Reset offset after short time
-            setTimeout(() => { idleAnims.empFidgetOffsets[i] = 0; }, 200);
-        }
-    }
-
-    // Plant sway
-    idleAnims.plantSway = Math.sin(performance.now() / 2000 * Math.PI) * 0.5;
+function getRunwayDays() {
+    const dailyMrrIncome = Math.floor(gameState.mrr / 30);
+    const netBurn = gameState.dayBurn - dailyMrrIncome;
+    return netBurn > 0 ? Math.floor(gameState.cash / netBurn) : 999;
 }
 
 // ============================================================
@@ -330,7 +224,6 @@ const player = {
     moveDuration: 140,
     frame: 0,
     animTimer: 0,
-    idleBob: 0,
 };
 
 const cofounder = {
@@ -455,6 +348,31 @@ function menuSelect() {
 }
 
 // ============================================================
+// STATUS MENU (Round 24)
+// ============================================================
+const statusMenu = {
+    active: false,
+    cursor: 0,
+    cursorBlink: 0,
+    confirmExit: false,
+    confirmCursor: 0,
+};
+
+function openStatusMenu() {
+    statusMenu.active = true;
+    statusMenu.cursor = 0;
+    statusMenu.cursorBlink = 0;
+    statusMenu.confirmExit = false;
+    statusMenu.confirmCursor = 0;
+    gameState.phase = 'statusMenu';
+}
+
+function closeStatusMenu() {
+    statusMenu.active = false;
+    gameState.phase = 'play';
+}
+
+// ============================================================
 // OUTCOME MESSAGES
 // ============================================================
 const buildMessages = [
@@ -560,10 +478,6 @@ function hireEmployee(type) {
     const role = type === 'dev' ? 'Developer' : 'Salesperson';
     const cost = type === 'dev' ? DEV_BURN : SALES_BURN;
 
-    // Feedback
-    triggerFlash(type === 'dev' ? '#81b29a' : '#f2cc8f');
-    spawnFloatingText('+1 ' + role, NATIVE_W / 2, NATIVE_H / 2 - 20, type === 'dev' ? PAL.devColor : PAL.salesColor);
-
     let msg = name + " has joined as " + role + "!\n\n";
     msg += "Salary: +$" + cost.toLocaleString() + "/day burn\n";
     msg += "New burn rate: $" + gameState.dayBurn.toLocaleString() + "/day\n";
@@ -648,14 +562,12 @@ function showTeamRoster() {
 }
 
 // ============================================================
-// ACTIONS (with AP feedback)
+// ACTIONS
 // ============================================================
 function doBuild() {
     const gain = 5 + Math.floor(Math.random() * 8);
     gameState.productProgress = Math.min(100, gameState.productProgress + gain);
     gameState.ap--;
-    triggerFlash('#58b868');
-    spawnFloatingText('+' + gain + '% Product', player.px + 8, player.py - 4, PAL.hudGreen);
     showDialog(randFrom(buildMessages) + "\n\n[Product Progress +" + gain + "%  ->  " + gameState.productProgress + "%]");
 }
 
@@ -663,8 +575,6 @@ function doResearch() {
     const gain = 1 + Math.floor(Math.random() * 2);
     gameState.marketInsight += gain;
     gameState.ap--;
-    triggerFlash('#4488cc');
-    spawnFloatingText('+' + gain + ' Insight', player.px + 8, player.py - 4, '#88bbee');
     showDialog(randFrom(researchMessages) + "\n\n[Market Insight +" + gain + "  ->  " + gameState.marketInsight + "]");
 }
 
@@ -680,8 +590,6 @@ function doSales() {
         const custGain = 1;
         gameState.mrr += mrrGain;
         gameState.customers += custGain;
-        triggerFlash('#f4c430');
-        spawnFloatingText('+$' + mrrGain + ' MRR', player.px + 8, player.py - 4, PAL.accentGold);
         showDialog(randFrom(salesMessages) + "\n\nDeal closed! [+$" + mrrGain + " MRR, +1 Customer]");
     } else {
         const failMsgs = [
@@ -690,8 +598,6 @@ function doSales() {
             "Left a voicemail. Into the void it goes.",
             "The demo crashed mid-pitch. Classic.",
         ];
-        triggerFlash('#e94560');
-        spawnFloatingText('No deal', player.px + 8, player.py - 4, PAL.hudRed);
         let extra = '';
         if (gameState.productProgress < 25) {
             extra = "\n\n(Low product progress is hurting sales...)";
@@ -752,7 +658,7 @@ function endDay() {
         return;
     }
 
-    const runway = Math.floor(gameState.cash / Math.max(1, gameState.dayBurn - dailyMrrIncome));
+    const runway = getRunwayDays();
     let summary = "-- End of Day " + (gameState.day - 1) + " --\n\n";
     summary += "Burn: -$" + gameState.dayBurn.toLocaleString() + "\n";
     if (dailyMrrIncome > 0) summary += "MRR Income: +$" + dailyMrrIncome.toLocaleString() + "\n";
@@ -909,9 +815,7 @@ function drawTerminal(x, y) {
     drawRect(x + 1, y + 4, 14, 1, '#8a6a52');
     drawRect(x + 3, y + 0, 10, 5, '#222233');
     drawRect(x + 4, y + 1, 8, 3, PAL.monitor);
-    // Monitor flicker: sine cycle brightness
-    const monBright = 0.85 + 0.15 * Math.sin(performance.now() / 1250 * Math.PI);
-    const glowColor = monBright > 0.92 ? PAL.monGlowLt : PAL.monGlow;
+    const glowColor = (Math.sin(performance.now() * 0.003) > 0) ? PAL.monGlow : PAL.monGlowLt;
     drawRect(x + 5, y + 1, 6, 1, glowColor);
     drawPixel(x + 5, y + 2, glowColor);
     drawPixel(x + 7, y + 2, glowColor);
@@ -922,7 +826,6 @@ function drawTerminal(x, y) {
     drawRect(x + 7, y + 5, 2, 1, '#444466');
     drawRect(x + 4, y + 6, 8, 2, '#444466');
     drawRect(x + 5, y + 6, 6, 1, '#555577');
-    // Interaction prompt
     const pdx = Math.abs(player.gx - Math.floor(x / T));
     const pdy = Math.abs(player.gy - Math.floor(y / T));
     if (pdx <= 1 && pdy <= 1 && gameState.phase === 'play') {
@@ -949,17 +852,16 @@ function drawChair(x, y) {
 }
 
 function drawPlant(x, y) {
-    const sway = Math.floor(idleAnims.plantSway);
     drawRect(x + 5, y + 9, 6, 5, PAL.pot);
     drawRect(x + 6, y + 14, 4, 2, PAL.potDk);
     drawRect(x + 5, y + 9, 6, 1, PAL.potDk);
-    drawRect(x + 4 + sway, y + 3, 3, 3, PAL.plant);
-    drawRect(x + 9 + sway, y + 3, 3, 3, PAL.plant);
+    drawRect(x + 4, y + 3, 3, 3, PAL.plant);
+    drawRect(x + 9, y + 3, 3, 3, PAL.plant);
     drawRect(x + 6, y + 1, 4, 4, PAL.plant);
     drawRect(x + 5, y + 5, 6, 4, PAL.plant);
     drawPixel(x + 7, y + 2, PAL.plantDk);
-    drawPixel(x + 5 + sway, y + 4, '#3eb050');
-    drawPixel(x + 10 + sway, y + 4, '#3eb050');
+    drawPixel(x + 5, y + 4, '#3eb050');
+    drawPixel(x + 10, y + 4, '#3eb050');
     drawPixel(x + 7, y + 6, '#3eb050');
 }
 
@@ -995,35 +897,20 @@ function drawCoffeeMachine(x, y) {
     drawRect(x + 6, y + 10, 4, 3, PAL.coffeeMug);
     drawRect(x + 6, y + 10, 4, 1, '#ccccdd');
     drawRect(x + 10, y + 11, 1, 2, PAL.coffeeMug);
-    // Steam animation
-    const steamPhase = Math.floor(performance.now() / 500) % 3;
-    if (steamPhase === 0) {
+    if (Math.sin(performance.now() * 0.004) > 0) {
         drawPixel(x + 7, y + 8, '#aaaaaa');
-    } else if (steamPhase === 1) {
         drawPixel(x + 8, y + 7, '#aaaaaa');
-    } else {
-        drawPixel(x + 7, y + 7, '#999999');
-        drawPixel(x + 8, y + 8, '#aaaaaa');
     }
 }
 
 function drawWindow(x, y) {
     drawRect(x, y, T, T, PAL.wallTop);
     drawRect(x + 2, y + 2, 12, 12, '#444466');
-    // Tint window based on day phase
-    const phase = getDayPhase();
-    let winColor = PAL.window;
-    let winLt = PAL.windowLt;
-    if (!titlePhase && gameState.phase !== 'gameOver') {
-        if (phase === 'morning') { winColor = '#6699cc'; winLt = '#aaddee'; }
-        else if (phase === 'afternoon') { winColor = '#4488cc'; winLt = '#88bbee'; }
-        else { winColor = '#cc6644'; winLt = '#ee8866'; }
-    }
-    drawRect(x + 3, y + 3, 10, 10, winColor);
+    drawRect(x + 3, y + 3, 10, 10, PAL.window);
     drawRect(x + 7, y + 2, 2, 12, '#444466');
     drawRect(x + 2, y + 7, 12, 2, '#444466');
-    drawRect(x + 4, y + 4, 2, 2, winLt);
-    drawRect(x + 10, y + 4, 2, 2, winLt);
+    drawRect(x + 4, y + 4, 2, 2, PAL.windowLt);
+    drawRect(x + 10, y + 4, 2, 2, PAL.windowLt);
 }
 
 function drawDoor(x, y) {
@@ -1055,9 +942,7 @@ function drawCofounderSpot(x, y) {
     drawRect(x + 1, y + 0, 14, 2, PAL.deskTop);
     drawRect(x + 4, y + 1, 8, 4, '#333344');
     drawRect(x + 5, y + 2, 6, 2, '#1a1a2e');
-    // Co-founder monitor flicker
-    const monBright = 0.85 + 0.15 * Math.sin(performance.now() / 1250 * Math.PI);
-    const g = monBright > 0.92 ? '#5588bb' : '#4477aa';
+    const g = (Math.sin(performance.now() * 0.002) > 0) ? '#4477aa' : '#5588bb';
     drawPixel(x + 6, y + 2, g);
     drawPixel(x + 8, y + 2, g);
     drawPixel(x + 7, y + 3, g);
@@ -1075,7 +960,6 @@ function drawTile(gx, gy) {
         case WALL_TRIM_TILE: drawWallTrimTile(x, y); break;
         case RUG: drawRug(x, y, gx, gy); break;
         case DOOR: drawDoor(x, y); break;
-        case WINDOW_TILE: drawWindow(x, y); break;
         case EMPTY: drawRect(x, y, T, T, PAL.bgDark); break;
         default: drawFloorTile(x, y, gx, gy); break;
     }
@@ -1104,8 +988,6 @@ function drawPlayerSprite(px, py, dir, frame) {
     const x = Math.floor(px);
     const y = Math.floor(py);
     const walkBob = (frame % 2 === 1) ? -1 : 0;
-    // Idle breathing bob when not moving
-    const breathBob = player.moving ? 0 : Math.round(Math.sin(performance.now() / 800 * Math.PI) * 0.6);
 
     drawRect(x + 3, y + 14, 10, 2, PAL.shadow);
 
@@ -1114,101 +996,99 @@ function drawPlayerSprite(px, py, dir, frame) {
         drawRect(x + 9, y + 14 - walkBob, 2, 2, PAL.shoes);
         drawRect(x + 5, y + 11, 2, 4, PAL.pants);
         drawRect(x + 9, y + 11, 2, 4, PAL.pants);
-        drawRect(x + 4, y + 5 + breathBob, 8, 7, PAL.hoodie);
-        drawRect(x + 4, y + 5 + breathBob, 8, 1, PAL.hoodieDk);
-        drawRect(x + 3, y + 6 + breathBob, 2, 5, PAL.hoodie);
-        drawRect(x + 11, y + 6 + breathBob, 2, 5, PAL.hoodie);
+        drawRect(x + 4, y + 5, 8, 7, PAL.hoodie);
+        drawRect(x + 4, y + 5, 8, 1, PAL.hoodieDk);
+        drawRect(x + 3, y + 6, 2, 5, PAL.hoodie);
+        drawRect(x + 11, y + 6, 2, 5, PAL.hoodie);
         drawRect(x + 3, y + 11, 2, 1, PAL.skinTone);
         drawRect(x + 11, y + 11, 2, 1, PAL.skinTone);
-        drawRect(x + 5, y + 4 + breathBob, 6, 2, PAL.hoodieDk);
-        drawRect(x + 5, y + 1 + breathBob, 6, 5, PAL.skinTone);
-        drawRect(x + 5, y + 0 + breathBob, 6, 2, PAL.hair);
-        drawRect(x + 4, y + 1 + breathBob, 1, 2, PAL.hair);
-        drawRect(x + 11, y + 1 + breathBob, 1, 2, PAL.hair);
-        drawPixel(x + 6, y + 3 + breathBob, '#1a1a2e');
-        drawPixel(x + 9, y + 3 + breathBob, '#1a1a2e');
-        drawPixel(x + 7, y + 5 + breathBob, '#d4a880');
-        drawPixel(x + 8, y + 5 + breathBob, '#d4a880');
+        drawRect(x + 5, y + 4, 6, 2, PAL.hoodieDk);
+        drawRect(x + 5, y + 1, 6, 5, PAL.skinTone);
+        drawRect(x + 5, y + 0, 6, 2, PAL.hair);
+        drawRect(x + 4, y + 1, 1, 2, PAL.hair);
+        drawRect(x + 11, y + 1, 1, 2, PAL.hair);
+        drawPixel(x + 6, y + 3, '#1a1a2e');
+        drawPixel(x + 9, y + 3, '#1a1a2e');
+        drawPixel(x + 7, y + 5, '#d4a880');
+        drawPixel(x + 8, y + 5, '#d4a880');
     } else if (dir === 1) {
         drawRect(x + 5, y + 14 + walkBob, 2, 2, PAL.shoes);
         drawRect(x + 9, y + 14 - walkBob, 2, 2, PAL.shoes);
         drawRect(x + 5, y + 11, 2, 4, PAL.pants);
         drawRect(x + 9, y + 11, 2, 4, PAL.pants);
-        drawRect(x + 4, y + 5 + breathBob, 8, 7, PAL.hoodie);
-        drawRect(x + 3, y + 6 + breathBob, 2, 5, PAL.hoodie);
-        drawRect(x + 11, y + 6 + breathBob, 2, 5, PAL.hoodie);
-        drawRect(x + 5, y + 4 + breathBob, 6, 2, PAL.hoodieDk);
-        drawRect(x + 5, y + 1 + breathBob, 6, 5, PAL.skinTone);
-        drawRect(x + 4, y + 0 + breathBob, 8, 3, PAL.hair);
-        drawRect(x + 5, y + 3 + breathBob, 6, 2, PAL.hair);
+        drawRect(x + 4, y + 5, 8, 7, PAL.hoodie);
+        drawRect(x + 3, y + 6, 2, 5, PAL.hoodie);
+        drawRect(x + 11, y + 6, 2, 5, PAL.hoodie);
+        drawRect(x + 5, y + 4, 6, 2, PAL.hoodieDk);
+        drawRect(x + 5, y + 1, 6, 5, PAL.skinTone);
+        drawRect(x + 4, y + 0, 8, 3, PAL.hair);
+        drawRect(x + 5, y + 3, 6, 2, PAL.hair);
     } else if (dir === 2) {
         drawRect(x + 5, y + 14 + walkBob, 3, 2, PAL.shoes);
         drawRect(x + 8, y + 14 - walkBob, 2, 2, PAL.shoes);
         drawRect(x + 6, y + 11, 2, 4, PAL.pants);
         drawRect(x + 8, y + 11, 2, 4, PAL.pants);
-        drawRect(x + 5, y + 5 + breathBob, 7, 7, PAL.hoodie);
-        drawRect(x + 4, y + 6 + breathBob, 2, 5, PAL.hoodie);
-        drawRect(x + 11, y + 7 + breathBob, 1, 4, PAL.hoodie);
+        drawRect(x + 5, y + 5, 7, 7, PAL.hoodie);
+        drawRect(x + 4, y + 6, 2, 5, PAL.hoodie);
+        drawRect(x + 11, y + 7, 1, 4, PAL.hoodie);
         drawRect(x + 4, y + 11, 2, 1, PAL.skinTone);
-        drawRect(x + 5, y + 4 + breathBob, 6, 2, PAL.hoodieDk);
-        drawRect(x + 5, y + 1 + breathBob, 6, 5, PAL.skinTone);
-        drawRect(x + 6, y + 0 + breathBob, 6, 3, PAL.hair);
-        drawRect(x + 7, y + 3 + breathBob, 4, 1, PAL.hair);
-        drawPixel(x + 6, y + 3 + breathBob, '#1a1a2e');
+        drawRect(x + 5, y + 4, 6, 2, PAL.hoodieDk);
+        drawRect(x + 5, y + 1, 6, 5, PAL.skinTone);
+        drawRect(x + 6, y + 0, 6, 3, PAL.hair);
+        drawRect(x + 7, y + 3, 4, 1, PAL.hair);
+        drawPixel(x + 6, y + 3, '#1a1a2e');
     } else {
         drawRect(x + 5, y + 14 + walkBob, 2, 2, PAL.shoes);
         drawRect(x + 8, y + 14 - walkBob, 3, 2, PAL.shoes);
         drawRect(x + 6, y + 11, 2, 4, PAL.pants);
         drawRect(x + 8, y + 11, 2, 4, PAL.pants);
-        drawRect(x + 4, y + 5 + breathBob, 7, 7, PAL.hoodie);
-        drawRect(x + 10, y + 6 + breathBob, 2, 5, PAL.hoodie);
-        drawRect(x + 4, y + 7 + breathBob, 1, 4, PAL.hoodie);
+        drawRect(x + 4, y + 5, 7, 7, PAL.hoodie);
+        drawRect(x + 10, y + 6, 2, 5, PAL.hoodie);
+        drawRect(x + 4, y + 7, 1, 4, PAL.hoodie);
         drawRect(x + 10, y + 11, 2, 1, PAL.skinTone);
-        drawRect(x + 5, y + 4 + breathBob, 6, 2, PAL.hoodieDk);
-        drawRect(x + 5, y + 1 + breathBob, 6, 5, PAL.skinTone);
-        drawRect(x + 4, y + 0 + breathBob, 6, 3, PAL.hair);
-        drawRect(x + 5, y + 3 + breathBob, 4, 1, PAL.hair);
-        drawPixel(x + 9, y + 3 + breathBob, '#1a1a2e');
+        drawRect(x + 5, y + 4, 6, 2, PAL.hoodieDk);
+        drawRect(x + 5, y + 1, 6, 5, PAL.skinTone);
+        drawRect(x + 4, y + 0, 6, 3, PAL.hair);
+        drawRect(x + 5, y + 3, 4, 1, PAL.hair);
+        drawPixel(x + 9, y + 3, '#1a1a2e');
     }
 }
 
 function drawCofounderSprite(px, py) {
     const x = Math.floor(px);
     const y = Math.floor(py);
-    // Typing bob: 2px vertical cycle
-    const typingBob = Math.round(idleAnims.cofounderBob);
+    const idle = Math.sin(performance.now() * 0.001) > 0.5 ? 1 : 0;
 
     drawRect(x + 3, y + 14, 10, 2, PAL.shadow);
     drawRect(x + 5, y + 14, 2, 2, PAL.shoes);
     drawRect(x + 9, y + 14, 2, 2, PAL.shoes);
     drawRect(x + 5, y + 11, 2, 4, '#333344');
     drawRect(x + 9, y + 11, 2, 4, '#333344');
-    drawRect(x + 4, y + 5 + typingBob, 8, 7, PAL.cofHoodie);
-    drawRect(x + 4, y + 5 + typingBob, 8, 1, '#554466');
-    drawRect(x + 3, y + 6 + typingBob, 2, 5, PAL.cofHoodie);
-    drawRect(x + 11, y + 6 + typingBob, 2, 5, PAL.cofHoodie);
+    drawRect(x + 4, y + 5, 8, 7, PAL.cofHoodie);
+    drawRect(x + 4, y + 5, 8, 1, '#554466');
+    drawRect(x + 3, y + 6, 2, 5, PAL.cofHoodie);
+    drawRect(x + 11, y + 6, 2, 5, PAL.cofHoodie);
     drawRect(x + 3, y + 11, 2, 1, PAL.skinTone);
     drawRect(x + 11, y + 11, 2, 1, PAL.skinTone);
-    drawRect(x + 5, y + 4 + typingBob, 6, 2, '#554466');
-    drawRect(x + 5, y + 1 + typingBob, 6, 5, PAL.skinTone);
-    drawRect(x + 5, y + 0 + typingBob, 6, 2, '#2a2a3a');
-    drawRect(x + 4, y + 1 + typingBob, 1, 2, '#2a2a3a');
-    drawRect(x + 11, y + 1 + typingBob, 1, 3, '#2a2a3a');
-    drawRect(x + 5, y + 3 + typingBob, 3, 2, '#444466');
-    drawRect(x + 9, y + 3 + typingBob, 2, 2, '#444466');
-    drawPixel(x + 8, y + 3 + typingBob, '#444466');
-    drawPixel(x + 6, y + 3 + typingBob, '#aaccee');
-    drawPixel(x + 9, y + 3 + typingBob, '#aaccee');
-    // Thought bubble
-    if (Math.sin(performance.now() * 0.0007) > 0.3) {
-        drawRect(x + 13, y - 3 + typingBob, 5, 6, PAL.dialogBg);
-        drawRect(x + 13, y - 3 + typingBob, 5, 1, PAL.dialogBdr);
-        drawRect(x + 13, y + 2 + typingBob, 5, 1, PAL.dialogBdr);
-        drawRect(x + 13, y - 3 + typingBob, 1, 6, PAL.dialogBdr);
-        drawRect(x + 17, y - 3 + typingBob, 1, 6, PAL.dialogBdr);
+    drawRect(x + 5, y + 4, 6, 2, '#554466');
+    drawRect(x + 5, y + 1, 6, 5, PAL.skinTone);
+    drawRect(x + 5, y + 0, 6, 2, '#2a2a3a');
+    drawRect(x + 4, y + 1, 1, 2, '#2a2a3a');
+    drawRect(x + 11, y + 1, 1, 3, '#2a2a3a');
+    drawRect(x + 5, y + 3, 3, 2, '#444466');
+    drawRect(x + 9, y + 3, 2, 2, '#444466');
+    drawPixel(x + 8, y + 3, '#444466');
+    drawPixel(x + 6, y + 3, '#aaccee');
+    drawPixel(x + 9, y + 3, '#aaccee');
+    if (idle && Math.sin(performance.now() * 0.0007) > 0.3) {
+        drawRect(x + 13, y - 3, 5, 6, PAL.dialogBg);
+        drawRect(x + 13, y - 3, 5, 1, PAL.dialogBdr);
+        drawRect(x + 13, y + 2, 5, 1, PAL.dialogBdr);
+        drawRect(x + 13, y - 3, 1, 6, PAL.dialogBdr);
+        drawRect(x + 17, y - 3, 1, 6, PAL.dialogBdr);
         bctx.fillStyle = PAL.white;
         bctx.font = '5px monospace';
-        bctx.fillText('?', x + 14, y + 1 + typingBob);
+        bctx.fillText('?', x + 14, y + 1);
     }
 }
 
@@ -1232,40 +1112,28 @@ function drawEmployeeSprite(emp, posIndex) {
     const hoodieColor = emp.type === 'dev' ? PAL.devColor : PAL.salesColor;
     const hoodieDark = emp.type === 'dev' ? '#618a7a' : '#c2a06f';
 
-    // Idle fidget offset
-    const fidgetX = idleAnims.empFidgetOffsets[posIndex] || 0;
-    // Breathing bob
-    const breathBob = Math.round(Math.sin(performance.now() / 900 * Math.PI + posIndex * 1.5) * 0.5);
-
     drawRect(x + 3, y + 14, 10, 2, PAL.shadow);
     drawRect(x + 5, y + 14, 2, 2, PAL.shoes);
     drawRect(x + 9, y + 14, 2, 2, PAL.shoes);
     drawRect(x + 5, y + 11, 2, 4, PAL.pants);
     drawRect(x + 9, y + 11, 2, 4, PAL.pants);
-    drawRect(x + 4 + fidgetX, y + 5 + breathBob, 8, 7, hoodieColor);
-    drawRect(x + 4 + fidgetX, y + 5 + breathBob, 8, 1, hoodieDark);
-    drawRect(x + 3 + fidgetX, y + 6 + breathBob, 2, 5, hoodieColor);
-    drawRect(x + 11 + fidgetX, y + 6 + breathBob, 2, 5, hoodieColor);
-    drawRect(x + 3 + fidgetX, y + 11, 2, 1, PAL.skinTone);
-    drawRect(x + 11 + fidgetX, y + 11, 2, 1, PAL.skinTone);
-    drawRect(x + 5 + fidgetX, y + 4 + breathBob, 6, 2, hoodieDark);
-    drawRect(x + 5 + fidgetX, y + 1 + breathBob, 6, 5, PAL.skinTone);
+    drawRect(x + 4, y + 5, 8, 7, hoodieColor);
+    drawRect(x + 4, y + 5, 8, 1, hoodieDark);
+    drawRect(x + 3, y + 6, 2, 5, hoodieColor);
+    drawRect(x + 11, y + 6, 2, 5, hoodieColor);
+    drawRect(x + 3, y + 11, 2, 1, PAL.skinTone);
+    drawRect(x + 11, y + 11, 2, 1, PAL.skinTone);
+    drawRect(x + 5, y + 4, 6, 2, hoodieDark);
+    drawRect(x + 5, y + 1, 6, 5, PAL.skinTone);
     const hairHash = emp.name.charCodeAt(0) % 4;
     const hairColors = ['#3a2a1a', '#5a3a1a', '#2a1a1a', '#6a4a2a'];
     const hairCol = hairColors[hairHash];
-    drawRect(x + 5 + fidgetX, y + 0 + breathBob, 6, 2, hairCol);
-    drawRect(x + 4 + fidgetX, y + 1 + breathBob, 1, 2, hairCol);
-    drawRect(x + 11 + fidgetX, y + 1 + breathBob, 1, 2, hairCol);
-    // Salesperson head-turn: flip eyes every 4s
-    if (emp.type === 'sales' && Math.floor(performance.now() / 4000) % 2 === 1) {
-        drawPixel(x + 7 + fidgetX, y + 3 + breathBob, '#1a1a2e');
-        drawPixel(x + 10 + fidgetX, y + 3 + breathBob, '#1a1a2e');
-    } else {
-        drawPixel(x + 6 + fidgetX, y + 3 + breathBob, '#1a1a2e');
-        drawPixel(x + 9 + fidgetX, y + 3 + breathBob, '#1a1a2e');
-    }
+    drawRect(x + 5, y + 0, 6, 2, hairCol);
+    drawRect(x + 4, y + 1, 1, 2, hairCol);
+    drawRect(x + 11, y + 1, 1, 2, hairCol);
+    drawPixel(x + 6, y + 3, '#1a1a2e');
+    drawPixel(x + 9, y + 3, '#1a1a2e');
 
-    // Name tag
     if (gameState.phase === 'play') {
         const nameW = emp.name.length * 4 + 4;
         const tagX = x + 8 - nameW / 2;
@@ -1291,31 +1159,19 @@ function drawHUD() {
     bctx.font = '7px monospace';
     bctx.textBaseline = 'top';
 
-    // Day + Phase
-    const phaseInfo = getDayPhaseTint();
     bctx.fillStyle = PAL.hudTxt;
     bctx.fillText('Day ' + gameState.day, 4, y + 3);
-    // Day phase label
-    const phaseColors = { 'Morning': '#f0c040', 'Afternoon': '#88bbee', 'Evening': '#e07a5f' };
-    bctx.fillStyle = phaseColors[phaseInfo.label] || PAL.hudTxt;
-    bctx.font = '5px monospace';
-    bctx.fillText(phaseInfo.label, 4, y + 12);
-    bctx.font = '7px monospace';
 
-    // Cash
     const cashColor = gameState.cash < 30000 ? PAL.hudRed : PAL.hudGreen;
     bctx.fillStyle = cashColor;
     bctx.fillText('$' + gameState.cash.toLocaleString(), 48, y + 3);
 
-    // MRR
     bctx.fillStyle = PAL.hudYellow;
     bctx.fillText('MRR $' + gameState.mrr.toLocaleString(), 120, y + 3);
 
-    // Product Progress
     bctx.fillStyle = PAL.hudTxt;
     bctx.fillText('Prod ' + gameState.productProgress + '%', 210, y + 3);
 
-    // AP dots
     const apX = 270;
     bctx.fillStyle = PAL.hudTxt;
     bctx.fillText('AP', apX, y + 3);
@@ -1325,19 +1181,18 @@ function drawHUD() {
         drawRect(apX + 16 + i * 8, y + 4, 6, 1, i < gameState.ap ? '#7aea8a' : '#444455');
     }
 
-    // Row 2
     const dailyMrrIncome = Math.floor(gameState.mrr / 30);
     const netBurn = gameState.dayBurn - dailyMrrIncome;
     const runway = netBurn > 0 ? Math.floor(gameState.cash / netBurn) : 999;
     const runwayColor = runway < 20 ? PAL.hudRed : runway < 40 ? PAL.hudYellow : PAL.hudGreen;
     bctx.fillStyle = runwayColor;
-    bctx.fillText('~' + Math.min(runway, 999) + 'd runway', 48, y + 14);
+    bctx.fillText('~' + Math.min(runway, 999) + 'd runway', 4, y + 14);
 
     bctx.fillStyle = PAL.hireWarn;
-    bctx.fillText('Burn $' + gameState.dayBurn.toLocaleString() + '/d', 130, y + 14);
+    bctx.fillText('Burn $' + gameState.dayBurn.toLocaleString() + '/d', 90, y + 14);
 
     bctx.fillStyle = PAL.hudTxt;
-    bctx.fillText(gameState.customers + ' cust', 215, y + 14);
+    bctx.fillText(gameState.customers + ' cust', 185, y + 14);
 
     const devs = getDevCount();
     const sales = getSalesCount();
@@ -1351,7 +1206,280 @@ function drawHUD() {
         teamStr += ')';
     }
     bctx.fillStyle = PAL.hudTxt;
-    bctx.fillText(teamStr, 265, y + 14);
+    bctx.fillText(teamStr, 235, y + 14);
+
+    // Status hint
+    bctx.fillStyle = PAL.apEmpty;
+    bctx.font = '5px monospace';
+    bctx.fillText('[M]enu', NATIVE_W - 34, y + 22);
+}
+
+// ============================================================
+// STATUS PANEL RENDERING (Round 24)
+// ============================================================
+function drawStatusPanel() {
+    if (!statusMenu.active) return;
+
+    const pw = 256;
+    const ph = 192;
+    const px = Math.floor((NATIVE_W - pw) / 2);
+    const py = Math.floor((NATIVE_H - ph) / 2);
+
+    // Shadow
+    drawRect(px + 2, py + 2, pw, ph, '#0a0a18');
+
+    // Panel fill
+    drawRect(px, py, pw, ph, PAL.statusBg);
+
+    // Outer border (2px)
+    drawRect(px, py, pw, 2, PAL.statusBdr);
+    drawRect(px, py + ph - 2, pw, 2, PAL.statusBdr);
+    drawRect(px, py, 2, ph, PAL.statusBdr);
+    drawRect(px + pw - 2, py, 2, ph, PAL.statusBdr);
+
+    // Inner border (1px)
+    drawRect(px + 3, py + 3, pw - 6, 1, PAL.statusBdrIn);
+    drawRect(px + 3, py + ph - 4, pw - 6, 1, PAL.statusBdrIn);
+    drawRect(px + 3, py + 3, 1, ph - 6, PAL.statusBdrIn);
+    drawRect(px + pw - 4, py + 3, 1, ph - 6, PAL.statusBdrIn);
+
+    // Corner accents
+    drawRect(px + 2, py + 2, 2, 2, PAL.statusBdr);
+    drawRect(px + pw - 4, py + 2, 2, 2, PAL.statusBdr);
+    drawRect(px + 2, py + ph - 4, 2, 2, PAL.statusBdr);
+    drawRect(px + pw - 4, py + ph - 4, 2, 2, PAL.statusBdr);
+
+    bctx.textBaseline = 'top';
+    const lx = px + 12; // left text margin
+    const rx = px + pw - 12; // right margin
+    let cy = py + 8;
+
+    // ---- HEADER ----
+    bctx.font = '7px monospace';
+    bctx.fillStyle = PAL.statusHeader;
+    bctx.fillText('COMPANY REPORT', lx, cy);
+    bctx.fillStyle = PAL.statusTxt;
+    bctx.textAlign = 'right';
+    bctx.fillText('Day ' + gameState.day, rx, cy);
+    bctx.textAlign = 'left';
+    cy += 12;
+
+    // Divider
+    drawRect(lx, cy, pw - 24, 1, PAL.statusHeader);
+    cy += 6;
+
+    // ---- FINANCIALS ----
+    const runway = getRunwayDays();
+    const dailyMrrIncome = Math.floor(gameState.mrr / 30);
+
+    bctx.font = '6px monospace';
+
+    // Cash
+    const isVibes = gameState.cash === 0;
+    const cashLabel = isVibes ? 'VIBES' : 'CASH';
+    const cashValue = isVibes ? '$0 (RAMEN BUDGET)' : '$' + gameState.cash.toLocaleString();
+    const cashColor = gameState.cash === 0 ? PAL.runwayYellow : (gameState.cash < 30000 ? PAL.runwayRed : PAL.statusTxt);
+    bctx.fillStyle = PAL.statusTxt;
+    bctx.fillText(cashLabel, lx, cy);
+    bctx.fillStyle = cashColor;
+    bctx.textAlign = 'right';
+    bctx.fillText(cashValue, rx, cy);
+    bctx.textAlign = 'left';
+    cy += 10;
+
+    // Daily Burn
+    bctx.fillStyle = PAL.statusTxt;
+    bctx.fillText('DAILY BURN', lx, cy);
+    bctx.fillStyle = PAL.hireWarn;
+    bctx.textAlign = 'right';
+    bctx.fillText('-$' + gameState.dayBurn.toLocaleString(), rx, cy);
+    bctx.textAlign = 'left';
+    cy += 10;
+
+    // MRR
+    bctx.fillStyle = PAL.statusTxt;
+    bctx.fillText('MRR', lx, cy);
+    bctx.fillStyle = gameState.mrr > 0 ? PAL.runwayGreen : PAL.inactiveTxt;
+    bctx.textAlign = 'right';
+    bctx.fillText('$' + gameState.mrr.toLocaleString() + (dailyMrrIncome > 0 ? ' (+$' + dailyMrrIncome + '/d)' : ''), rx, cy);
+    bctx.textAlign = 'left';
+    cy += 10;
+
+    // Runway
+    let runwayColor = PAL.runwayGreen;
+    if (runway <= 15) runwayColor = PAL.runwayRed;
+    else if (runway <= 30) runwayColor = PAL.runwayYellow;
+
+    // Pulse effect for critical runway
+    if (runway <= 15 && runway > 0) {
+        const pulse = Math.sin(performance.now() * 0.006);
+        runwayColor = pulse > 0 ? PAL.runwayRed : PAL.statusTxt;
+    }
+
+    bctx.fillStyle = PAL.statusTxt;
+    bctx.fillText('RUNWAY', lx, cy);
+    bctx.fillStyle = runwayColor;
+    bctx.textAlign = 'right';
+    bctx.fillText('~' + Math.min(runway, 999) + ' days', rx, cy);
+    bctx.textAlign = 'left';
+    cy += 14;
+
+    // Divider
+    drawRect(lx, cy, pw - 24, 1, PAL.statusHeader);
+    cy += 6;
+
+    // ---- PRODUCT & CUSTOMERS ----
+    bctx.fillStyle = PAL.statusHeader;
+    bctx.font = '6px monospace';
+    bctx.fillText('PRODUCT & GROWTH', lx, cy);
+    cy += 10;
+
+    // Product progress bar
+    bctx.fillStyle = PAL.statusTxt;
+    bctx.fillText('PRODUCT', lx, cy);
+    const barX = lx + 56;
+    const barW = 100;
+    const barH = 6;
+    drawRect(barX, cy, barW, barH, PAL.apEmpty);
+    const fillW = Math.floor(barW * gameState.productProgress / 100);
+    if (fillW > 0) drawRect(barX, cy, fillW, barH, PAL.runwayGreen);
+    drawRect(barX, cy, barW, 1, '#444455');
+    bctx.fillStyle = PAL.statusTxt;
+    bctx.textAlign = 'right';
+    bctx.fillText(gameState.productProgress + '%', rx, cy);
+    bctx.textAlign = 'left';
+    cy += 10;
+
+    // Customers
+    bctx.fillStyle = PAL.statusTxt;
+    bctx.fillText('CUSTOMERS', lx, cy);
+    bctx.fillStyle = gameState.customers > 0 ? PAL.statusTxt : PAL.inactiveTxt;
+    bctx.textAlign = 'right';
+    bctx.fillText(gameState.customers.toString(), rx, cy);
+    bctx.textAlign = 'left';
+    cy += 14;
+
+    // Divider
+    drawRect(lx, cy, pw - 24, 1, PAL.statusHeader);
+    cy += 6;
+
+    // ---- TEAM ----
+    bctx.fillStyle = PAL.statusHeader;
+    bctx.fillText('TEAM (' + getTeamSize() + ')', lx, cy);
+    cy += 10;
+
+    // Founders
+    bctx.fillStyle = PAL.statusTxt;
+    bctx.fillText('You (Founder)', lx, cy);
+    cy += 9;
+    bctx.fillStyle = PAL.inactiveTxt;
+    bctx.fillText('??? (Co-Founder)', lx, cy);
+    cy += 9;
+
+    // Employees as chips - up to 4 per row
+    if (gameState.employees.length === 0) {
+        bctx.fillStyle = PAL.inactiveTxt;
+        bctx.fillText('No hires yet', lx, cy);
+        cy += 9;
+    } else {
+        let chipX = lx;
+        for (let i = 0; i < gameState.employees.length; i++) {
+            const emp = gameState.employees[i];
+            const chipColor = emp.type === 'dev' ? PAL.statusDev : PAL.statusSales;
+            const roleTag = emp.type === 'dev' ? 'D' : 'S';
+            const label = emp.name + ' [' + roleTag + ']';
+            const chipW = label.length * 4 + 6;
+
+            // Wrap to next line if needed
+            if (chipX + chipW > rx) {
+                chipX = lx;
+                cy += 10;
+            }
+
+            // Chip background
+            drawRect(chipX, cy, chipW, 8, chipColor + '44');
+            drawRect(chipX, cy, chipW, 1, chipColor);
+
+            bctx.fillStyle = chipColor;
+            bctx.font = '5px monospace';
+            bctx.fillText(label, chipX + 3, cy + 2);
+            bctx.font = '6px monospace';
+
+            chipX += chipW + 4;
+        }
+        cy += 12;
+    }
+
+    // Divider
+    cy += 2;
+    drawRect(lx, cy, pw - 24, 1, PAL.statusHeader);
+    cy += 6;
+
+    // ---- AP ----
+    bctx.fillStyle = PAL.statusTxt;
+    bctx.font = '6px monospace';
+    bctx.fillText('ACTION POINTS', lx, cy);
+    const apStartX = lx + 88;
+    for (let i = 0; i < gameState.maxAp; i++) {
+        const filled = i < gameState.ap;
+        drawRect(apStartX + i * 10, cy, 7, 7, filled ? PAL.apFull : PAL.apEmpty);
+        drawRect(apStartX + i * 10, cy, 7, 1, filled ? '#7aea8a' : '#444455');
+    }
+    bctx.fillStyle = PAL.statusTxt;
+    bctx.textAlign = 'right';
+    bctx.fillText(gameState.ap + '/' + gameState.maxAp, rx, cy);
+    bctx.textAlign = 'left';
+
+    // ---- MENU OPTIONS ----
+    if (statusMenu.confirmExit) {
+        drawStatusConfirmExit(px, py, pw, ph);
+    } else {
+        const menuY = py + ph - 24;
+        drawRect(lx, menuY - 4, pw - 24, 1, PAL.statusBdrIn);
+
+        const opts = ['RESUME', 'EXIT TO TITLE'];
+        statusMenu.cursorBlink += 0.05;
+        const cursorShow = Math.sin(statusMenu.cursorBlink * 3) > 0;
+
+        for (let i = 0; i < opts.length; i++) {
+            const oy = menuY + i * 10;
+            if (i === statusMenu.cursor && cursorShow) {
+                bctx.fillStyle = PAL.statusCursor;
+                // Draw arrow cursor
+                drawRect(lx, oy + 1, 2, 5, PAL.statusCursor);
+                drawRect(lx + 2, oy + 2, 1, 3, PAL.statusCursor);
+                drawRect(lx + 3, oy + 3, 1, 1, PAL.statusCursor);
+            }
+            bctx.fillStyle = i === statusMenu.cursor ? PAL.white : PAL.statusTxt;
+            bctx.font = '6px monospace';
+            bctx.fillText(opts[i], lx + 8, oy);
+        }
+    }
+}
+
+function drawStatusConfirmExit(px, py, pw, ph) {
+    const menuY = py + ph - 34;
+    drawRect(lx, menuY - 4, pw - 24, 1, PAL.statusBdrIn);
+
+    const lx2 = px + 12;
+    bctx.fillStyle = PAL.runwayYellow;
+    bctx.font = '6px monospace';
+    bctx.fillText('Exit to title? Progress will be lost!', lx2, menuY);
+
+    const opts = ['YES, EXIT', 'NO, GO BACK'];
+    statusMenu.cursorBlink += 0.05;
+    const cursorShow = Math.sin(statusMenu.cursorBlink * 3) > 0;
+
+    for (let i = 0; i < opts.length; i++) {
+        const oy = menuY + 12 + i * 10;
+        if (i === statusMenu.confirmCursor && cursorShow) {
+            drawRect(lx2, oy + 1, 2, 5, PAL.statusCursor);
+            drawRect(lx2 + 2, oy + 2, 1, 3, PAL.statusCursor);
+            drawRect(lx2 + 3, oy + 3, 1, 1, PAL.statusCursor);
+        }
+        bctx.fillStyle = i === statusMenu.confirmCursor ? PAL.white : PAL.statusTxt;
+        bctx.fillText(opts[i], lx2 + 8, oy);
+    }
 }
 
 // ============================================================
@@ -1508,23 +1636,14 @@ let titleBlink = 0;
 function drawTitleScreen() {
     drawRect(0, 0, NATIVE_W, NATIVE_H, '#0f0f1a');
 
-    // Office silhouette bg
     for (let i = 0; i < 20; i++) {
         const shade = (i % 2 === 0) ? '#15152a' : '#12122a';
         drawRect(i * 16, 140, 16, 84, shade);
     }
-    // Animated monitor glows
-    const t = performance.now();
-    const glow1 = Math.sin(t * 0.003) > 0 ? PAL.monGlow : PAL.monGlowLt;
-    const glow2 = Math.sin(t * 0.0025 + 1) > 0 ? PAL.monGlow : PAL.monGlowLt;
-    const glow3 = Math.sin(t * 0.0035 + 2) > 0 ? PAL.monGlow : PAL.monGlowLt;
-    drawRect(50, 155, 6, 3, glow1);
-    drawRect(130, 160, 6, 3, glow2);
-    drawRect(220, 150, 6, 3, glow3);
-    // Extra ambient details
-    drawRect(85, 162, 4, 2, '#4477aa55');
-    drawRect(190, 158, 5, 2, '#cc664455');
-    drawRect(260, 165, 4, 3, '#5588bb55');
+    const glow = Math.sin(performance.now() * 0.003) > 0 ? PAL.monGlow : PAL.monGlowLt;
+    drawRect(50, 155, 6, 3, glow);
+    drawRect(130, 160, 6, 3, glow);
+    drawRect(220, 150, 6, 3, glow);
 
     bctx.textAlign = 'center';
     bctx.textBaseline = 'top';
@@ -1545,7 +1664,7 @@ function drawTitleScreen() {
     bctx.fillText('Burn Rate: $2,740/day', NATIVE_W / 2, 109);
 
     bctx.fillStyle = PAL.hireWarn;
-    bctx.fillText('Hire developers & salespeople!', NATIVE_W / 2, 125);
+    bctx.fillText('NEW: Hire developers & salespeople!', NATIVE_W / 2, 125);
 
     titleBlink += 0.04;
     if (Math.sin(titleBlink * 2) > 0) {
@@ -1554,7 +1673,8 @@ function drawTitleScreen() {
     }
 
     bctx.fillStyle = PAL.apEmpty;
-    bctx.fillText('Arrow Keys / WASD: Move  |  Z / Enter: Interact', NATIVE_W / 2, 205);
+    bctx.fillText('Arrow Keys / WASD: Move  |  Z / Enter: Interact', NATIVE_W / 2, 200);
+    bctx.fillText('M / ESC: Status Menu', NATIVE_W / 2, 210);
 
     bctx.textAlign = 'left';
 }
@@ -1638,7 +1758,7 @@ function showIntro() {
         showDialog("$150,000 in the bank. A mysterious co-founder. And a dream.", () => {
             showDialog("Walk to the TERMINAL (green monitor) and press Z to work.", () => {
                 showDialog("Visit the DOOR to hire your first employee!", () => {
-                    showDialog("You get 3 Action Points per day. Spend them wisely -- the burn rate is real.", () => {
+                    showDialog("Press M or ESC anytime for your Company Report.", () => {
                         // done
                     });
                 });
@@ -1675,10 +1795,9 @@ function restart() {
     dialog.active = false;
     dialog.queue = [];
     menu.active = false;
+    statusMenu.active = false;
     introShown = false;
     titlePhase = true;
-    floatingTexts.length = 0;
-    screenFlash.active = false;
 }
 
 // ============================================================
@@ -1717,6 +1836,50 @@ function update(dt) {
         return;
     }
 
+    // Status menu input
+    if (gameState.phase === 'statusMenu') {
+        if (statusMenu.confirmExit) {
+            if (consumePress('ArrowUp') || consumePress('KeyW')) {
+                statusMenu.confirmCursor = (statusMenu.confirmCursor - 1 + 2) % 2;
+            }
+            if (consumePress('ArrowDown') || consumePress('KeyS')) {
+                statusMenu.confirmCursor = (statusMenu.confirmCursor + 1) % 2;
+            }
+            if (consumePress('KeyZ') || consumePress('Enter') || consumePress('Space')) {
+                if (statusMenu.confirmCursor === 0) {
+                    // Yes, exit to title
+                    closeStatusMenu();
+                    restart();
+                } else {
+                    // No, go back
+                    statusMenu.confirmExit = false;
+                }
+            }
+            if (consumePress('Escape') || consumePress('KeyX') || consumePress('KeyM') || consumePress('Backspace')) {
+                statusMenu.confirmExit = false;
+            }
+        } else {
+            if (consumePress('ArrowUp') || consumePress('KeyW')) {
+                statusMenu.cursor = (statusMenu.cursor - 1 + 2) % 2;
+            }
+            if (consumePress('ArrowDown') || consumePress('KeyS')) {
+                statusMenu.cursor = (statusMenu.cursor + 1) % 2;
+            }
+            if (consumePress('KeyZ') || consumePress('Enter') || consumePress('Space')) {
+                if (statusMenu.cursor === 0) {
+                    closeStatusMenu();
+                } else {
+                    statusMenu.confirmExit = true;
+                    statusMenu.confirmCursor = 1; // Default to "No"
+                }
+            }
+            if (consumePress('Escape') || consumePress('KeyX') || consumePress('KeyM') || consumePress('Backspace')) {
+                closeStatusMenu();
+            }
+        }
+        return;
+    }
+
     // Dialog input
     if (dialog.active) {
         if (!dialog.done) {
@@ -1733,10 +1896,6 @@ function update(dt) {
         if (consumePress('KeyZ') || consumePress('Enter') || consumePress('Space')) {
             advanceDialog();
         }
-        // Still update animations during dialog
-        updateIdleAnims(dt);
-        updateFloatingTexts(dt);
-        updateFlash(dt);
         return;
     }
 
@@ -1759,14 +1918,17 @@ function update(dt) {
             menu.cursor = menu.options.length - 1;
             menuSelect();
         }
-        updateIdleAnims(dt);
-        updateFloatingTexts(dt);
-        updateFlash(dt);
         return;
     }
 
     // Movement
     if (gameState.phase === 'play') {
+        // Open status menu with ESC or M
+        if (consumePress('Escape') || consumePress('KeyM')) {
+            openStatusMenu();
+            return;
+        }
+
         const dir = getMovementDir();
         if (dir >= 0 && !player.moving) {
             if (dir !== lastDir) {
@@ -1804,11 +1966,8 @@ function update(dt) {
 
     updatePlayer(dt);
     updateCamera();
-    updateIdleAnims(dt);
-    updateFloatingTexts(dt);
-    updateFlash(dt);
 
-    // Cofounder idle look-around
+    // Cofounder idle animation
     cofounder.idleTimer += dt;
     if (cofounder.idleTimer > 3000) {
         cofounder.idleTimer = 0;
@@ -1831,7 +1990,6 @@ function render() {
     bctx.save();
     bctx.translate(-cx, -cy);
 
-    // Draw floor tiles
     const startGx = Math.max(0, Math.floor(cx / T));
     const startGy = Math.max(0, Math.floor(cy / T));
     const endGx = Math.min(MAP_W - 1, Math.floor((cx + NATIVE_W) / T));
@@ -1843,7 +2001,6 @@ function render() {
         }
     }
 
-    // Y-sort renderables
     const renderables = [];
 
     for (let gy = startGy; gy <= endGy; gy++) {
@@ -1880,20 +2037,7 @@ function render() {
         }
     }
 
-    // Floating texts (world space)
-    drawFloatingTexts();
-
     bctx.restore();
-
-    // Day phase tint overlay (screen space)
-    if (gameState.phase !== 'gameOver') {
-        const tint = getDayPhaseTint();
-        bctx.fillStyle = tint.color;
-        bctx.fillRect(0, 0, NATIVE_W, NATIVE_H);
-    }
-
-    // Screen flash overlay
-    drawFlash();
 
     // HUD (screen-space)
     drawHUD();
@@ -1901,6 +2045,11 @@ function render() {
     // Dialog / Menu (screen-space)
     drawDialogBox();
     drawMenuBox();
+
+    // Status panel overlay (screen-space)
+    if (gameState.phase === 'statusMenu') {
+        drawStatusPanel();
+    }
 
     // Game Over overlay
     if (gameState.phase === 'gameOver') {

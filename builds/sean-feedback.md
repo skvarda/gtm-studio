@@ -1,0 +1,1 @@
+user needs a way to access a game menu where they can see a report of gameplay information, status, exit game, etc.
