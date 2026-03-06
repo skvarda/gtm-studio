@@ -14,7 +14,7 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 <canvas id="game"></canvas>
 <script>
 // ============================================================
-// SaaS STARTUP SIMULATOR — Round 26: "The Opening"
+// SaaS STARTUP SIMULATOR — Round 27: "Sound & Scanlines"
 // ============================================================
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -93,6 +93,262 @@ const PAL = {
     panelBdr:   '#e94560',
     textHighlight: '#f5a623',
     textDim:    '#6c7a8a',
+};
+
+// ============================================================
+// AUDIO MANAGER — Procedural Web Audio chiptune system
+// ============================================================
+const AudioManager = {
+    ctx: null,
+    masterGain: null,
+    musicGain: null,
+    sfxGain: null,
+    muted: false,
+    currentTrack: null,
+    initialized: false,
+    trackNodes: [],
+
+    init() {
+        if (this.initialized) return;
+        try {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.gain.value = 0.35;
+            this.masterGain.connect(this.ctx.destination);
+
+            this.musicGain = this.ctx.createGain();
+            this.musicGain.gain.value = 0.5;
+            this.musicGain.connect(this.masterGain);
+
+            this.sfxGain = this.ctx.createGain();
+            this.sfxGain.gain.value = 0.7;
+            this.sfxGain.connect(this.masterGain);
+
+            this.initialized = true;
+            // Restore mute state
+            const saved = sessionStorage.getItem('sss_muted');
+            if (saved === 'true') {
+                this.muted = true;
+                this.masterGain.gain.value = 0;
+            }
+        } catch(e) {}
+    },
+
+    toggleMute() {
+        if (!this.initialized) return;
+        this.muted = !this.muted;
+        this.masterGain.gain.setTargetAtTime(this.muted ? 0 : 0.35, this.ctx.currentTime, 0.02);
+        sessionStorage.setItem('sss_muted', this.muted);
+    },
+
+    stopMusic() {
+        for (const n of this.trackNodes) {
+            try { n.stop(); } catch(e) {}
+        }
+        this.trackNodes = [];
+        this.currentTrack = null;
+    },
+
+    // Note frequency helper
+    noteFreq(note, octave) {
+        const notes = { C:0, 'C#':1, D:2, 'D#':3, E:4, F:5, 'F#':6, G:7, 'G#':8, A:9, 'A#':10, B:11 };
+        const n = notes[note] || 0;
+        return 440 * Math.pow(2, (n - 9) / 12 + (octave - 4));
+    },
+
+    // Play a sequence of notes as a looping track
+    playTrack(trackName, melody, bass, tempo, loop) {
+        if (!this.initialized) return;
+        if (this.currentTrack === trackName) return;
+        this.stopMusic();
+        this.currentTrack = trackName;
+
+        const beatDur = 60 / tempo;
+        const totalBeats = melody.reduce((s, n) => s + n.dur, 0);
+        const loopLen = totalBeats * beatDur;
+
+        const scheduleVoice = (notes, waveType, gainVal, detune) => {
+            const schedule = (startOffset) => {
+                let t = this.ctx.currentTime + 0.05 + startOffset;
+                for (const n of notes) {
+                    const dur = n.dur * beatDur;
+                    if (n.note !== 'R') {
+                        const osc = this.ctx.createOscillator();
+                        const g = this.ctx.createGain();
+                        osc.type = waveType;
+                        osc.frequency.value = this.noteFreq(n.note, n.oct);
+                        if (detune) osc.detune.value = detune;
+                        g.gain.setValueAtTime(gainVal, t);
+                        g.gain.setValueAtTime(gainVal, t + dur * 0.7);
+                        g.gain.linearRampToValueAtTime(0, t + dur * 0.95);
+                        osc.connect(g);
+                        g.connect(this.musicGain);
+                        osc.start(t);
+                        osc.stop(t + dur);
+                        this.trackNodes.push(osc);
+                    }
+                    t += dur;
+                }
+            };
+
+            if (loop) {
+                // Schedule several loops ahead
+                for (let i = 0; i < 80; i++) {
+                    schedule(i * loopLen);
+                }
+            } else {
+                schedule(0);
+            }
+        };
+
+        scheduleVoice(melody, 'square', 0.15, 0);
+        if (bass && bass.length > 0) {
+            scheduleVoice(bass, 'triangle', 0.2, 0);
+        }
+    },
+
+    // ---- TITLE THEME ----
+    playTitleTheme() {
+        const melody = [
+            {note:'E',oct:5,dur:1},{note:'G',oct:5,dur:1},{note:'A',oct:5,dur:1},{note:'B',oct:5,dur:1},
+            {note:'A',oct:5,dur:1},{note:'G',oct:5,dur:1},{note:'E',oct:5,dur:2},
+            {note:'D',oct:5,dur:1},{note:'E',oct:5,dur:1},{note:'G',oct:5,dur:1},{note:'A',oct:5,dur:1},
+            {note:'G',oct:5,dur:1},{note:'E',oct:5,dur:1},{note:'D',oct:5,dur:2},
+            {note:'C',oct:5,dur:1},{note:'D',oct:5,dur:1},{note:'E',oct:5,dur:1},{note:'G',oct:5,dur:1},
+            {note:'A',oct:5,dur:2},{note:'G',oct:5,dur:1},{note:'E',oct:5,dur:1},
+            {note:'D',oct:5,dur:1},{note:'C',oct:5,dur:1},{note:'D',oct:5,dur:1},{note:'E',oct:5,dur:1},
+            {note:'G',oct:5,dur:2},{note:'R',oct:0,dur:2},
+        ];
+        const bass = [
+            {note:'C',oct:3,dur:2},{note:'G',oct:3,dur:2},{note:'A',oct:3,dur:2},{note:'E',oct:3,dur:2},
+            {note:'D',oct:3,dur:2},{note:'G',oct:3,dur:2},{note:'A',oct:3,dur:2},{note:'E',oct:3,dur:2},
+            {note:'C',oct:3,dur:2},{note:'G',oct:3,dur:2},{note:'A',oct:3,dur:2},{note:'E',oct:3,dur:2},
+            {note:'D',oct:3,dur:2},{note:'G',oct:3,dur:2},{note:'C',oct:3,dur:2},{note:'R',oct:0,dur:2},
+        ];
+        this.playTrack('title', melody, bass, 180, true);
+    },
+
+    // ---- GAMEPLAY BGM ----
+    playGameplayBGM() {
+        const melody = [
+            {note:'E',oct:4,dur:2},{note:'R',oct:0,dur:1},{note:'G',oct:4,dur:1},
+            {note:'A',oct:4,dur:2},{note:'R',oct:0,dur:2},
+            {note:'G',oct:4,dur:1},{note:'E',oct:4,dur:1},{note:'D',oct:4,dur:2},
+            {note:'R',oct:0,dur:2},{note:'C',oct:4,dur:1},{note:'D',oct:4,dur:1},
+            {note:'E',oct:4,dur:2},{note:'R',oct:0,dur:1},{note:'D',oct:4,dur:1},
+            {note:'C',oct:4,dur:2},{note:'R',oct:0,dur:2},
+            {note:'D',oct:4,dur:1},{note:'E',oct:4,dur:1},{note:'G',oct:4,dur:2},
+            {note:'R',oct:0,dur:4},
+        ];
+        const bass = [
+            {note:'A',oct:2,dur:4},{note:'E',oct:2,dur:4},
+            {note:'G',oct:2,dur:4},{note:'D',oct:2,dur:4},
+            {note:'A',oct:2,dur:4},{note:'C',oct:3,dur:4},
+            {note:'G',oct:2,dur:4},{note:'D',oct:2,dur:4},
+        ];
+        this.playTrack('gameplay', melody, bass, 100, true);
+    },
+
+    // ---- DAY END JINGLE ----
+    playDayEndJingle() {
+        if (!this.initialized) return;
+        this.stopMusic();
+        const melody = [
+            {note:'C',oct:5,dur:1},{note:'E',oct:5,dur:1},{note:'G',oct:5,dur:1},{note:'C',oct:6,dur:2},
+        ];
+        const bass = [
+            {note:'C',oct:3,dur:2},{note:'G',oct:3,dur:2},{note:'R',oct:0,dur:1},
+        ];
+        this.playTrack('jingle', melody, bass, 200, false);
+        this.currentTrack = 'jingle';
+    },
+
+    // ---- SFX ----
+    playSFX(type) {
+        if (!this.initialized) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.connect(g);
+        g.connect(this.sfxGain);
+
+        switch(type) {
+            case 'menuOpen':
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.linearRampToValueAtTime(800, now + 0.06);
+                g.gain.setValueAtTime(0.12, now);
+                g.gain.linearRampToValueAtTime(0, now + 0.08);
+                osc.start(now); osc.stop(now + 0.08);
+                break;
+            case 'menuClose':
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.linearRampToValueAtTime(300, now + 0.06);
+                g.gain.setValueAtTime(0.1, now);
+                g.gain.linearRampToValueAtTime(0, now + 0.07);
+                osc.start(now); osc.stop(now + 0.07);
+                break;
+            case 'select':
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(660, now);
+                osc.frequency.setValueAtTime(880, now + 0.04);
+                g.gain.setValueAtTime(0.12, now);
+                g.gain.linearRampToValueAtTime(0, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+                break;
+            case 'cursor':
+                osc.type = 'square';
+                osc.frequency.value = 440;
+                g.gain.setValueAtTime(0.06, now);
+                g.gain.linearRampToValueAtTime(0, now + 0.03);
+                osc.start(now); osc.stop(now + 0.03);
+                break;
+            case 'dialogTick':
+                osc.type = 'square';
+                osc.frequency.value = 600 + Math.random() * 100;
+                g.gain.setValueAtTime(0.04, now);
+                g.gain.linearRampToValueAtTime(0, now + 0.02);
+                osc.start(now); osc.stop(now + 0.02);
+                break;
+            case 'hire':
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523, now);
+                osc.frequency.setValueAtTime(659, now + 0.08);
+                osc.frequency.setValueAtTime(784, now + 0.16);
+                osc.frequency.setValueAtTime(1047, now + 0.24);
+                g.gain.setValueAtTime(0.15, now);
+                g.gain.linearRampToValueAtTime(0, now + 0.35);
+                osc.start(now); osc.stop(now + 0.35);
+                break;
+            case 'apSpend':
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(500, now);
+                osc.frequency.linearRampToValueAtTime(350, now + 0.08);
+                g.gain.setValueAtTime(0.1, now);
+                g.gain.linearRampToValueAtTime(0, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+                break;
+            case 'gameOver':
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.6);
+                g.gain.setValueAtTime(0.12, now);
+                g.gain.linearRampToValueAtTime(0, now + 0.7);
+                osc.start(now); osc.stop(now + 0.7);
+                break;
+        }
+    },
+
+    // Dialog tick throttle
+    _lastTickTime: 0,
+    playDialogTick() {
+        if (!this.initialized) return;
+        const now = this.ctx.currentTime;
+        if (now - this._lastTickTime < 0.04) return;
+        this._lastTickTime = now;
+        this.playSFX('dialogTick');
+    }
 };
 
 // ============================================================
@@ -192,23 +448,7 @@ const gameState = {
     dayBurn: 2740,
     baseBurn: 2740,
     employees: [],
-    playerName: '',
-    playerClass: '',
-    companyName: '',
 };
-
-// Class modifiers
-const CLASS_MODS = {
-    seller: { prodMult: 0.8, custMult: 1.3 },
-    dev:    { prodMult: 1.3, custMult: 0.8 },
-    marketer: { prodMult: 1.15, custMult: 1.15 },
-};
-
-function getClassMod(stat) {
-    const cls = gameState.playerClass;
-    if (!cls || !CLASS_MODS[cls]) return 1.0;
-    return CLASS_MODS[cls][stat] || 1.0;
-}
 
 function getDevCount() { return gameState.employees.filter(e => e.type === 'dev').length; }
 function getSalesCount() { return gameState.employees.filter(e => e.type === 'sales').length; }
@@ -253,13 +493,9 @@ const justPressed = {};
 window.addEventListener('keydown', e => {
     if (!keys[e.code]) justPressed[e.code] = true;
     keys[e.code] = true;
-    // Allow default for name entry typing
-    if (gameState.phase !== 'nameEntry') {
-        e.preventDefault();
-    } else {
-        // Still prevent some defaults in name entry
-        if (e.code !== 'F5' && e.code !== 'F12') e.preventDefault();
-    }
+    // Init audio on first user gesture
+    if (!AudioManager.initialized) AudioManager.init();
+    e.preventDefault();
 });
 window.addEventListener('keyup', e => {
     keys[e.code] = false;
@@ -292,7 +528,6 @@ const dialog = {
     done: false,
     callback: null,
     queue: [],
-    speaker: '',
 };
 
 const menu = {
@@ -306,9 +541,9 @@ const menu = {
     optionColors: [],
 };
 
-function showDialog(text, callback, speaker) {
+function showDialog(text, callback) {
     if (dialog.active || menu.active) {
-        dialog.queue.push({ text, callback, speaker });
+        dialog.queue.push({ text, callback });
         return;
     }
     dialog.active = true;
@@ -318,7 +553,6 @@ function showDialog(text, callback, speaker) {
     dialog.charTimer = 0;
     dialog.done = false;
     dialog.callback = callback || null;
-    dialog.speaker = speaker || '';
     gameState.phase = 'dialog';
 }
 
@@ -330,16 +564,15 @@ function advanceDialog() {
         dialog.done = true;
     } else {
         dialog.active = false;
-        dialog.speaker = '';
         gameState.phase = 'play';
+        AudioManager.playSFX('menuClose');
         if (dialog.callback) {
-            const cb = dialog.callback;
+            dialog.callback();
             dialog.callback = null;
-            cb();
         }
         if (dialog.queue.length > 0) {
             const next = dialog.queue.shift();
-            showDialog(next.text, next.callback, next.speaker);
+            showDialog(next.text, next.callback);
         }
     }
 }
@@ -354,6 +587,7 @@ function showMenu(title, options, callback, disabledIndices, optionColors) {
     menu.disabledIndices = disabledIndices || [];
     menu.optionColors = optionColors || [];
     gameState.phase = 'menu';
+    AudioManager.playSFX('menuOpen');
     while (menu.disabledIndices.includes(menu.cursor) && menu.cursor < menu.options.length - 1) {
         menu.cursor++;
     }
@@ -365,6 +599,7 @@ function menuSelect() {
     const choice = menu.cursor;
     menu.active = false;
     gameState.phase = 'play';
+    AudioManager.playSFX('select');
     if (menu.callback) menu.callback(choice);
 }
 
@@ -412,10 +647,10 @@ const coffeMessages = [
 ];
 
 const cofounderMessages = [
-    "Darren glances up from his laptop... then back down.",
+    "Your co-founder glances up from his laptop... then back down.",
     "\"Oh hey. Yeah, I'm working on... the thing. It's going great.\"",
     "He seems to be reading Wikipedia. \"Research,\" he mutters.",
-    "\"Trust the process,\" Darren says without looking up.",
+    "\"Trust the process,\" he says without looking up.",
     "You notice he's reorganizing his desktop icons. Again.",
     "\"I've been thinking about our long-term strategy...\" He trails off.",
     "He's wearing the same hoodie as yesterday. Or is it a new one?",
@@ -457,7 +692,7 @@ const SALES_BURN = 1500;
 
 function hireEmployee(type) {
     if (gameState.employees.length >= MAX_EMPLOYEES) {
-        showDialog("No room! You can only have " + MAX_EMPLOYEES + " employees right now.");
+        showDialog("No room! You can only have " + MAX_EMPLOYEES + " employees right now. Maybe find a bigger office someday.");
         return;
     }
     if (gameState.ap <= 0) {
@@ -470,12 +705,12 @@ function hireEmployee(type) {
     gameState.employees.push(emp);
     gameState.ap--;
     recalcBurn();
+    AudioManager.playSFX('hire');
 
     const role = type === 'dev' ? 'Developer' : 'Salesperson';
     const cost = type === 'dev' ? DEV_BURN : SALES_BURN;
-    const emoji = type === 'dev' ? '[DEV]' : '[SALES]';
 
-    let msg = name + " has joined as " + role + "! " + emoji + "\n\n";
+    let msg = name + " has joined as " + role + "!\n\n";
     msg += "Salary: +$" + cost.toLocaleString() + "/day burn\n";
     msg += "New burn rate: $" + gameState.dayBurn.toLocaleString() + "/day\n";
     msg += "Team size: " + getTeamSize();
@@ -495,7 +730,7 @@ function openHiringMenu() {
         return;
     }
     if (gameState.employees.length >= MAX_EMPLOYEES) {
-        showDialog("The office is full! " + MAX_EMPLOYEES + " employees max.");
+        showDialog("The office is full! " + MAX_EMPLOYEES + " employees max. You'd need a bigger place.");
         return;
     }
 
@@ -536,11 +771,9 @@ function openHiringMenu() {
 }
 
 function showTeamRoster() {
-    const pName = gameState.playerName || 'You';
-    const pClass = gameState.playerClass ? (' (' + gameState.playerClass.charAt(0).toUpperCase() + gameState.playerClass.slice(1) + ')') : '';
     let msg = "— TEAM ROSTER —\n\n";
-    msg += pName + pClass + " (Founder) — Building the dream\n";
-    msg += "Darren (Co-Founder) — ???\n";
+    msg += "You (Founder) — Building the dream\n";
+    msg += "??? (Co-Founder) — ???\n";
 
     if (gameState.employees.length === 0) {
         msg += "\nNo employees yet. Visit the door to hire!";
@@ -561,13 +794,13 @@ function showTeamRoster() {
 }
 
 // ============================================================
-// ACTIONS (with class modifiers)
+// ACTIONS
 // ============================================================
 function doBuild() {
-    const baseGain = 5 + Math.floor(Math.random() * 8);
-    const gain = Math.round(baseGain * getClassMod('prodMult'));
+    const gain = 5 + Math.floor(Math.random() * 8);
     gameState.productProgress = Math.min(100, gameState.productProgress + gain);
     gameState.ap--;
+    AudioManager.playSFX('apSpend');
     showDialog(randFrom(buildMessages) + "\n\n[Product Progress +" + gain + "%  ->  " + gameState.productProgress + "%]");
 }
 
@@ -575,21 +808,23 @@ function doResearch() {
     const gain = 1 + Math.floor(Math.random() * 2);
     gameState.marketInsight += gain;
     gameState.ap--;
+    AudioManager.playSFX('apSpend');
     showDialog(randFrom(researchMessages) + "\n\n[Market Insight +" + gain + "  ->  " + gameState.marketInsight + "]");
 }
 
 function doSales() {
     gameState.ap--;
+    AudioManager.playSFX('apSpend');
     let successChance = 0.25;
     if (gameState.productProgress < 25) successChance *= 0.5;
     if (gameState.marketInsight > 3) successChance += 0.15;
     if (gameState.productProgress >= 50) successChance += 0.15;
-    successChance *= getClassMod('custMult');
 
     if (Math.random() < successChance) {
         const mrrGain = 50 + Math.floor(Math.random() * 150);
+        const custGain = 1;
         gameState.mrr += mrrGain;
-        gameState.customers += 1;
+        gameState.customers += custGain;
         showDialog(randFrom(salesMessages) + "\n\nDeal closed! [+$" + mrrGain + " MRR, +1 Customer]");
     } else {
         const failMsgs = [
@@ -607,9 +842,11 @@ function doSales() {
 }
 
 // ============================================================
-// END OF DAY — with class modifiers on passive effects
+// END OF DAY
 // ============================================================
 function endDay() {
+    AudioManager.playDayEndJingle();
+
     const dailyMrrIncome = Math.floor(gameState.mrr / 30);
     gameState.cash -= gameState.dayBurn;
     gameState.cash += dailyMrrIncome;
@@ -621,8 +858,7 @@ function endDay() {
 
     for (const emp of gameState.employees) {
         if (emp.type === 'dev') {
-            const baseGain = 3 + Math.floor(Math.random() * 4);
-            const devGain = Math.round(baseGain * getClassMod('prodMult'));
+            const devGain = 3 + Math.floor(Math.random() * 4);
             totalDevProgress += devGain;
             empReport += emp.name + " " + randFrom(devPassiveMessages) + " [+" + devGain + "% prod]\n";
         } else if (emp.type === 'sales') {
@@ -630,7 +866,6 @@ function endDay() {
             if (gameState.productProgress < 25) passiveChance *= 0.4;
             if (gameState.marketInsight > 3) passiveChance += 0.08;
             if (gameState.productProgress >= 50) passiveChance += 0.10;
-            passiveChance *= getClassMod('custMult');
 
             if (Math.random() < passiveChance) {
                 const mrrGain = 30 + Math.floor(Math.random() * 100);
@@ -657,6 +892,7 @@ function endDay() {
     if (gameState.cash <= 0) {
         gameState.cash = 0;
         gameState.phase = 'gameOver';
+        AudioManager.playSFX('gameOver');
         return;
     }
 
@@ -680,7 +916,10 @@ function endDay() {
         summary += "\n\n!! RUNWAY CRITICAL — " + runway + " days left !!";
     }
 
-    showDialog(summary);
+    showDialog(summary, () => {
+        // Resume gameplay BGM after jingle dialog dismissed
+        AudioManager.playGameplayBGM();
+    });
 }
 
 // ============================================================
@@ -714,7 +953,7 @@ function tryInteract() {
             if (gameState.employees.length === 0) {
                 showDialog("A meeting area rug. No meetings scheduled (there's no one to meet with yet).");
             } else {
-                showDialog("A meeting area rug. " + gameState.employees.length + " employee" + (gameState.employees.length !== 1 ? "s" : "") + " busy working.");
+                showDialog("A meeting area rug. " + gameState.employees.length + " employee" + (gameState.employees.length !== 1 ? "s" : "") + " busy working around the office.");
             }
         }
     }
@@ -733,8 +972,8 @@ function openTerminal() {
 
     const disabled = [];
     const opts = [
-        "Build Product     (+5-12% Progress)  [1 AP]",
-        "Research Market    (+Market Insight)  [1 AP]",
+        "Build Product     (+" + "5-12% Progress)  [1 AP]",
+        "Research Market    (+" + "Market Insight)  [1 AP]",
         "Sales Outreach     (" + (gameState.productProgress < 25 ? "Low success" : "Normal chance") + ")  [1 AP]",
         "End Day  ->  Day " + (gameState.day + 1),
         "Cancel"
@@ -1161,6 +1400,7 @@ function drawHUD() {
     bctx.font = '7px monospace';
     bctx.textBaseline = 'top';
 
+    // Row 1
     bctx.fillStyle = PAL.hudTxt;
     bctx.fillText('Day ' + gameState.day, 4, y + 3);
 
@@ -1183,6 +1423,7 @@ function drawHUD() {
         drawRect(apX + 16 + i * 8, y + 4, 6, 1, i < gameState.ap ? '#7aea8a' : '#444455');
     }
 
+    // Row 2
     const dailyMrrIncome = Math.floor(gameState.mrr / 30);
     const netBurn = gameState.dayBurn - dailyMrrIncome;
     const runway = netBurn > 0 ? Math.floor(gameState.cash / netBurn) : 999;
@@ -1209,6 +1450,13 @@ function drawHUD() {
     }
     bctx.fillStyle = PAL.hudTxt;
     bctx.fillText(teamStr, 235, y + 14);
+
+    // Mute indicator
+    if (AudioManager.muted) {
+        bctx.fillStyle = PAL.hudRed;
+        bctx.font = '5px monospace';
+        bctx.fillText('MUTE', NATIVE_W - 24, y + 22);
+    }
 }
 
 // ============================================================
@@ -1231,19 +1479,6 @@ function drawDialogBox() {
     drawRect(bx + bw - 4, by + 2, 2, 2, PAL.dialogBdr);
     drawRect(bx + 2, by + bh - 4, 2, 2, PAL.dialogBdr);
     drawRect(bx + bw - 4, by + bh - 4, 2, 2, PAL.dialogBdr);
-
-    // Speaker name tag
-    if (dialog.speaker) {
-        const nameW = dialog.speaker.length * 4 + 8;
-        drawRect(bx + 6, by - 8, nameW, 9, PAL.dialogBg);
-        drawRect(bx + 6, by - 8, nameW, 1, PAL.panelBdr);
-        drawRect(bx + 6, by - 8, 1, 9, PAL.panelBdr);
-        drawRect(bx + 6 + nameW - 1, by - 8, 1, 9, PAL.panelBdr);
-        bctx.font = '5px monospace';
-        bctx.fillStyle = PAL.textHighlight;
-        bctx.textBaseline = 'top';
-        bctx.fillText(dialog.speaker, bx + 10, by - 6);
-    }
 
     bctx.font = '6px monospace';
     bctx.fillStyle = PAL.dialogTxt;
@@ -1406,7 +1641,7 @@ function drawTitleScreen() {
     bctx.fillText('Burn Rate: $2,740/day', NATIVE_W / 2, 109);
 
     bctx.fillStyle = PAL.hireWarn;
-    bctx.fillText('Choose your class. Meet Darren.', NATIVE_W / 2, 125);
+    bctx.fillText('NOW WITH SOUND! Press M to mute/unmute', NATIVE_W / 2, 125);
 
     titleBlink += 0.04;
     if (Math.sin(titleBlink * 2) > 0) {
@@ -1421,408 +1656,27 @@ function drawTitleScreen() {
 }
 
 // ============================================================
-// NAME ENTRY SCREEN (Round 26)
+// CRT SCANLINE POST-PROCESSING
 // ============================================================
-const nameEntry = {
-    name: '',
-    cursorRow: 0,
-    cursorCol: 0,
-    blinkTimer: 0,
-    maxLen: 12,
-    // Grid layout: A-Z on rows 0-2 (9 chars per row), 0-9 + DEL + END on row 3
-    grid: [
-        ['A','B','C','D','E','F','G','H','I'],
-        ['J','K','L','M','N','O','P','Q','R'],
-        ['S','T','U','V','W','X','Y','Z',' '],
-        ['0','1','2','3','4','5','6','7','8'],
-        ['9','DEL','END','','','','','',''],
-    ],
-};
+let crtEnabled = true;
 
-function getNameGridCell(row, col) {
-    if (row < 0 || row >= nameEntry.grid.length) return '';
-    if (col < 0 || col >= nameEntry.grid[row].length) return '';
-    return nameEntry.grid[row][col];
-}
+function applyCRT() {
+    if (!crtEnabled) return;
+    const w = canvas.width;
+    const h = canvas.height;
 
-function drawNameEntryScreen() {
-    drawRect(0, 0, NATIVE_W, NATIVE_H, '#0f0f1a');
-
-    bctx.textAlign = 'center';
-    bctx.textBaseline = 'top';
-
-    // Title
-    drawText('WHAT IS YOUR NAME?', NATIVE_W / 2, 16, PAL.hudGreen, '10px monospace');
-
-    // Name display box
-    const boxW = 160;
-    const boxH = 16;
-    const boxX = (NATIVE_W - boxW) / 2;
-    const boxY = 38;
-    drawRect(boxX, boxY, boxW, boxH, '#16213e');
-    drawRect(boxX, boxY, boxW, 1, PAL.panelBdr);
-    drawRect(boxX, boxY + boxH - 1, boxW, 1, PAL.panelBdr);
-    drawRect(boxX, boxY, 1, boxH, PAL.panelBdr);
-    drawRect(boxX + boxW - 1, boxY, 1, boxH, PAL.panelBdr);
-
-    // Display typed name
-    bctx.font = '8px monospace';
-    bctx.fillStyle = PAL.textHighlight;
-    const displayName = nameEntry.name;
-    bctx.fillText(displayName, NATIVE_W / 2, boxY + 4);
-
-    // Blinking cursor after name
-    nameEntry.blinkTimer++;
-    if (nameEntry.blinkTimer % 30 < 15 && nameEntry.name.length < nameEntry.maxLen) {
-        const nameW = bctx.measureText(displayName).width;
-        const curX = NATIVE_W / 2 + nameW / 2 + 1;
-        drawRect(curX, boxY + 3, 1, 10, '#ffffff');
+    // Scanlines — draw semi-transparent dark lines every 3 pixels (SCALE)
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    for (let y = 0; y < h; y += SCALE) {
+        ctx.fillRect(0, y + SCALE - 1, w, 1);
     }
 
-    // Character grid
-    const gridStartY = 65;
-    const cellW = 16;
-    const cellH = 14;
-    const gridStartX = (NATIVE_W - 9 * cellW) / 2;
-
-    bctx.font = '7px monospace';
-
-    for (let row = 0; row < nameEntry.grid.length; row++) {
-        for (let col = 0; col < nameEntry.grid[row].length; col++) {
-            const cell = nameEntry.grid[row][col];
-            if (cell === '') continue;
-
-            const cx = gridStartX + col * cellW + cellW / 2;
-            const cy = gridStartY + row * cellH;
-
-            const isSelected = (row === nameEntry.cursorRow && col === nameEntry.cursorCol);
-
-            if (isSelected) {
-                const selW = cell.length > 1 ? cell.length * 5 + 6 : cellW - 2;
-                const selX = cx - selW / 2;
-                drawRect(selX, cy - 1, selW, cellH, PAL.cursorGrn);
-                bctx.fillStyle = '#0f0f1a';
-            } else {
-                bctx.fillStyle = cell === 'DEL' ? PAL.hudRed : cell === 'END' ? PAL.hudGreen : PAL.dialogTxt;
-            }
-
-            bctx.fillText(cell, cx, cy + 2);
-        }
-    }
-
-    // Instructions
-    bctx.font = '5px monospace';
-    bctx.fillStyle = PAL.textDim;
-    bctx.fillText('Arrows: Move  |  Z/Enter: Select  |  12 chars max', NATIVE_W / 2, NATIVE_H - 18);
-
-    if (nameEntry.name.length === 0) {
-        bctx.fillStyle = PAL.apEmpty;
-        bctx.fillText('(Empty = default name "Alex")', NATIVE_W / 2, NATIVE_H - 10);
-    }
-
-    bctx.textAlign = 'left';
-}
-
-function updateNameEntry() {
-    const grid = nameEntry.grid;
-
-    if (consumePress('ArrowUp') || consumePress('KeyW')) {
-        nameEntry.cursorRow = Math.max(0, nameEntry.cursorRow - 1);
-        // Clamp col
-        while (nameEntry.cursorCol > 0 && getNameGridCell(nameEntry.cursorRow, nameEntry.cursorCol) === '') {
-            nameEntry.cursorCol--;
-        }
-    }
-    if (consumePress('ArrowDown') || consumePress('KeyS')) {
-        nameEntry.cursorRow = Math.min(grid.length - 1, nameEntry.cursorRow + 1);
-        while (nameEntry.cursorCol > 0 && getNameGridCell(nameEntry.cursorRow, nameEntry.cursorCol) === '') {
-            nameEntry.cursorCol--;
-        }
-    }
-    if (consumePress('ArrowLeft') || consumePress('KeyA')) {
-        do {
-            nameEntry.cursorCol = Math.max(0, nameEntry.cursorCol - 1);
-        } while (nameEntry.cursorCol > 0 && getNameGridCell(nameEntry.cursorRow, nameEntry.cursorCol) === '');
-    }
-    if (consumePress('ArrowRight') || consumePress('KeyD')) {
-        do {
-            nameEntry.cursorCol = Math.min(grid[nameEntry.cursorRow].length - 1, nameEntry.cursorCol + 1);
-        } while (nameEntry.cursorCol < grid[nameEntry.cursorRow].length - 1 && getNameGridCell(nameEntry.cursorRow, nameEntry.cursorCol) === '');
-        // If landed on empty, go back
-        if (getNameGridCell(nameEntry.cursorRow, nameEntry.cursorCol) === '') {
-            while (nameEntry.cursorCol > 0 && getNameGridCell(nameEntry.cursorRow, nameEntry.cursorCol) === '') {
-                nameEntry.cursorCol--;
-            }
-        }
-    }
-
-    if (consumePress('KeyZ') || consumePress('Enter') || consumePress('Space')) {
-        const cell = getNameGridCell(nameEntry.cursorRow, nameEntry.cursorCol);
-        if (cell === 'DEL') {
-            nameEntry.name = nameEntry.name.slice(0, -1);
-        } else if (cell === 'END') {
-            // Confirm name
-            confirmName();
-        } else if (cell === ' ') {
-            if (nameEntry.name.length < nameEntry.maxLen && nameEntry.name.length > 0) {
-                nameEntry.name += ' ';
-            }
-        } else if (cell && nameEntry.name.length < nameEntry.maxLen) {
-            nameEntry.name += cell;
-        }
-    }
-
-    // Backspace shortcut
-    if (consumePress('Backspace')) {
-        nameEntry.name = nameEntry.name.slice(0, -1);
-    }
-}
-
-function confirmName() {
-    const finalName = nameEntry.name.trim() || 'Alex';
-    gameState.playerName = finalName;
-    gameState.phase = 'introScene';
-    introSceneStep = 0;
-    startIntroScene();
-}
-
-// ============================================================
-// INTRO SCENE — DARREN (Round 26)
-// ============================================================
-let introSceneStep = 0;
-
-function startIntroScene() {
-    const name = gameState.playerName;
-    showDialog("Oh hey, " + name + ". Day one. Big day.", () => {
-        showDialog("Listen, I handle the... strategic side of things. Very high level.", () => {
-            showDialog("But remind me -- what is it you actually do again?", () => {
-                // Transition to class select
-                gameState.phase = 'classSelect';
-                classSelect.cursor = 0;
-            }, 'Darren');
-        }, 'Darren');
-    }, 'Darren');
-}
-
-// ============================================================
-// CLASS SELECTION SCREEN (Round 26)
-// ============================================================
-const classSelect = {
-    cursor: 0,
-    confirmed: false,
-};
-
-const CLASS_DATA = [
-    {
-        id: 'seller',
-        name: 'SELLER',
-        color: PAL.salesColor,
-        bonus: '+30% customer acquisition',
-        weakness: '-20% product dev speed',
-        flavor: 'You could sell ice to a penguin.',
-        flavor2: "Code? That's someone else's problem.",
-    },
-    {
-        id: 'dev',
-        name: 'DEV',
-        color: PAL.devColor,
-        bonus: '+30% product dev speed',
-        weakness: '-20% customer acquisition',
-        flavor: 'You speak in algorithms.',
-        flavor2: "People are just... buggy systems.",
-    },
-    {
-        id: 'marketer',
-        name: 'MARKETER',
-        color: PAL.hudYellow,
-        bonus: '+15% product & customers',
-        weakness: 'Master of none',
-        flavor: 'You see the big picture.',
-        flavor2: "You just need someone else to paint it.",
-    },
-];
-
-const DARREN_CLASS_QUIPS = {
-    seller: "Sales, right, right. Good. Someone needs to talk to... the people.",
-    dev: "Ah, the code stuff. Cool. I'll handle the vision.",
-    marketer: "Marketing! Yeah, that's like... strategy. I respect that.",
-};
-
-function drawClassPortrait(x, y, classId) {
-    // 16x16 pixel portraits
-    if (classId === 'seller') {
-        // Sharp shirt, confident pose
-        drawRect(x + 5, y + 1, 6, 5, PAL.skinTone);
-        drawRect(x + 5, y + 0, 6, 2, '#5a3a1a'); // slick hair
-        drawRect(x + 4, y + 1, 1, 2, '#5a3a1a');
-        drawRect(x + 11, y + 1, 1, 2, '#5a3a1a');
-        drawPixel(x + 6, y + 3, '#1a1a2e');
-        drawPixel(x + 9, y + 3, '#1a1a2e');
-        drawPixel(x + 7, y + 5, '#d4a880');
-        drawRect(x + 4, y + 6, 8, 6, '#4488cc'); // blue shirt
-        drawRect(x + 4, y + 6, 8, 1, '#3377bb');
-        drawRect(x + 7, y + 7, 2, 4, '#ffffff'); // tie
-        drawRect(x + 3, y + 7, 2, 4, '#4488cc'); // arms
-        drawRect(x + 11, y + 7, 2, 4, '#4488cc');
-        drawRect(x + 5, y + 12, 2, 3, '#2a2a4a');
-        drawRect(x + 9, y + 12, 2, 3, '#2a2a4a');
-        drawRect(x + 5, y + 14, 2, 2, PAL.shoes);
-        drawRect(x + 9, y + 14, 2, 2, PAL.shoes);
-    } else if (classId === 'dev') {
-        // Hoodie + glasses
-        drawRect(x + 5, y + 1, 6, 5, PAL.skinTone);
-        drawRect(x + 5, y + 0, 6, 2, '#2a2a3a'); // dark messy hair
-        drawRect(x + 4, y + 0, 1, 3, '#2a2a3a');
-        drawRect(x + 11, y + 0, 1, 3, '#2a2a3a');
-        // Glasses
-        drawRect(x + 5, y + 3, 3, 2, '#444466');
-        drawRect(x + 8, y + 3, 3, 2, '#444466');
-        drawPixel(x + 6, y + 3, '#aaccee');
-        drawPixel(x + 9, y + 3, '#aaccee');
-        drawRect(x + 4, y + 6, 8, 6, '#4466aa'); // hoodie
-        drawRect(x + 4, y + 6, 8, 1, '#335599');
-        drawRect(x + 3, y + 7, 2, 4, '#4466aa');
-        drawRect(x + 11, y + 7, 2, 4, '#4466aa');
-        drawRect(x + 5, y + 12, 2, 3, '#2a2a4a');
-        drawRect(x + 9, y + 12, 2, 3, '#2a2a4a');
-        drawRect(x + 5, y + 14, 2, 2, PAL.shoes);
-        drawRect(x + 9, y + 14, 2, 2, PAL.shoes);
-    } else {
-        // Marketer — coffee + notebook
-        drawRect(x + 5, y + 1, 6, 5, PAL.skinTone);
-        drawRect(x + 5, y + 0, 6, 2, '#6a4a2a'); // stylish hair
-        drawRect(x + 4, y + 1, 1, 3, '#6a4a2a');
-        drawRect(x + 11, y + 1, 1, 2, '#6a4a2a');
-        drawPixel(x + 6, y + 3, '#1a1a2e');
-        drawPixel(x + 9, y + 3, '#1a1a2e');
-        drawRect(x + 4, y + 6, 8, 6, '#887744'); // earth tone jacket
-        drawRect(x + 4, y + 6, 8, 1, '#776633');
-        drawRect(x + 3, y + 7, 2, 4, '#887744');
-        drawRect(x + 11, y + 7, 2, 4, '#887744');
-        // Coffee mug in hand
-        drawRect(x + 12, y + 9, 3, 3, PAL.coffeeMug);
-        drawRect(x + 12, y + 9, 3, 1, '#bbbbcc');
-        drawPixel(x + 14, y + 10, PAL.coffeeMug);
-        drawRect(x + 5, y + 12, 2, 3, '#2a2a4a');
-        drawRect(x + 9, y + 12, 2, 3, '#2a2a4a');
-        drawRect(x + 5, y + 14, 2, 2, PAL.shoes);
-        drawRect(x + 9, y + 14, 2, 2, PAL.shoes);
-    }
-}
-
-function drawClassSelectScreen() {
-    drawRect(0, 0, NATIVE_W, NATIVE_H, '#0f0f1a');
-
-    bctx.textAlign = 'center';
-    bctx.textBaseline = 'top';
-
-    // Title
-    drawText('CHOOSE YOUR CLASS', NATIVE_W / 2, 8, PAL.panelBdr, '9px monospace');
-
-    // Three panels side by side
-    const panelW = 96;
-    const panelH = 160;
-    const gap = 6;
-    const totalW = panelW * 3 + gap * 2;
-    const startX = (NATIVE_W - totalW) / 2;
-    const startY = 24;
-
-    for (let i = 0; i < 3; i++) {
-        const cls = CLASS_DATA[i];
-        const px = startX + i * (panelW + gap);
-        const py = startY;
-        const isSelected = (classSelect.cursor === i);
-
-        // Panel background
-        const borderColor = isSelected ? cls.color : '#333355';
-        drawRect(px, py, panelW, panelH, '#16213e');
-        // Border
-        drawRect(px, py, panelW, 2, borderColor);
-        drawRect(px, py + panelH - 2, panelW, 2, borderColor);
-        drawRect(px, py, 2, panelH, borderColor);
-        drawRect(px + panelW - 2, py, 2, panelH, borderColor);
-
-        // Selected highlight glow
-        if (isSelected) {
-            drawRect(px + 2, py + 2, panelW - 4, panelH - 4, '#1a2040');
-        }
-
-        // Class name
-        bctx.font = '8px monospace';
-        bctx.fillStyle = cls.color;
-        bctx.fillText(cls.name, px + panelW / 2, py + 6);
-
-        // Portrait
-        const portraitX = px + (panelW - 16) / 2;
-        const portraitY = py + 18;
-        drawRect(portraitX - 1, portraitY - 1, 18, 18, '#222244');
-        drawClassPortrait(portraitX, portraitY, cls.id);
-
-        // Bonus
-        bctx.font = '5px monospace';
-        bctx.fillStyle = PAL.hudGreen;
-        bctx.fillText('+', px + panelW / 2, py + 42);
-        bctx.fillText(cls.bonus, px + panelW / 2, py + 50);
-
-        // Weakness
-        bctx.fillStyle = PAL.hudRed;
-        bctx.fillText('-', px + panelW / 2, py + 62);
-        bctx.fillText(cls.weakness, px + panelW / 2, py + 70);
-
-        // Flavor text
-        bctx.font = '5px monospace';
-        bctx.fillStyle = PAL.textDim;
-        // Wrap flavor text within panel
-        const flavorLines = wrapText('"' + cls.flavor + ' ' + cls.flavor2 + '"', panelW - 12);
-        for (let j = 0; j < flavorLines.length && j < 4; j++) {
-            bctx.fillText(flavorLines[j], px + panelW / 2, py + 86 + j * 8);
-        }
-
-        // Selection arrow
-        if (isSelected) {
-            const arrowBlink = Math.sin(performance.now() * 0.005) > 0;
-            if (arrowBlink) {
-                const ax = px + panelW / 2;
-                const ay = py + panelH - 14;
-                drawRect(ax - 3, ay, 6, 2, cls.color);
-                drawRect(ax - 2, ay + 2, 4, 2, cls.color);
-                drawRect(ax - 1, ay + 4, 2, 2, cls.color);
-            }
-        }
-    }
-
-    // Instructions
-    bctx.font = '6px monospace';
-    bctx.fillStyle = PAL.dialogTxt;
-    bctx.fillText('Left/Right: Choose  |  Z/Enter: Confirm', NATIVE_W / 2, NATIVE_H - 28);
-
-    // Player name display
-    bctx.font = '5px monospace';
-    bctx.fillStyle = PAL.textDim;
-    bctx.fillText('Founder: ' + gameState.playerName, NATIVE_W / 2, NATIVE_H - 14);
-
-    bctx.textAlign = 'left';
-}
-
-function updateClassSelect() {
-    if (consumePress('ArrowLeft') || consumePress('KeyA')) {
-        classSelect.cursor = (classSelect.cursor - 1 + 3) % 3;
-    }
-    if (consumePress('ArrowRight') || consumePress('KeyD')) {
-        classSelect.cursor = (classSelect.cursor + 1) % 3;
-    }
-    if (consumePress('KeyZ') || consumePress('Enter') || consumePress('Space')) {
-        const chosen = CLASS_DATA[classSelect.cursor];
-        gameState.playerClass = chosen.id;
-        gameState.phase = 'dialog';
-        // Darren reacts
-        const quip = DARREN_CLASS_QUIPS[chosen.id];
-        showDialog(quip, () => {
-            // Start gameplay
-            gameState.phase = 'play';
-            showIntro();
-        }, 'Darren');
-    }
+    // Subtle vignette corners
+    const grd = ctx.createRadialGradient(w / 2, h / 2, w * 0.35, w / 2, h / 2, w * 0.7);
+    grd.addColorStop(0, 'rgba(0,0,0,0)');
+    grd.addColorStop(1, 'rgba(0,0,0,0.25)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, w, h);
 }
 
 // ============================================================
@@ -1894,18 +1748,17 @@ function updateCamera() {
 }
 
 // ============================================================
-// INTRO SEQUENCE (gameplay intro, after class select)
+// INTRO SEQUENCE
 // ============================================================
 let introShown = false;
 
 function showIntro() {
     introShown = true;
-    const classLabel = gameState.playerClass.charAt(0).toUpperCase() + gameState.playerClass.slice(1);
-    showDialog("Day 1. You've just signed the angel investment papers. Class: " + classLabel, () => {
-        showDialog("$150,000 in the bank. Darren at his desk. And a dream.", () => {
+    showDialog("Day 1. You've just signed the angel investment papers.", () => {
+        showDialog("$150,000 in the bank. A mysterious co-founder. And a dream.", () => {
             showDialog("Walk to the TERMINAL (green monitor) and press Z to work.", () => {
                 showDialog("Visit the DOOR to hire your first employee!", () => {
-                    showDialog("You get 3 Action Points per day. Spend them wisely.", () => {
+                    showDialog("You get 3 Action Points per day. Spend them wisely -- the burn rate is real.", () => {
                         // done
                     });
                 });
@@ -1930,8 +1783,6 @@ function restart() {
     gameState.dayBurn = 2740;
     gameState.baseBurn = 2740;
     gameState.employees = [];
-    gameState.playerName = '';
-    gameState.playerClass = '';
     usedNames.clear();
     player.gx = 9;
     player.gy = 7;
@@ -1943,20 +1794,18 @@ function restart() {
     player.moving = false;
     dialog.active = false;
     dialog.queue = [];
-    dialog.speaker = '';
     menu.active = false;
     introShown = false;
     titlePhase = true;
-    nameEntry.name = '';
-    nameEntry.cursorRow = 0;
-    nameEntry.cursorCol = 0;
-    classSelect.cursor = 0;
+    AudioManager.stopMusic();
 }
 
 // ============================================================
 // MAIN LOOP
 // ============================================================
 let lastTime = performance.now();
+let prevTitlePhase = true;
+let prevGamePhase = 'play';
 
 function gameLoop(now) {
     const dt = Math.min(now - lastTime, 50);
@@ -1971,58 +1820,37 @@ function gameLoop(now) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(buf, 0, 0, NATIVE_W, NATIVE_H, 0, 0, canvas.width, canvas.height);
 
+    // CRT post-process on scaled canvas
+    applyCRT();
+
     clearJustPressed();
     requestAnimationFrame(gameLoop);
 }
 
 function update(dt) {
-    // Title screen
+    // Mute toggle — works in any phase
+    if (consumePress('KeyM')) {
+        if (!AudioManager.initialized) AudioManager.init();
+        AudioManager.toggleMute();
+    }
+
     if (titlePhase) {
+        // Start title music
+        if (AudioManager.initialized && AudioManager.currentTrack !== 'title') {
+            AudioManager.playTitleTheme();
+        }
         if (consumePress('KeyZ') || consumePress('Enter') || consumePress('Space')) {
             titlePhase = false;
-            gameState.phase = 'nameEntry';
-            nameEntry.name = '';
-            nameEntry.cursorRow = 0;
-            nameEntry.cursorCol = 0;
+            AudioManager.playGameplayBGM();
+            showIntro();
         }
-        return;
-    }
-
-    // Name entry
-    if (gameState.phase === 'nameEntry') {
-        updateNameEntry();
-        return;
-    }
-
-    // Intro scene — uses dialog system, but phase is introScene
-    if (gameState.phase === 'introScene') {
-        // Dialog handles input
-        if (dialog.active) {
-            if (!dialog.done) {
-                dialog.charTimer += dt;
-                while (dialog.charTimer >= dialog.charSpeed && dialog.charIndex < dialog.text.length) {
-                    dialog.charTimer -= dialog.charSpeed;
-                    dialog.charIndex++;
-                    dialog.displayText = dialog.text.substring(0, dialog.charIndex);
-                }
-                if (dialog.charIndex >= dialog.text.length) {
-                    dialog.done = true;
-                }
-            }
-            if (consumePress('KeyZ') || consumePress('Enter') || consumePress('Space')) {
-                advanceDialog();
-            }
-        }
-        return;
-    }
-
-    // Class select
-    if (gameState.phase === 'classSelect') {
-        updateClassSelect();
         return;
     }
 
     if (gameState.phase === 'gameOver') {
+        if (AudioManager.currentTrack !== null && AudioManager.currentTrack !== 'jingle') {
+            AudioManager.stopMusic();
+        }
         if (consumePress('KeyR')) restart();
         return;
     }
@@ -2035,6 +1863,7 @@ function update(dt) {
                 dialog.charTimer -= dialog.charSpeed;
                 dialog.charIndex++;
                 dialog.displayText = dialog.text.substring(0, dialog.charIndex);
+                AudioManager.playDialogTick();
             }
             if (dialog.charIndex >= dialog.text.length) {
                 dialog.done = true;
@@ -2052,11 +1881,13 @@ function update(dt) {
             do {
                 menu.cursor = (menu.cursor - 1 + menu.options.length) % menu.options.length;
             } while (menu.disabledIndices.includes(menu.cursor));
+            AudioManager.playSFX('cursor');
         }
         if (consumePress('ArrowDown') || consumePress('KeyS')) {
             do {
                 menu.cursor = (menu.cursor + 1) % menu.options.length;
             } while (menu.disabledIndices.includes(menu.cursor));
+            AudioManager.playSFX('cursor');
         }
         if (consumePress('KeyZ') || consumePress('Enter') || consumePress('Space')) {
             menuSelect();
@@ -2125,39 +1956,6 @@ function render() {
         return;
     }
 
-    if (gameState.phase === 'nameEntry') {
-        drawNameEntryScreen();
-        return;
-    }
-
-    if (gameState.phase === 'classSelect') {
-        drawClassSelectScreen();
-        return;
-    }
-
-    // Intro scene renders the office behind dialog
-    if (gameState.phase === 'introScene') {
-        drawOfficeScene();
-        drawDialogBox();
-        return;
-    }
-
-    drawOfficeScene();
-
-    // HUD (screen-space)
-    drawHUD();
-
-    // Dialog / Menu (screen-space)
-    drawDialogBox();
-    drawMenuBox();
-
-    // Game Over overlay
-    if (gameState.phase === 'gameOver') {
-        drawGameOver();
-    }
-}
-
-function drawOfficeScene() {
     const cx = Math.floor(camera.x);
     const cy = Math.floor(camera.y);
 
@@ -2212,6 +2010,14 @@ function drawOfficeScene() {
     }
 
     bctx.restore();
+
+    drawHUD();
+    drawDialogBox();
+    drawMenuBox();
+
+    if (gameState.phase === 'gameOver') {
+        drawGameOver();
+    }
 }
 
 // ============================================================
