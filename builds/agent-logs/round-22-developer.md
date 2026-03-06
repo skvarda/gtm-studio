@@ -1,3 +1,11 @@
+Now I have the full codebase. Let me analyze the Round 22 requirements and build the update.
+
+Key findings from the Round 9 build:
+- **Day pacing**: Already player-controlled — `endDay()` only fires from terminal menu. No auto-timer bug exists in this build.
+- Need to add: Day clock HUD, AP spending animations, idle office ambiance
+
+Let me produce the complete Round 22 build.
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

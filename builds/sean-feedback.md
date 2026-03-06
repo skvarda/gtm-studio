@@ -1,7 +1,1 @@
-menu disappeared
-
-Not sure how to hire staff
-
-improve office look and feel, brighten it up a bit
-
-add intro scene
+time was running way too fast in the last version. a day would only last a second or two not allowing the player to take actions
