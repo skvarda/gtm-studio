@@ -231,7 +231,7 @@ async function generateAsset(assetId, prompt, subfolder = 'sprites', targetWidth
       filename,
       originalFilename,
       version,
-      path: `/assets/${subfolder}/${filename}`,
+      path: `assets/${subfolder}/${filename}`,
       targetWidth,
       targetHeight
     };
