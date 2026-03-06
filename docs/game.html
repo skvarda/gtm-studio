@@ -13,9 +13,6 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;cursor:none}
 <body>
 <canvas id="game"></canvas>
 <script>
-// ============================================================
-// SaaS STARTUP SIMULATOR — Round 17
-// ============================================================
 const canvas=document.getElementById('game');
 const ctx=canvas.getContext('2d');
 const NW=320,NH=224,SC=3;
@@ -29,20 +26,19 @@ B.imageSmoothingEnabled=false;
 // PALETTE
 const P={
 bg:'#1a1a2e',flA:'#2a2a4a',flB:'#252545',
-wT:'#533483',wF:'#2e2e4e',wTr:'#58b868',
+wT:'#533483',wF:'#2e2e4e',
 dk:'#5c4033',dkT:'#7a5a42',dkL:'#4a3028',
 mon:'#1a1a2e',mG:'#58b868',mGl:'#a8e6a3',
 chr:'#333355',chrS:'#3d3d60',
-skin:'#f5c8a0',hd:'#4466aa',hdD:'#335599',
+skin:'#f5c8a0',hd:'#e94560',hdD:'#cc3350',
 hair:'#3a2a1a',pnt:'#2a2a4a',shoe:'#1a1a2e',
-cof:'#555577',cofH:'#665577',cofM:'#9944cc',cofMl:'#bb77ee',
+cof:'#4a4a68',cofH:'#665577',
 dBg:'#1a1a2eee',dBd:'#58b868',dTx:'#f5f0e1',
 hBg:'#0f0f1acc',hTx:'#f5f0e1',hGr:'#58b868',
 hRd:'#e94560',hYl:'#f0c040',hGd:'#f5c842',
-apF:'#58b868',apE:'#555566',
 pos:'#4ecca3',acc:'#e94560',neu:'#a8a8b3',
 wh:'#eaeaea',sh:'#00000044',
-pl:'#2e8b40',plD:'#1e6b30',pot:'#8b5e3c',potD:'#6b4e2c',
+pl:'#2e8b40',plD:'#1e6b30',pot:'#8b5e3c',
 rug:'#3a2255',rugB:'#4a3265',
 win:'#4488cc',winL:'#88bbee',
 wb:'#d0d0e0',wbB:'#888899',
@@ -50,10 +46,9 @@ cfe:'#6b4423',mug:'#ddddee',
 vIPO:'#f5c842',vPr:'#58b868',vRD:'#4488ee',vWd:'#e94560',
 };
 
-// TILES
 const T=16,MW=20,MH=14;
 const TL={E:0,F:1,WT:2,WF:3,DK:4,CH:5,TM:6,PL:7,CF:8,DR:9,RG:10,WB:11,CM:12,WN:13,TR:14};
-const SOL={0:1,1:0,2:1,3:1,4:1,5:0,6:1,7:1,8:1,9:0,10:0,11:1,12:1,13:1,14:1};
+const SOL_SET=new Set([0,2,3,6,7,8,11,12,13,14]);
 const map=[
 [2,2,2,13,2,2,2,13,2,2,2,2,13,2,2,2,13,2,2,2],
 [3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3],
@@ -70,41 +65,17 @@ const map=[
 [3,1,5,5,1,1,1,1,1,9,1,1,1,5,5,1,1,1,1,3],
 [14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14],
 ];
-function gT(x,y){if(x<0||y<0||x>=MW||y>=MH)return TL.E;return map[y][x];}
-function isSolid(x,y){return SOL[gT(x,y)]===1;}
+function gT(x,y){if(x<0||y<0||x>=MW||y>=MH)return 0;return map[y][x];}
+function isSolid(tx,ty){return SOL_SET.has(gT(tx,ty));}
 
 // MILESTONES
 const MILES=[
-{name:'MVP',thr:30,ann:false,desc:'Minimum Viable Product launched!'},
-{name:'Beta',thr:60,ann:false,desc:'Beta release - early adopters!'},
-{name:'V1.0',thr:100,ann:false,desc:'Version 1.0 shipped!'},
-{name:'Scale',thr:150,ann:false,desc:'Platform at scale!'},
-{name:'Transcend',thr:200,ann:false,desc:'Product transcended the market!'},
+{name:'MVP',thr:30,desc:'Minimum Viable Product launched!'},
+{name:'Beta',thr:60,desc:'Beta release - early adopters!'},
+{name:'V1.0',thr:100,desc:'Version 1.0 shipped!'},
+{name:'Scale',thr:150,desc:'Platform at scale!'},
+{name:'Transcend',thr:200,desc:'Product transcended!'},
 ];
-function curMile(pts){let m=null;for(let i=MILES.length-1;i>=0;i--)if(pts>=MILES[i].thr){m=MILES[i];break;}return m;}
-function nxtMile(pts){for(let i=0;i<MILES.length;i++)if(pts<MILES[i].thr)return MILES[i];return null;}
-
-// GAME STATE
-const GS={
-state:'title', // title, playing, dialog, menu, hire, victory, stats, gameover
-day:1, hour:9, ap:5, maxAp:5,
-cash:50000, revenue:0, burn:500,
-product:0, customers:0, morale:80,
-employees:[], maxEmp:2,
-cofStandUp:false, cofStandUpDay:-1,
-dayLog:[], totalRevenue:0, totalSpent:0,
-hiresDone:0, featuresShipped:0, coffeesDrunk:0,
-victoryType:null,
-dialogLines:[], dialogIdx:0, dialogCb:null,
-menuIdx:0, menuItems:[],
-hireOptions:[], hireIdx:0,
-px:9*T+4, py:7*T+4, pDir:0, pFrame:0, pMoving:false,
-animT:0, dayTrans:0, dayTransDir:0,
-flash:null, flashT:0,
-events:[], pendingEvent:null,
-saveExists:false,
-titleIdx:0,
-};
 
 // EMPLOYEE TYPES
 const EMP_TYPES=[
@@ -116,989 +87,809 @@ const EMP_TYPES=[
 
 // RANDOM EVENTS
 const EVENTS=[
-{name:'Server Crash',desc:'Servers went down! Lost productivity.',effect:()=>{GS.product=Math.max(0,GS.product-5);return'-5 Product';}},
-{name:'Viral Tweet',desc:'Your product went viral on social media!',effect:()=>{GS.customers+=8;return'+8 Customers';}},
-{name:'Bug Report',desc:'Critical bug found. Engineers scrambling.',effect:()=>{GS.product=Math.max(0,GS.product-3);GS.morale=Math.max(0,GS.morale-10);return'-3 Product, -10 Morale';}},
-{name:'Press Coverage',desc:'Tech blog featured your startup!',effect:()=>{GS.customers+=5;GS.cash+=2000;return'+5 Customers, +$2K';}},
-{name:'Investor Interest',desc:'An angel investor noticed you!',effect:()=>{GS.cash+=10000;return'+$10K Cash';}},
-{name:'Team Lunch',desc:'Great team bonding over pizza.',effect:()=>{GS.morale=Math.min(100,GS.morale+15);return'+15 Morale';}},
-{name:'Competitor Launch',desc:'A competitor just launched a similar product!',effect:()=>{GS.customers=Math.max(0,GS.customers-3);return'-3 Customers';}},
-{name:'Coffee Machine Broke',desc:'The sacred coffee machine is down!',effect:()=>{GS.morale=Math.max(0,GS.morale-10);return'-10 Morale';}},
+{name:'Server Crash',desc:'Servers went down!',effect:()=>{G.product=Math.max(0,G.product-5);return'-5 Product';}},
+{name:'Viral Tweet',desc:'Your product went viral!',effect:()=>{G.customers+=8;return'+8 Customers';}},
+{name:'Bug Report',desc:'Critical bug found!',effect:()=>{G.product=Math.max(0,G.product-3);G.morale=Math.max(0,G.morale-10);return'-3 Product, -10 Morale';}},
+{name:'Press Coverage',desc:'Tech blog featured you!',effect:()=>{G.customers+=5;G.cash+=2000;return'+5 Customers, +$2K';}},
+{name:'Investor Interest',desc:'Angel investor noticed you!',effect:()=>{G.cash+=5000;return'+$5K Cash';}},
+{name:'Team Lunch',desc:'Team bonding over pizza!',effect:()=>{G.morale=Math.min(100,G.morale+15);return'+15 Morale';}},
+{name:'Competitor Launch',desc:'A rival shipped a similar product!',effect:()=>{G.customers=Math.max(0,G.customers-3);return'-3 Customers';}},
+{name:'Hackathon Win',desc:'Your team won a hackathon!',effect:()=>{G.product+=8;G.morale=Math.min(100,G.morale+10);return'+8 Product, +10 Morale';}},
+{name:'Office Leak',desc:'Water pipe burst in the office!',effect:()=>{G.cash-=1000;G.morale=Math.max(0,G.morale-5);return'-$1K, -5 Morale';}},
+{name:'Referral Spike',desc:'Word of mouth is spreading!',effect:()=>{G.customers+=4;return'+4 Customers';}},
 ];
 
-// VICTORY CONDITIONS
-const VICTORIES={
-ipo:{name:'IPO Glory',color:P.vIPO,req:'$200K cash + 50 customers + 150 product',
-check:()=>GS.cash>=200000&&GS.customers>=50&&GS.product>=150,
-desc:'Your startup went public! Wall Street is buzzing. You ring the bell in a hoodie.'},
-profit:{name:'Profit Machine',color:P.vPr,req:'$150K cash + revenue > burn + 30 days',
-check:()=>GS.cash>=150000&&GS.revenue>GS.burn&&GS.day>=30,
-desc:'Sustainable profitability achieved. No VC needed. Bootstrap legend.'},
-rd:{name:'R&D Utopia',color:P.vRD,req:'200 product + 3 devs',
-check:()=>GS.product>=200&&GS.employees.filter(e=>e.role==='Developer').length>=3,
-desc:'Your engineering team built something beautiful. Open source thrives.'},
-world:{name:'World Domination',color:P.vWd,req:'100 customers + 150 product + $100K',
-check:()=>GS.customers>=100&&GS.product>=150&&GS.cash>=100000,
-desc:'Total market dominance. Competitors tremble. Conferences beg you to keynote.'},
+// CO-FOUNDER QUOTES
+const COF_QUOTES=[
+"I'm pivoting our synergy matrix...","Have you seen the burn rate dashboard?",
+"I scheduled a meeting about our meetings.","The blockchain angle could work...",
+"I updated the pitch deck. Again.","I'm networking. Virtually.",
+"Our TAM is basically infinite.","Working on something big. Can't say what.",
+"I think we need more whiteboards.","Just vibing with the product roadmap.",
+"The cap table is... interesting.","I'll handle the investor relations.",
+];
+
+// GAME STATE
+let G={};
+function initGame(){
+G={
+state:'title',day:1,hour:9,phase:'morning',ap:5,maxAp:5,
+cash:50000,revenue:0,burn:500,
+product:0,customers:0,morale:80,productLevel:0,
+employees:[],maxEmp:2,
+profitStreak:0,
+cofX:15*T+4,cofY:7*T+4,cofDir:2,cofFrame:0,cofMoveT:0,
+dayLog:[],totalRevenue:0,totalSpent:0,
+hiresDone:0,featuresShipped:0,coffeesDrunk:0,
+victoryType:null,
+dialogLines:[],dialogIdx:0,dialogCb:null,
+menuIdx:0,menuItems:[],
+hireOptions:[],hireIdx:0,
+px:9*T+4,py:7*T+4,pDir:0,pFrame:0,pMoving:false,
+animT:0,dayTrans:0,dayTransDir:0,
+flash:null,flashT:0,
+notifications:[],
+milesAnnounced:{},
+titleIdx:0,statsScroll:0,
 };
+}
+initGame();
 
 // INPUT
 const keys={};
-let justPressed={};
-document.addEventListener('keydown',e=>{if(!keys[e.key])justPressed[e.key]=true;keys[e.key]=true;e.preventDefault();});
+let kp={};
+document.addEventListener('keydown',e=>{keys[e.key]=true;kp[e.key]=true;e.preventDefault();});
 document.addEventListener('keyup',e=>{keys[e.key]=false;});
-function jp(k){return justPressed[k]||false;}
+function wasPressed(k){return!!kp[k];}
+function clearInput(){kp={};}
 
-// PIXEL TEXT RENDERER
-function drawText(x,y,text,color,size){
-B.fillStyle=color||P.hTx;
-const s=size||1;
-let cx=x;
-const FONT={
-'A':[[0,1,1,0],[1,0,0,1],[1,1,1,1],[1,0,0,1],[1,0,0,1]],
-'B':[[1,1,1,0],[1,0,0,1],[1,1,1,0],[1,0,0,1],[1,1,1,0]],
-'C':[[0,1,1,1],[1,0,0,0],[1,0,0,0],[1,0,0,0],[0,1,1,1]],
-'D':[[1,1,1,0],[1,0,0,1],[1,0,0,1],[1,0,0,1],[1,1,1,0]],
-'E':[[1,1,1,1],[1,0,0,0],[1,1,1,0],[1,0,0,0],[1,1,1,1]],
-'F':[[1,1,1,1],[1,0,0,0],[1,1,1,0],[1,0,0,0],[1,0,0,0]],
-'G':[[0,1,1,1],[1,0,0,0],[1,0,1,1],[1,0,0,1],[0,1,1,1]],
-'H':[[1,0,0,1],[1,0,0,1],[1,1,1,1],[1,0,0,1],[1,0,0,1]],
-'I':[[1,1,1],[0,1,0],[0,1,0],[0,1,0],[1,1,1]],
-'J':[[0,0,1],[0,0,1],[0,0,1],[1,0,1],[0,1,0]],
-'K':[[1,0,0,1],[1,0,1,0],[1,1,0,0],[1,0,1,0],[1,0,0,1]],
-'L':[[1,0,0,0],[1,0,0,0],[1,0,0,0],[1,0,0,0],[1,1,1,1]],
-'M':[[1,0,0,0,1],[1,1,0,1,1],[1,0,1,0,1],[1,0,0,0,1],[1,0,0,0,1]],
-'N':[[1,0,0,1],[1,1,0,1],[1,0,1,1],[1,0,0,1],[1,0,0,1]],
-'O':[[0,1,1,0],[1,0,0,1],[1,0,0,1],[1,0,0,1],[0,1,1,0]],
-'P':[[1,1,1,0],[1,0,0,1],[1,1,1,0],[1,0,0,0],[1,0,0,0]],
-'Q':[[0,1,1,0],[1,0,0,1],[1,0,0,1],[1,0,1,0],[0,1,0,1]],
-'R':[[1,1,1,0],[1,0,0,1],[1,1,1,0],[1,0,1,0],[1,0,0,1]],
-'S':[[0,1,1,1],[1,0,0,0],[0,1,1,0],[0,0,0,1],[1,1,1,0]],
-'T':[[1,1,1,1,1],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
-'U':[[1,0,0,1],[1,0,0,1],[1,0,0,1],[1,0,0,1],[0,1,1,0]],
-'V':[[1,0,0,0,1],[1,0,0,0,1],[0,1,0,1,0],[0,1,0,1,0],[0,0,1,0,0]],
-'W':[[1,0,0,0,1],[1,0,0,0,1],[1,0,1,0,1],[1,1,0,1,1],[1,0,0,0,1]],
-'X':[[1,0,0,1],[1,0,0,1],[0,1,1,0],[1,0,0,1],[1,0,0,1]],
-'Y':[[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
-'Z':[[1,1,1,1],[0,0,1,0],[0,1,0,0],[1,0,0,0],[1,1,1,1]],
-'0':[[0,1,1,0],[1,0,0,1],[1,0,0,1],[1,0,0,1],[0,1,1,0]],
-'1':[[0,1,0],[1,1,0],[0,1,0],[0,1,0],[1,1,1]],
-'2':[[0,1,1,0],[1,0,0,1],[0,0,1,0],[0,1,0,0],[1,1,1,1]],
-'3':[[1,1,1,0],[0,0,0,1],[0,1,1,0],[0,0,0,1],[1,1,1,0]],
-'4':[[1,0,0,1],[1,0,0,1],[1,1,1,1],[0,0,0,1],[0,0,0,1]],
-'5':[[1,1,1,1],[1,0,0,0],[1,1,1,0],[0,0,0,1],[1,1,1,0]],
-'6':[[0,1,1,0],[1,0,0,0],[1,1,1,0],[1,0,0,1],[0,1,1,0]],
-'7':[[1,1,1,1],[0,0,0,1],[0,0,1,0],[0,1,0,0],[0,1,0,0]],
-'8':[[0,1,1,0],[1,0,0,1],[0,1,1,0],[1,0,0,1],[0,1,1,0]],
-'9':[[0,1,1,0],[1,0,0,1],[0,1,1,1],[0,0,0,1],[0,1,1,0]],
-' ':[[0,0],[0,0],[0,0],[0,0],[0,0]],
-'.':[[0],[0],[0],[0],[1]],
-',':[[0],[0],[0],[1],[1]],
-'!':[[1],[1],[1],[0],[1]],
-'?':[[0,1,1,0],[1,0,0,1],[0,0,1,0],[0,0,0,0],[0,0,1,0]],
-'-':[[0,0,0],[0,0,0],[1,1,1],[0,0,0],[0,0,0]],
-'+':[[0,0,0],[0,1,0],[1,1,1],[0,1,0],[0,0,0]],
-'$':[[0,1,1],[1,0,0],[0,1,0],[0,0,1],[1,1,0]],
-':':[[0],[1],[0],[1],[0]],
-'/':[[0,0,1],[0,0,1],[0,1,0],[1,0,0],[1,0,0]],
-'%':[[1,0,1],[0,0,1],[0,1,0],[1,0,0],[1,0,1]],
-"'":[[1],[1],[0],[0],[0]],
-'(':[[0,1],[1,0],[1,0],[1,0],[0,1]],
-')':[[1,0],[0,1],[0,1],[0,1],[1,0]],
-'=':[[0,0,0],[1,1,1],[0,0,0],[1,1,1],[0,0,0]],
-'<':[[0,0,1],[0,1,0],[1,0,0],[0,1,0],[0,0,1]],
-'>':[[1,0,0],[0,1,0],[0,0,1],[0,1,0],[1,0,0]],
-'#':[[0,1,0,1,0],[1,1,1,1,1],[0,1,0,1,0],[1,1,1,1,1],[0,1,0,1,0]],
-'@':[[0,1,1,0],[1,0,1,1],[1,0,1,1],[1,0,0,0],[0,1,1,1]],
-'&':[[0,1,0,0],[1,0,1,0],[0,1,0,0],[1,0,1,1],[0,1,1,0]],
-'*':[[0,0,0],[1,0,1],[0,1,0],[1,0,1],[0,0,0]],
-'_':[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[1,1,1,1]],
-};
-const str=text.toString().toUpperCase();
-for(let i=0;i<str.length;i++){
-const ch=str[i];
-const g=FONT[ch];
-if(!g){cx+=4*s;continue;}
-for(let r=0;r<g.length;r++)for(let c=0;c<g[r].length;c++)
-if(g[r][c])B.fillRect(cx+c*s,y+r*s,s,s);
-cx+=(g[0].length+1)*s;
-}
-return cx-x;
-}
-
-function textWidth(text,size){
-const s=size||1;
-const WIDTHS={'M':5,'W':5,'T':5,'V':5,'Y':5,'N':4,'#':5,' ':2,'.':1,',':1,'!':1,':':1,"'":1,'(':2,')':2,'<':3,'>':3};
-let w=0;const str=text.toString().toUpperCase();
-for(let i=0;i<str.length;i++){w+=(WIDTHS[str[i]]||4)+1;}
-return (w-1)*s;
-}
-
-function drawTextCentered(y,text,color,size){
-const w=textWidth(text,size);
-drawText(Math.floor((NW-w)/2),y,text,color,size);
-}
-
-// DRAW TILE
-function drawTile(tx,ty){
-const x=tx*T,y=ty*T;
-const t=map[ty][tx];
-// Floor base
-if(t!==TL.WT&&t!==TL.WF&&t!==TL.TR&&t!==TL.WN){
-B.fillStyle=(tx+ty)%2?P.flA:P.flB;
-B.fillRect(x,y,T,T);
-}
-switch(t){
-case TL.WT:
-B.fillStyle=P.wT;B.fillRect(x,y,T,T);
-B.fillStyle=P.wF;B.fillRect(x,y+12,T,4);
-break;
-case TL.WF:
-B.fillStyle=P.wF;B.fillRect(x,y,T,T);
-B.fillStyle=P.wT;B.fillRect(x,y,T,2);
-break;
-case TL.TR:
-B.fillStyle=P.wF;B.fillRect(x,y,T,T);
-B.fillStyle=P.wTr;B.fillRect(x,y,T,2);
-break;
-case TL.WN:
-B.fillStyle=P.wT;B.fillRect(x,y,T,T);
-B.fillStyle=P.win;B.fillRect(x+2,y+2,T-4,8);
-B.fillStyle=P.winL;B.fillRect(x+3,y+3,T-6,3);
-B.fillStyle=P.wF;B.fillRect(x,y+12,T,4);
-break;
-case TL.DK:
-B.fillStyle=P.dk;B.fillRect(x+1,y+4,14,10);
-B.fillStyle=P.dkT;B.fillRect(x+1,y+4,14,3);
-B.fillStyle=P.dkL;B.fillRect(x+2,y+12,3,4);B.fillRect(x+11,y+12,3,4);
-break;
-case TL.CH:
-B.fillStyle=P.chr;B.fillRect(x+4,y+3,8,10);
-B.fillStyle=P.chrS;B.fillRect(x+5,y+6,6,6);
-break;
-case TL.TM:
-B.fillStyle=P.dk;B.fillRect(x+1,y+6,14,8);
-B.fillStyle=P.dkT;B.fillRect(x+1,y+6,14,2);
-B.fillStyle=P.mon;B.fillRect(x+3,y+1,10,7);
-B.fillStyle=P.mG;B.fillRect(x+4,y+2,8,5);
-// Flicker
-if(Math.random()>0.95)B.fillStyle=P.mGl;
-B.fillRect(x+5,y+3,2,1);B.fillRect(x+5,y+5,4,1);
-break;
-case TL.PL:
-B.fillStyle=P.pot;B.fillRect(x+5,y+10,6,4);
-B.fillStyle=P.potD;B.fillRect(x+5,y+13,6,1);
-B.fillStyle=P.pl;B.fillRect(x+4,y+4,8,7);
-B.fillStyle=P.plD;B.fillRect(x+6,y+2,4,3);
-break;
-case TL.CF:
-// Co-founder spot: desk + purple monitor
-B.fillStyle=P.dk;B.fillRect(x+1,y+6,14,8);
-B.fillStyle=P.dkT;B.fillRect(x+1,y+6,14,2);
-B.fillStyle=P.mon;B.fillRect(x+3,y+1,10,7);
-B.fillStyle=P.cofM;B.fillRect(x+4,y+2,8,5);
-if(Math.random()>0.9)B.fillStyle=P.cofMl;
-B.fillRect(x+5,y+3,3,1);B.fillRect(x+5,y+5,5,1);
-break;
-case TL.DR:
-B.fillStyle=P.dkT;B.fillRect(x+2,y,12,T);
-B.fillStyle=P.dk;B.fillRect(x+6,y+5,2,3);
-break;
-case TL.RG:
-B.fillStyle=(tx+ty)%2?P.rug:P.rugB;
-B.fillRect(x,y,T,T);
-break;
-case TL.WB:
-B.fillStyle=P.wb;B.fillRect(x+1,y+2,14,10);
-B.fillStyle=P.wbB;B.fillRect(x,y+1,T,1);B.fillRect(x,y+13,T,1);
-B.fillRect(x,y+1,1,13);B.fillRect(x+15,y+1,1,13);
-B.fillStyle=P.hRd;B.fillRect(x+3,y+4,4,1);
-B.fillStyle=P.hGr;B.fillRect(x+3,y+7,6,1);
-break;
-case TL.CM:
-B.fillStyle='#444466';B.fillRect(x+3,y+2,10,12);
-B.fillStyle='#555577';B.fillRect(x+4,y+3,8,5);
-B.fillStyle=P.cfe;B.fillRect(x+5,y+9,6,3);
-B.fillStyle=P.mug;B.fillRect(x+6,y+10,4,2);
-break;
-}
-}
-
-// DRAW PLAYER
-function drawPlayer(x,y,dir,frame,isCofounder){
-const px=Math.floor(x),py=Math.floor(y);
-const hc=isCofounder?P.cofH:P.hd;
-const hcd=isCofounder?P.cof:P.hdD;
-const hr=isCofounder?'#4a3a5a':P.hair;
-// Shadow
-B.fillStyle=P.sh;B.fillRect(px+2,py+13,12,3);
-// Body
-B.fillStyle=hc;B.fillRect(px+4,py+5,8,7);
-B.fillStyle=hcd;B.fillRect(px+3,py+7,2,4);B.fillRect(px+11,py+7,2,4);
-// Head
-B.fillStyle=P.skin;B.fillRect(px+5,py+1,6,5);
-// Hair
-B.fillStyle=hr;B.fillRect(px+5,py,6,2);
-if(dir===2)B.fillRect(px+4,py+1,2,3);
-else if(dir===3)B.fillRect(px+10,py+1,2,3);
-// Eyes
-if(dir!==1){
-B.fillStyle=P.bg;
-if(dir===0||dir===2){B.fillRect(px+6,py+3,1,1);B.fillRect(px+9,py+3,1,1);}
-if(dir===3){B.fillRect(px+8,py+3,1,1);B.fillRect(px+10,py+3,1,1);}
-if(dir===2){B.fillRect(px+5,py+3,1,1);B.fillRect(px+7,py+3,1,1);}
-}
-// Pants
-B.fillStyle=P.pnt;B.fillRect(px+5,py+11,3,3);B.fillRect(px+8,py+11,3,3);
-// Shoes
-B.fillStyle=P.shoe;B.fillRect(px+4,py+13,3,2);B.fillRect(px+9,py+13,3,2);
-// Walk animation
-if(frame%2&&(dir===2||dir===3)){
-B.fillStyle=hc;B.fillRect(px+(dir===2?2:12),py+8,2,3);
-}
-}
-
-// CO-FOUNDER
-const cofPos={x:14*T,y:10*T-2};
-function drawCofounder(){
-if(GS.cofStandUp){
-// Standing, facing player
-drawPlayer(cofPos.x,cofPos.y-4,0,0,true);
-// Speech bubble
-B.fillStyle=P.dBg;B.fillRect(cofPos.x-8,cofPos.y-18,32,12);
-B.fillStyle=P.dBd;
-B.fillRect(cofPos.x-8,cofPos.y-18,32,1);B.fillRect(cofPos.x-8,cofPos.y-7,32,1);
-B.fillRect(cofPos.x-8,cofPos.y-18,1,12);B.fillRect(cofPos.x+23,cofPos.y-18,1,12);
-drawText(cofPos.x-4,cofPos.y-15,'...',P.dTx);
-} else {
-// Sitting at desk, back to camera
-const px=cofPos.x,py=cofPos.y;
-B.fillStyle=P.chrS;B.fillRect(px+4,py+6,8,8);
-B.fillStyle=P.cofH;B.fillRect(px+4,py+2,8,6);
-B.fillStyle='#4a3a5a';B.fillRect(px+5,py,6,3);
-}
-}
-
-// DRAW HIRED EMPLOYEES (seated at desks)
-function drawEmployees(){
-const spots=[{x:2,y:11,dir:1},{x:3,y:11,dir:1},{x:13,y:2,dir:0},{x:14,y:2,dir:0},{x:13,y:11,dir:1},{x:14,y:11,dir:1}];
-for(let i=0;i<GS.employees.length&&i<spots.length;i++){
-const s=spots[i];
-const e=GS.employees[i];
-const px=s.x*T,py=s.y*T;
-// Seated employee
-B.fillStyle=P.chrS;B.fillRect(px+4,py+6,8,8);
-const colors={Developer:'#4488aa',Salesperson:'#aa6644',Designer:'#aa44aa',Marketer:'#44aa66'};
-B.fillStyle=colors[e.role]||P.hd;
-B.fillRect(px+4,py+2,8,6);
-B.fillStyle=P.skin;B.fillRect(px+5,py,6,3);
-B.fillStyle=P.hair;B.fillRect(px+5,py-1,6,2);
-}
-}
-
-// HUD
-function drawHUD(){
-// Top bar
-B.fillStyle=P.hBg;B.fillRect(0,0,NW,18);
-// Day
-drawText(4,2,'DAY '+GS.day,P.hGd);
-// Cash
-const cashStr='$'+formatNum(GS.cash);
-drawText(50,2,cashStr,GS.cash<5000?P.hRd:P.hGr);
-// Hour
-drawText(110,2,GS.hour+':00',P.hYl);
-// AP
-drawText(150,2,'AP',P.hTx);
-for(let i=0;i<GS.maxAp;i++){
-B.fillStyle=i<GS.ap?P.apF:P.apE;
-B.fillRect(164+i*7,3,5,5);
-}
-// Product
-drawText(4,10,('PRD:'+GS.product),P.pos);
-// Customers
-drawText(60,10,('CST:'+GS.customers),P.hYl);
-// Revenue
-drawText(120,10,('REV:$'+formatNum(GS.revenue)),P.hGr);
-// Burn
-drawText(200,10,('-$'+formatNum(GS.burn)+'/D'),P.hRd);
-// Employees
-drawText(210,2,'TEAM:'+GS.employees.length,P.hTx);
-// Morale
-const mc=GS.morale>50?P.hGr:GS.morale>25?P.hYl:P.hRd;
-drawText(265,2,'MRL:'+GS.morale,mc);
-// Milestone
-const cm=curMile(GS.product);
-if(cm)drawText(265,10,cm.name,P.pos);
-}
-
-function formatNum(n){
-if(n>=1000000)return (n/1000000).toFixed(1)+'M';
-if(n>=1000)return (n/1000).toFixed(1)+'K';
-return Math.floor(n).toString();
-}
-
-// DIALOG SYSTEM
-function showDialog(lines,cb){
-GS.dialogLines=Array.isArray(lines)?lines:[lines];
-GS.dialogIdx=0;GS.state='dialog';GS.dialogCb=cb||null;
-}
-
-function drawDialog(){
-const bx=16,by=NH-60,bw=NW-32,bh=50;
-B.fillStyle=P.dBg;B.fillRect(bx,by,bw,bh);
-B.fillStyle=P.dBd;
-B.fillRect(bx,by,bw,2);B.fillRect(bx,by+bh-2,bw,2);
-B.fillRect(bx,by,2,bh);B.fillRect(bx+bw-2,by,2,bh);
-const line=GS.dialogLines[GS.dialogIdx]||'';
-// Word wrap
-const words=line.split(' ');
-let row='',ry=0;
-for(const w of words){
-const test=row?row+' '+w:w;
-if(textWidth(test)>bw-16){
-drawText(bx+8,by+8+ry*8,row,P.dTx);
-row=w;ry++;
-} else row=test;
-}
-if(row)drawText(bx+8,by+8+ry*8,row,P.dTx);
-// Blink arrow
-if(Math.floor(GS.animT/30)%2)
-drawText(bx+bw-16,by+bh-12,'>',P.dBd);
-}
-
-// INTERACTION PROMPTS
-function getInteraction(){
-const gx=Math.floor((GS.px+8)/T);
-const gy=Math.floor((GS.py+8)/T);
-const checks=[{x:gx,y:gy-1},{x:gx,y:gy+1},{x:gx-1,y:gy},{x:gx+1,y:gy},
-{x:gx,y:gy},{x:gx+1,y:gy-1},{x:gx-1,y:gy-1}];
-for(const c of checks){
-const t=gT(c.x,c.y);
-if(t===TL.TM)return{type:'terminal',x:c.x,y:c.y};
-if(t===TL.CM)return{type:'coffee',x:c.x,y:c.y};
-if(t===TL.WB)return{type:'whiteboard',x:c.x,y:c.y};
-if(t===TL.CF)return{type:'cofounder',x:c.x,y:c.y};
-if(t===TL.DR)return{type:'door',x:c.x,y:c.y};
-}
-return null;
-}
-
-function drawPrompt(){
-const inter=getInteraction();
-if(!inter||GS.state!=='playing')return;
-const labels={terminal:'Z: CODE',coffee:'Z: COFFEE',whiteboard:'Z: PLAN',cofounder:'Z: TALK',door:'Z: RECRUIT'};
-const label=labels[inter.type];
-if(label){
-const w=textWidth(label)+8;
-B.fillStyle=P.dBg;B.fillRect(NW/2-w/2,NH-24,w,12);
-B.fillStyle=P.dBd;B.fillRect(NW/2-w/2,NH-24,w,1);B.fillRect(NW/2-w/2,NH-13,w,1);
-drawText(NW/2-w/2+4,NH-22,label,P.dTx);
-}
-}
-
-// MENU SYSTEM
-function showMenu(title,items,cb){
-GS.state='menu';GS.menuItems=items.map((it,i)=>({label:it,idx:i}));
-GS.menuIdx=0;GS.menuTitle=title;GS.menuCb=cb;
-}
-
-function drawMenu(){
-const bw=160,bh=20+GS.menuItems.length*14;
-const bx=(NW-bw)/2,by=(NH-bh)/2;
-B.fillStyle=P.dBg;B.fillRect(bx,by,bw,bh);
-B.fillStyle=P.dBd;
-B.fillRect(bx,by,bw,2);B.fillRect(bx,by+bh-2,bw,2);
-B.fillRect(bx,by,2,bh);B.fillRect(bx+bw-2,by,2,bh);
-drawText(bx+8,by+6,GS.menuTitle||'MENU',P.hGd);
-for(let i=0;i<GS.menuItems.length;i++){
-const sel=i===GS.menuIdx;
-if(sel){B.fillStyle=P.dBd;B.fillRect(bx+4,by+18+i*14,bw-8,12);}
-drawText(bx+12,by+20+i*14,GS.menuItems[i].label,sel?P.bg:P.dTx);
-}
-}
-
-// HIRE SCREEN
-function showHire(){
-GS.state='hire';GS.hireIdx=0;
-GS.hireOptions=EMP_TYPES.map(e=>({...e,salary:e.cost+Math.floor(Math.random()*100)}));
-}
-
-function drawHire(){
-const bw=200,bh=100;
-const bx=(NW-bw)/2,by=(NH-bh)/2;
-B.fillStyle=P.dBg;B.fillRect(bx,by,bw,bh);
-B.fillStyle=P.dBd;
-B.fillRect(bx,by,bw,2);B.fillRect(bx,by+bh-2,bw,2);
-B.fillRect(bx,by,2,bh);B.fillRect(bx+bw-2,by,2,bh);
-drawText(bx+8,by+6,'HIRE - SLOTS '+GS.employees.length+'/'+GS.maxEmp,P.hGd);
-drawText(bx+8,by+16,'ESC: CANCEL',P.neu);
-for(let i=0;i<GS.hireOptions.length;i++){
-const sel=i===GS.hireIdx;
-const e=GS.hireOptions[i];
-if(sel){B.fillStyle=P.dBd+'33';B.fillRect(bx+4,by+26+i*16,bw-8,14);}
-const col=sel?P.wh:P.dTx;
-drawText(bx+12,by+28+i*16,e.role,col);
-drawText(bx+100,by+28+i*16,'$'+e.salary+'/D',sel?P.hYl:P.neu);
-}
-if(GS.employees.length>=GS.maxEmp)
-drawText(bx+8,by+bh-12,'TEAM IS FULL!',P.hRd);
-}
-
-// ACTIONS
-function doCode(){
-if(GS.ap<=0){showDialog(['No action points left! End the day.']);return;}
-GS.ap--;
-const devs=GS.employees.filter(e=>e.role==='Developer').length;
-const gain=3+devs*2+Math.floor(Math.random()*3);
-GS.product+=gain;GS.featuresShipped++;
-showDialog(['+'+gain+' Product points! (Total: '+GS.product+')']);
-checkMilestones();
-}
-
-function doCoffee(){
-if(GS.ap<=0){showDialog(['No AP left!']);return;}
-GS.coffeesDrunk++;
-GS.morale=Math.min(100,GS.morale+10);
-if(Math.random()<0.3){GS.ap++;showDialog(['Great coffee! +10 Morale, +1 AP bonus!']);}
-else showDialog(['+10 Morale. The coffee is mediocre but needed.']);
-}
-
-function doPlan(){
-if(GS.ap<=0){showDialog(['No AP left!']);return;}
-GS.ap--;
-const marketers=GS.employees.filter(e=>e.role==='Marketer').length;
-const gain=2+marketers*2+Math.floor(Math.random()*3);
-GS.customers+=gain;
-const rev=GS.customers*50;
-GS.revenue=rev;
-showDialog(['+'+gain+' Customers! Revenue now $'+formatNum(GS.revenue)+'/day']);
-}
-
-function doSales(){
-if(GS.ap<=0){showDialog(['No AP left!']);return;}
-GS.ap--;
-const salesfolk=GS.employees.filter(e=>e.role==='Salesperson').length;
-const gain=1+salesfolk*2+Math.floor(Math.random()*2);
-GS.customers+=gain;
-GS.revenue=GS.customers*50;
-const cashGain=1000+salesfolk*500;
-GS.cash+=cashGain;GS.totalRevenue+=cashGain;
-showDialog(['+'+gain+' Customers, +$'+formatNum(cashGain)+' immediate deal!']);
-}
-
-function doTalkCofounder(){
-const msgs=[
-"He nods vaguely. Is he... meditating?",
-"'The metrics are interesting,' he says, staring at his purple screen.",
-"He's reading something. You can't tell what.",
-"He gives a thumbs up without looking away from his monitor.",
-"'Trust the process,' he whispers. Helpful.",
-"You hear him typing furiously. Then silence.",
-"He appears to be on a call. With whom?",
-"'We should sync later,' he says. You've been here 5 minutes.",
-];
-if(!GS.cofStandUp&&GS.day>=15&&Math.random()<0.15){
-GS.cofStandUp=true;GS.cofStandUpDay=GS.day;
-showDialog([
-"He stands up. For the first time, he faces you.",
-"'I've been watching. You're doing great.'",
-"'I handle the things you don't see. Trust me.'",
-"He sits back down. What just happened?"
-]);
-} else {
-showDialog([msgs[Math.floor(Math.random()*msgs.length)]]);
-}
-}
-
-function doHire(idx){
-const e=GS.hireOptions[idx];
-if(GS.employees.length>=GS.maxEmp){showDialog(['Team is full! Grow the company first.']);return;}
-GS.employees.push({role:e.role,salary:e.salary,day:GS.day});
-GS.burn+=e.salary;GS.hiresDone++;
-GS.state='playing';
-showDialog(['Hired a '+e.role+'! Burn rate now $'+formatNum(GS.burn)+'/day']);
-}
-
-function checkMilestones(){
-for(const m of MILES){
-if(!m.ann&&GS.product>=m.thr){
-m.ann=true;
-GS.flash={text:m.name+' REACHED!',color:P.pos};GS.flashT=120;
-}
-}
-}
-
-// DAY CYCLE
-function endDay(){
-// Revenue
-const dailyRev=GS.revenue;
-GS.cash+=dailyRev;GS.totalRevenue+=dailyRev;
-GS.cash-=GS.burn;GS.totalSpent+=GS.burn;
-// Employee effects
-for(const e of GS.employees){
-if(e.role==='Developer')GS.product+=1;
-if(e.role==='Salesperson'){GS.customers+=1;GS.revenue=GS.customers*50;}
-if(e.role==='Designer')GS.morale=Math.min(100,GS.morale+2);
-if(e.role==='Marketer'){GS.customers+=1;GS.revenue=GS.customers*50;}
-}
-// Morale decay
-GS.morale=Math.max(0,GS.morale-2);
-// Progression gates
-if(GS.day>=8)GS.maxEmp=4;
-if(GS.day>=15)GS.maxEmp=6;
-// Random event
-if(Math.random()<(GS.day<8?0.2:GS.day<15?0.35:0.5)){
-const ev=EVENTS[Math.floor(Math.random()*EVENTS.length)];
-const result=ev.effect();
-GS.pendingEvent={name:ev.name,desc:ev.desc,result:result};
-}
-GS.day++;GS.hour=9;GS.ap=GS.maxAp;
-// Save
-saveGame();
-// Day transition
-GS.dayTrans=60;GS.dayTransDir=1;
-// Check game over
-if(GS.cash<=0){
-GS.state='gameover';return;
-}
-// Check victory
-checkVictory();
-}
-
-function checkVictory(){
-const order=['ipo','profit','rd','world'];
-for(const k of order){
-if(VICTORIES[k].check()){
-GS.victoryType=k;
-GS.state='victory';
-saveGame();
-return;
-}
-}
-}
-
-// VICTORY SCREEN
-function drawVictory(){
-const v=VICTORIES[GS.victoryType];
-// Tint overlay
-B.fillStyle=v.color+'44';B.fillRect(0,0,NW,NH);
-// Box
-const bw=260,bh=140;
-const bx=(NW-bw)/2,by=(NH-bh)/2;
-B.fillStyle=P.dBg;B.fillRect(bx,by,bw,bh);
-B.fillStyle=v.color;
-B.fillRect(bx,by,bw,2);B.fillRect(bx,by+bh-2,bw,2);
-B.fillRect(bx,by,2,bh);B.fillRect(bx+bw-2,by,2,bh);
-drawTextCentered(by+8,'VICTORY!',v.color,2);
-drawTextCentered(by+28,v.name,v.color);
-// Wrap description
-const words=v.desc.split(' ');
-let row='',ry=0;
-for(const w of words){
-const test=row?row+' '+w:w;
-if(textWidth(test)>bw-20){drawText(bx+10,by+44+ry*8,row,P.dTx);row=w;ry++;}
-else row=test;
-}
-if(row)drawText(bx+10,by+44+ry*8,row,P.dTx);
-// Stats
-drawText(bx+10,by+80,'DAYS: '+GS.day,P.hYl);
-drawText(bx+10,by+90,'CASH: $'+formatNum(GS.cash),P.hGr);
-drawText(bx+10,by+100,'PRODUCT: '+GS.product,P.pos);
-drawText(bx+10,by+110,'CUSTOMERS: '+GS.customers,P.hYl);
-drawText(bx+130,by+80,'TEAM: '+GS.employees.length,P.hTx);
-drawText(bx+130,by+90,'FEATURES: '+GS.featuresShipped,P.pos);
-drawText(bx+130,by+100,'COFFEES: '+GS.coffeesDrunk,P.cfe);
-drawText(bx+130,by+110,'HIRES: '+GS.hiresDone,P.hTx);
-drawTextCentered(by+bh-10,'PRESS ENTER FOR STATS',P.dBd);
-}
-
-// STATS SCREEN
-function drawStats(){
-B.fillStyle=P.bg;B.fillRect(0,0,NW,NH);
-drawTextCentered(10,'FINAL STATS',P.hGd,2);
-const v=GS.victoryType?VICTORIES[GS.victoryType]:null;
-if(v)drawTextCentered(28,v.name,v.color);
-const stats=[
-['Days Survived',GS.day],
-['Final Cash','$'+formatNum(GS.cash)],
-['Total Revenue','$'+formatNum(GS.totalRevenue)],
-['Total Spent','$'+formatNum(GS.totalSpent)],
-['Product Points',GS.product],
-['Customers',GS.customers],
-['Team Size',GS.employees.length],
-['Features Shipped',GS.featuresShipped],
-['Coffees Drunk',GS.coffeesDrunk],
-['Hires Made',GS.hiresDone],
-['Final Morale',GS.morale+'%'],
-['Burn Rate','$'+formatNum(GS.burn)+'/day'],
-];
-for(let i=0;i<stats.length;i++){
-drawText(40,44+i*13,stats[i][0],P.neu);
-drawText(200,44+i*13,stats[i][1].toString(),P.hTx);
-}
-// Milestone reached
-const cm=curMile(GS.product);
-drawText(40,44+stats.length*13+4,'MILESTONE',P.neu);
-drawText(200,44+stats.length*13+4,cm?cm.name:'NONE',P.pos);
-drawTextCentered(NH-14,'PRESS ENTER TO RESTART',P.dBd);
-}
-
-// GAME OVER
-function drawGameOver(){
-B.fillStyle=P.bg+'dd';B.fillRect(0,0,NW,NH);
-drawTextCentered(60,'GAME OVER',P.hRd,2);
-drawTextCentered(80,'YOUR STARTUP RAN OUT OF CASH',P.dTx);
-drawTextCentered(100,'YOU SURVIVED '+GS.day+' DAYS',P.hYl);
-drawTextCentered(115,'PRODUCT: '+GS.product+' CUSTOMERS: '+GS.customers,P.neu);
-drawTextCentered(135,'COFFEES DRUNK: '+GS.coffeesDrunk,P.cfe);
-drawTextCentered(NH-30,'PRESS ENTER TO RESTART',P.dBd);
-}
-
-// TITLE SCREEN
-function drawTitle(){
-B.fillStyle=P.bg;B.fillRect(0,0,NW,NH);
-// Stars
-for(let i=0;i<30;i++){
-const sx=(i*37+GS.animT*0.2)%NW;
-const sy=(i*53)%NH;
-B.fillStyle=Math.floor(GS.animT/20+i)%3?P.neu:P.wh;
-B.fillRect(Math.floor(sx),Math.floor(sy),1,1);
-}
-drawTextCentered(30,'SAAS STARTUP',P.hGd,2);
-drawTextCentered(50,'SIMULATOR',P.mG,2);
-// Pixel art logo - monitor
-const lx=140,ly=70;
-B.fillStyle=P.mon;B.fillRect(lx,ly,40,28);
-B.fillStyle=P.mG;B.fillRect(lx+3,ly+3,34,18);
-B.fillStyle=P.dkL;B.fillRect(lx+15,ly+28,10,4);B.fillRect(lx+10,ly+32,20,3);
-// Glowing text on monitor
-if(Math.floor(GS.animT/20)%2){
-B.fillStyle=P.mGl;B.fillRect(lx+6,ly+7,8,2);B.fillRect(lx+6,ly+11,14,2);B.fillRect(lx+6,ly+15,10,2);
-}
-// Menu
-const items=GS.saveExists?['NEW GAME','CONTINUE (DAY '+GS.savedDay+')']:['NEW GAME'];
-for(let i=0;i<items.length;i++){
-const sel=i===GS.titleIdx;
-if(sel){
-const w=textWidth(items[i])+12;
-B.fillStyle=P.dBd+'44';B.fillRect(NW/2-w/2,147+i*16,w,12);
-}
-drawTextCentered(149+i*16,items[i],sel?P.wh:P.neu);
-}
-drawTextCentered(200,'ARROWS: MOVE  Z: INTERACT  X: MENU',P.neu);
-drawTextCentered(210,'SPACE: END DAY',P.neu);
-}
-
-// SAVE/LOAD
+// SAVE / LOAD
 function saveGame(){
-const data={
-day:GS.day,hour:GS.hour,cash:GS.cash,revenue:GS.revenue,burn:GS.burn,
-product:GS.product,customers:GS.customers,morale:GS.morale,
-employees:GS.employees,maxEmp:GS.maxEmp,ap:GS.ap,maxAp:GS.maxAp,
-cofStandUp:GS.cofStandUp,cofStandUpDay:GS.cofStandUpDay,
-totalRevenue:GS.totalRevenue,totalSpent:GS.totalSpent,
-hiresDone:GS.hiresDone,featuresShipped:GS.featuresShipped,coffeesDrunk:GS.coffeesDrunk,
-px:GS.px,py:GS.py,pDir:GS.pDir,
-milestones:MILES.map(m=>m.ann),
-victoryType:GS.victoryType,
-};
-try{localStorage.setItem('saas_sim_save',JSON.stringify(data));}catch(e){}
+const s={day:G.day,hour:G.hour,phase:G.phase,ap:G.ap,maxAp:G.maxAp,
+cash:G.cash,revenue:G.revenue,burn:G.burn,product:G.product,
+customers:G.customers,morale:G.morale,productLevel:G.productLevel,
+employees:G.employees,maxEmp:G.maxEmp,profitStreak:G.profitStreak,
+px:G.px,py:G.py,pDir:G.pDir,
+totalRevenue:G.totalRevenue,totalSpent:G.totalSpent,
+hiresDone:G.hiresDone,featuresShipped:G.featuresShipped,
+coffeesDrunk:G.coffeesDrunk,milesAnnounced:G.milesAnnounced};
+try{localStorage.setItem('saas_save',JSON.stringify(s));}catch(e){}
 }
-
 function loadGame(){
 try{
-const raw=localStorage.getItem('saas_sim_save');
-if(!raw)return false;
-const d=JSON.parse(raw);
-GS.day=d.day;GS.hour=d.hour||9;GS.cash=d.cash;GS.revenue=d.revenue;GS.burn=d.burn;
-GS.product=d.product;GS.customers=d.customers;GS.morale=d.morale;
-GS.employees=d.employees||[];GS.maxEmp=d.maxEmp||2;
-GS.ap=d.ap||5;GS.maxAp=d.maxAp||5;
-GS.cofStandUp=d.cofStandUp||false;GS.cofStandUpDay=d.cofStandUpDay||-1;
-GS.totalRevenue=d.totalRevenue||0;GS.totalSpent=d.totalSpent||0;
-GS.hiresDone=d.hiresDone||0;GS.featuresShipped=d.featuresShipped||0;GS.coffeesDrunk=d.coffeesDrunk||0;
-GS.px=d.px||9*T+4;GS.py=d.py||7*T+4;GS.pDir=d.pDir||0;
-if(d.milestones)MILES.forEach((m,i)=>m.ann=d.milestones[i]||false);
-GS.victoryType=d.victoryType||null;
-GS.state=GS.victoryType?'victory':'playing';
+const d=JSON.parse(localStorage.getItem('saas_save'));
+if(!d)return false;
+Object.assign(G,d);
+G.state='playing';G.dialogLines=[];G.menuItems=[];G.hireOptions=[];
+G.notifications=[];G.dayLog=[];G.flash=null;G.pMoving=false;
+G.animT=0;G.dayTrans=0;G.cofX=15*T+4;G.cofY=7*T+4;G.cofDir=2;G.cofFrame=0;G.cofMoveT=0;
 return true;
 }catch(e){return false;}
 }
+function hasSave(){try{return!!localStorage.getItem('saas_save');}catch(e){return false;}}
 
-function checkSave(){
-try{
-const raw=localStorage.getItem('saas_sim_save');
-if(raw){const d=JSON.parse(raw);GS.saveExists=true;GS.savedDay=d.day||1;}
-else{GS.saveExists=false;}
-}catch(e){GS.saveExists=false;}
+// DRAWING HELPERS
+function rect(x,y,w,h,c){B.fillStyle=c;B.fillRect(x|0,y|0,w,h);}
+function text(str,x,y,c,sz){B.fillStyle=c||P.dTx;B.font=(sz||7)+'px monospace';B.fillText(str,x|0,y|0);}
+function textC(str,y,c,sz){const s=sz||7;B.font=s+'px monospace';const w=B.measureText(str).width;text(str,(NW-w)/2,y,c,s);}
+function outline(x,y,w,h,c,t){B.strokeStyle=c;B.lineWidth=t||1;B.strokeRect(x|0,y|0,w,h);}
+
+// TILE DRAWING
+function drawTile(tx,ty){
+const x=tx*T,y=ty*T,t=map[ty][tx];
+const checker=(tx+ty)%2===0;
+switch(t){
+case TL.F:rect(x,y,T,T,checker?P.flA:P.flB);break;
+case TL.WT:rect(x,y,T,T,P.wT);rect(x+1,y+12,T-2,3,'#6644aa');break;
+case TL.WF:rect(x,y,T,T,P.wF);rect(x,y,1,T,'#3e3e5e');break;
+case TL.DK:
+rect(x,y,T,T,checker?P.flA:P.flB);
+rect(x+1,y+2,T-2,T-4,P.dk);rect(x+2,y+3,T-4,T-6,P.dkT);
+rect(x+3,y+4,4,3,P.mon);rect(x+4,y+5,2,1,P.mG);
+break;
+case TL.CH:
+rect(x,y,T,T,checker?P.flA:P.flB);
+rect(x+4,y+4,8,10,P.chr);rect(x+5,y+5,6,8,P.chrS);
+break;
+case TL.TM:
+rect(x,y,T,T,checker?P.flA:P.flB);
+rect(x+2,y+1,12,10,P.mon);rect(x+3,y+2,10,8,P.mG);
+for(let i=0;i<3;i++)rect(x+4,y+3+i*2,8,1,P.mGl);
+rect(x+5,y+12,6,3,P.chr);
+break;
+case TL.PL:
+rect(x,y,T,T,checker?P.flA:P.flB);
+rect(x+5,y+10,6,5,P.pot);
+rect(x+3,y+3,10,8,P.pl);rect(x+5,y+1,6,5,P.plD);
+rect(x+7,y+0,2,3,'#3e9b50');
+break;
+case TL.CF:
+rect(x,y,T,T,checker?P.flA:P.flB);
+rect(x+3,y+2,10,12,P.cfe);rect(x+4,y+3,8,4,'#8b6e50');
+rect(x+5,y+8,3,3,P.mug);rect(x+6,y+9,1,1,'#aa8866');
+break;
+case TL.DR:
+rect(x,y,T,T,checker?P.flA:P.flB);
+rect(x+6,y+0,4,T,'#8b7355');rect(x+7,y+6,2,2,P.hGd);
+break;
+case TL.RG:
+rect(x,y,T,T,P.rug);
+if((tx+ty)%3===0)rect(x+2,y+2,T-4,T-4,P.rugB);
+break;
+case TL.WB:
+rect(x,y,T,T,P.wT);
+rect(x+2,y+2,T-4,T-6,P.wb);rect(x+3,y+3,T-6,T-8,'#e8e8f0');
+rect(x+4,y+5,4,1,P.acc);rect(x+4,y+7,6,1,P.hGr);
+break;
+case TL.CM:
+rect(x,y,T,T,checker?P.flA:P.flB);
+rect(x+2,y+1,12,14,'#555577');rect(x+3,y+2,10,8,'#222240');
+rect(x+4,y+3,8,6,P.mG);
+rect(x+4,y+11,3,2,'#777799');rect(x+9,y+11,3,2,'#777799');
+break;
+case TL.WN:
+rect(x,y,T,T,P.wT);
+rect(x+2,y+2,T-4,T-4,P.win);rect(x+3,y+3,T-6,T-6,P.winL);
+rect(x+T/2-0.5,y+2,1,T-4,'#6644aa');rect(x+2,y+T/2-0.5,T-4,1,'#6644aa');
+break;
+case TL.TR:
+rect(x,y,T,T,'#3a3a5a');rect(x,y,T,2,'#4a4a6a');
+break;
+default:rect(x,y,T,T,P.bg);
+}
 }
 
-function newGame(){
-GS.day=1;GS.hour=9;GS.ap=5;GS.maxAp=5;
-GS.cash=50000;GS.revenue=0;GS.burn=500;
-GS.product=0;GS.customers=0;GS.morale=80;
-GS.employees=[];GS.maxEmp=2;
-GS.cofStandUp=false;GS.cofStandUpDay=-1;
-GS.totalRevenue=0;GS.totalSpent=0;
-GS.hiresDone=0;GS.featuresShipped=0;GS.coffeesDrunk=0;
-GS.victoryType=null;
-GS.px=9*T+4;GS.py=7*T+4;GS.pDir=0;GS.pFrame=0;
-GS.dayLog=[];GS.flash=null;GS.flashT=0;GS.pendingEvent=null;
-MILES.forEach(m=>m.ann=false);
-GS.state='playing';
-showDialog([
-"Welcome to your new startup office!",
-"You have $50K in angel funding. Burn rate is $500/day.",
-"Use ARROWS to move, Z to interact, X for menu.",
-"SPACE to end the day. Build product, get customers, survive!",
-"Your co-founder is in the corner. He seems... busy.",
-]);
+// SPRITE DRAWING
+function drawChar(x,y,dir,frame,hoodie,hairC,isCofounder){
+const sx=x|0,sy=y|0;
+// shadow
+rect(sx-4,sy+4,12,4,P.sh);
+// body
+const hc=hoodie||P.hd;
+const bw=12,bh=10;
+rect(sx-bw/2,sy-bh+2,bw,bh,hc);
+// darker trim
+rect(sx-bw/2,sy-bh+2,1,bh,isCofounder?'#3a3a58':'#cc3350');
+rect(sx+bw/2-1,sy-bh+2,1,bh,isCofounder?'#3a3a58':'#cc3350');
+// head
+rect(sx-4,sy-12,10,8,P.skin);
+// hair
+const hrc=hairC||P.hair;
+rect(sx-4,sy-14,10,4,hrc);
+if(dir===2)rect(sx-4,sy-12,10,2,hrc);
+// eyes
+if(dir!==2){
+const ex=dir===3?-2:2;
+rect(sx+ex,sy-10,2,2,'#1a1a2e');
+if(dir===0)rect(sx+ex+3,sy-10,2,2,'#1a1a2e');
+}
+// legs
+const legOff=frame%2===0?0:1;
+rect(sx-3,sy+2,4,4,P.pnt);rect(sx+1,sy+2+legOff,4,4,P.pnt);
+rect(sx-2,sy+5,3,2,P.shoe);rect(sx+2,sy+5+legOff,3,2,P.shoe);
 }
 
-// X MENU (in-game)
-function showGameMenu(){
-const items=['RESUME','STATUS','END DAY','SAVE + QUIT'];
-showMenu('MENU',items,(idx)=>{
-if(idx===0)GS.state='playing';
-if(idx===1){GS.state='stats';GS.victoryType=null;/* temp stats view */}
-if(idx===2)endDay();
-if(idx===3){saveGame();GS.state='title';checkSave();}
-});
+function drawEmployee(emp,idx){
+const baseX=2*T+8+(idx%4)*3*T;
+const baseY=8*T+8+Math.floor(idx/4)*2*T;
+const colors={dev:'#4488ee',sales:'#ee8844',design:'#ee44aa',market:'#44eeaa'};
+const hairs=['#3a2a1a','#8b6e50','#2a1a0a','#aa6633','#554433'];
+drawChar(baseX,baseY,0,(G.animT/20|0)%2,colors[emp.icon],hairs[idx%5],false);
 }
 
-// DOOR INTERACTION
-function doDoor(){
-if(GS.employees.length<GS.maxEmp){
-showMenu('THE DOOR',['GO RECRUITING (1 AP)','MAKE A SALES CALL (1 AP)','NEVERMIND'],(idx)=>{
-if(idx===0){if(GS.ap<=0){showDialog(['No AP!']);return;}showHire();}
-if(idx===1)doSales();
-if(idx===2)GS.state='playing';
-});
-} else {
-showMenu('THE DOOR',['MAKE A SALES CALL (1 AP)','NEVERMIND'],(idx)=>{
-if(idx===0)doSales();
-if(idx===1)GS.state='playing';
-});
+// NOTIFICATION SYSTEM
+function notify(msg,color){
+G.notifications.push({msg,color:color||P.pos,t:180});
+}
+
+function flash(msg,color){
+G.flash=msg;G.flashT=90;G.flashColor=color||P.pos;
+}
+
+// VICTORY CHECK
+function checkVictory(){
+if(G.cash>=50000&&G.customers>=50){G.victoryType='IPO';return true;}
+if(G.profitStreak>=3){G.victoryType='Profit';return true;}
+if(G.productLevel>=10){G.victoryType='R&D';return true;}
+if(G.customers>=100&&G.employees.length>=10){G.victoryType='World';return true;}
+return false;
+}
+
+// DAY END
+function endDay(){
+// Revenue calc
+const devs=G.employees.filter(e=>e.effect==='product').length;
+const sales=G.employees.filter(e=>e.effect==='customers').length;
+const mktrs=G.employees.filter(e=>e.effect==='revenue').length;
+const designers=G.employees.filter(e=>e.effect==='morale').length;
+
+// Auto-produce from employees
+G.product+=devs*3;
+G.customers+=sales*2;
+G.morale=Math.min(100,G.morale+designers*5);
+
+// Product levels
+const newLevel=Math.floor(G.product/20);
+if(newLevel>G.productLevel){
+const gained=newLevel-G.productLevel;
+G.productLevel=newLevel;
+flash('Product Level '+G.productLevel+'!',P.hGr);
+}
+
+// Revenue = customers * base + marketer bonus
+const baseRev=G.customers*100+mktrs*200;
+G.revenue=baseRev;
+const expenses=G.burn+G.employees.reduce((s,e)=>s+e.cost,0);
+const netIncome=G.revenue-expenses;
+G.cash+=netIncome;
+G.totalRevenue+=Math.max(0,G.revenue);
+G.totalSpent+=expenses;
+
+// Profit streak
+if(netIncome>0)G.profitStreak++;
+else G.profitStreak=0;
+
+// Morale effects
+if(G.morale<20){G.customers=Math.max(0,G.customers-1);}
+if(G.morale>80)G.product+=1;
+G.morale=Math.max(0,Math.min(100,G.morale-2));
+
+// Milestone check
+for(const m of MILES){
+if(G.product>=m.thr&&!G.milesAnnounced[m.name]){
+G.milesAnnounced[m.name]=true;
+notify(m.name+': '+m.desc,P.hGd);
 }
 }
 
-// FLASH MESSAGES
-function drawFlash(){
-if(!GS.flash||GS.flashT<=0)return;
-const alpha=Math.min(1,GS.flashT/30);
+// Random event (40% chance)
+if(Math.random()<0.4){
+const ev=EVENTS[Math.random()*EVENTS.length|0];
+const result=ev.effect();
+G.dayLog.push(ev.name+': '+result);
+notify(ev.name+' - '+result,P.hYl);
+}
+
+// Check game over
+if(G.cash<=0){
+G.state='gameover';
+return;
+}
+
+// Check victory
+if(checkVictory()){
+G.state='victory';
+saveGame();
+return;
+}
+
+// Next day
+G.day++;
+G.hour=9;
+G.phase='morning';
+G.ap=G.maxAp;
+G.dayLog=[];
+
+// Auto-save
+saveGame();
+
+// Day transition
+G.dayTrans=60;
+G.dayTransDir=1;
+}
+
+// ACTIONS
+function doBuild(){
+if(G.ap<=0){flash('No AP left!',P.acc);return;}
+G.ap--;
+const gain=3+Math.floor(Math.random()*3);
+G.product+=gain;
+G.featuresShipped++;
+flash('+'+gain+' Product!',P.hGr);
+notify('Built feature: +'+gain+' product',P.pos);
+}
+
+function doSell(){
+if(G.ap<=0){flash('No AP left!',P.acc);return;}
+G.ap--;
+const gain=1+Math.floor(Math.random()*3);
+G.customers+=gain;
+flash('+'+gain+' Customers!',P.hGr);
+notify('Sales call: +'+gain+' customers',P.pos);
+}
+
+function doCoffee(){
+if(G.ap<=0){flash('No AP left!',P.acc);return;}
+G.ap--;
+G.morale=Math.min(100,G.morale+10);
+G.coffeesDrunk++;
+flash('+10 Morale!',P.hYl);
+}
+
+function doHire(){
+if(G.employees.length>=G.maxEmp){flash('Office full! ('+G.maxEmp+' max)',P.acc);return;}
+G.hireOptions=[];
+const shuffled=[...EMP_TYPES].sort(()=>Math.random()-0.5);
+for(let i=0;i<Math.min(3,shuffled.length);i++){
+const t=shuffled[i];
+const cost=t.cost+Math.floor(Math.random()*100)-50;
+G.hireOptions.push({...t,cost:Math.max(150,cost)});
+}
+G.hireIdx=0;
+G.state='hire';
+}
+
+function hireEmployee(emp){
+if(G.cash<emp.cost*3){flash('Need $'+(emp.cost*3)+' (3mo runway)',P.acc);return;}
+G.employees.push({role:emp.role,cost:emp.cost,icon:emp.icon,effect:emp.effect});
+G.hiresDone++;
+G.cash-=emp.cost;
+flash('Hired '+emp.role+'!',P.hGr);
+notify(emp.role+' joined! ($'+emp.cost+'/day)',P.pos);
+if(G.employees.length>=G.maxEmp&&G.maxEmp<12){
+G.maxEmp=Math.min(12,G.maxEmp+2);
+notify('Office expanded! Max '+G.maxEmp+' employees',P.hYl);
+}
+G.state='playing';
+}
+
+function doEndDay(){
+G.state='playing';
+endDay();
+}
+
+// CO-FOUNDER DIALOG
+function talkToCofounder(){
+const q=COF_QUOTES[Math.random()*COF_QUOTES.length|0];
+G.dialogLines=['Co-Founder:',q];
+G.dialogIdx=0;
+G.dialogCb=null;
+G.state='dialog';
+}
+
+// INTERACTION
+function interact(){
+// Check co-founder proximity
+const dx=Math.abs(G.px-G.cofX),dy=Math.abs(G.py-G.cofY);
+if(dx<20&&dy<20){talkToCofounder();return;}
+// Check tile interactions
+const tx=Math.floor(G.px/T),ty=Math.floor(G.py/T);
+const dirs=[[0,-1],[0,1],[-1,0],[1,0]];
+for(const[ddx,ddy]of dirs){
+const ct=gT(tx+ddx,ty+ddy);
+if(ct===TL.DK||ct===TL.TM){openMenu('work');return;}
+if(ct===TL.CF){doCoffee();return;}
+if(ct===TL.CM){openMenu('computer');return;}
+if(ct===TL.WB){openMenu('whiteboard');return;}
+if(ct===TL.DR){
+G.dialogLines=['Exit the office?','(End the day and process revenue)'];
+G.dialogIdx=0;G.dialogCb=()=>doEndDay();G.state='dialog';return;
+}
+}
+openMenu('general');
+}
+
+function openMenu(type){
+if(type==='work'){
+G.menuItems=[{label:'Build Feature (1 AP)',action:doBuild},{label:'Sales Call (1 AP)',action:doSell},{label:'Hire (free)',action:doHire},{label:'End Day',action:doEndDay},{label:'Stats',action:()=>{G.state='stats';G.statsScroll=0;}},{label:'Save & Quit',action:()=>{saveGame();flash('Game Saved!',P.hGr);}},{label:'Cancel',action:()=>{}}];
+}else if(type==='computer'){
+G.menuItems=[{label:'Build Feature (1 AP)',action:doBuild},{label:'Check Stats',action:()=>{G.state='stats';G.statsScroll=0;}},{label:'Cancel',action:()=>{}}];
+}else if(type==='whiteboard'){
+G.menuItems=[{label:'Plan Feature (+2 Product)',action:()=>{if(G.ap>0){G.ap--;G.product+=2;flash('+2 Product',P.hGr);}else flash('No AP!',P.acc);}},{label:'Cancel',action:()=>{}}];
+}else{
+G.menuItems=[{label:'Build Feature (1 AP)',action:doBuild},{label:'Sales Call (1 AP)',action:doSell},{label:'Hire',action:doHire},{label:'End Day',action:doEndDay},{label:'Stats',action:()=>{G.state='stats';G.statsScroll=0;}},{label:'Cancel',action:()=>{}}];
+}
+G.menuIdx=0;
+G.state='menu';
+}
+
+// CO-FOUNDER AI
+function updateCofounder(dt){
+G.cofMoveT-=dt;
+if(G.cofMoveT<=0){
+G.cofMoveT=1000+Math.random()*2000;
+G.cofDir=Math.random()*4|0;
+}
+// Simple wandering
+const speed=0.3;
+let nx=G.cofX,ny=G.cofY;
+if(G.cofDir===0)ny-=speed;
+else if(G.cofDir===2)ny+=speed;
+else if(G.cofDir===3)nx-=speed;
+else if(G.cofDir===1)nx+=speed;
+const ctxF=Math.floor(nx/T),ctyF=Math.floor(ny/T);
+if(!isSolid(ctxF,ctyF)&&nx>T&&nx<(MW-1)*T&&ny>T&&ny<(MH-1)*T){
+G.cofX=nx;G.cofY=ny;G.cofFrame=(G.cofFrame+1)%20;
+}else{
+G.cofDir=(G.cofDir+1)%4;
+}
+}
+
+// MOVEMENT
+function updatePlayer(dt){
+if(G.state!=='playing')return;
+const speed=1.2;
+let dx=0,dy=0;
+if(keys['ArrowUp']||keys['w']||keys['W']){dy=-speed;G.pDir=0;}
+if(keys['ArrowDown']||keys['s']||keys['S']){dy=speed;G.pDir=2;}
+if(keys['ArrowLeft']||keys['a']||keys['A']){dx=-speed;G.pDir=3;}
+if(keys['ArrowRight']||keys['d']||keys['D']){dx=speed;G.pDir=1;}
+G.pMoving=dx!==0||dy!==0;
+if(G.pMoving){
+const nx=G.px+dx,ny=G.py+dy;
+const ntx=Math.floor(nx/T),nty=Math.floor(ny/T);
+if(!isSolid(ntx,nty)){G.px=nx;G.py=ny;}
+else{
+// Try sliding
+const stx=Math.floor(G.px/T);
+if(!isSolid(stx,nty))G.py=ny;
+else if(!isSolid(ntx,Math.floor(G.py/T)))G.px=nx;
+}
+G.px=Math.max(T,Math.min((MW-1)*T-1,G.px));
+G.py=Math.max(T,Math.min((MH-1)*T-1,G.py));
+G.pFrame++;
+}
+}
+
+// ============ DRAWING ============
+
+function drawMap(){
+for(let y=0;y<MH;y++)for(let x=0;x<MW;x++)drawTile(x,y);
+}
+
+function drawHUD(){
+// Top bar
+rect(0,0,NW,14,P.hBg);
+text('Day '+G.day,4,10,P.hTx);
+text('$'+G.cash.toLocaleString(),60,10,G.cash>5000?P.hGr:P.acc);
+text('AP:'+G.ap+'/'+G.maxAp,135,10,G.ap>0?P.hYl:P.acc);
+text('Cust:'+G.customers,185,10,P.hTx);
+text('Prod:'+G.product,240,10,P.hTx);
+// Morale bar
+rect(280,3,36,8,'#333');
+rect(281,4,Math.floor(34*(G.morale/100)),6,G.morale>50?P.hGr:G.morale>25?P.hYl:P.acc);
+
+// Bottom bar
+rect(0,NH-20,NW,20,P.hBg);
+const phase=G.phase==='morning'?'Morning':'Afternoon';
+text(phase+' | '+G.employees.length+'/'+G.maxEmp+' staff | Burn: $'+(G.burn+G.employees.reduce((s,e)=>s+e.cost,0))+'/day',4,NH-8,P.neu,6);
+text('[Z] Act [X] Menu [C] Stats',160,NH-8,P.neu,6);
+
+// Notifications
+let ny=20;
+for(let i=G.notifications.length-1;i>=0;i--){
+const n=G.notifications[i];
+if(n.t>0){
+const alpha=Math.min(1,n.t/30);
 B.globalAlpha=alpha;
-const w=textWidth(GS.flash.text,2)+16;
-B.fillStyle=P.dBg;B.fillRect(NW/2-w/2,80,w,20);
-drawTextCentered(84,GS.flash.text,GS.flash.color||P.wh,2);
+rect(4,ny,NW-8,10,'#0008');
+text(n.msg,6,ny+8,n.color,6);
+B.globalAlpha=1;
+ny+=11;
+n.t--;
+}
+}
+G.notifications=G.notifications.filter(n=>n.t>0);
+
+// Flash message
+if(G.flash&&G.flashT>0){
+G.flashT--;
+const alpha=Math.min(1,G.flashT/20);
+B.globalAlpha=alpha;
+B.font='10px monospace';
+const fw=B.measureText(G.flash).width;
+rect(NW/2-fw/2-6,NH/2-30,fw+12,16,'#000c');
+outline(NW/2-fw/2-6,NH/2-30,fw+12,16,G.flashColor);
+text(G.flash,NW/2-fw/2,NH/2-21,G.flashColor,10);
 B.globalAlpha=1;
 }
-
-// UPDATE
-function update(){
-GS.animT++;
-if(GS.flashT>0)GS.flashT--;
-if(GS.dayTrans>0){
-GS.dayTrans--;
-if(GS.dayTrans===30&&GS.pendingEvent){
-const ev=GS.pendingEvent;GS.pendingEvent=null;
-showDialog(['EVENT: '+ev.name,ev.desc,ev.result]);
-}
-}
-switch(GS.state){
-case 'title':
-if(jp('ArrowUp'))GS.titleIdx=Math.max(0,GS.titleIdx-1);
-if(jp('ArrowDown'))GS.titleIdx=Math.min((GS.saveExists?1:0),GS.titleIdx+1);
-if(jp('Enter')||jp('z')||jp('Z')){
-if(GS.titleIdx===0)newGame();
-else if(GS.titleIdx===1&&GS.saveExists){if(loadGame())GS.state=GS.victoryType?'victory':'playing';}
-}
-break;
-case 'playing':
-// Movement
-let dx=0,dy=0;
-if(keys['ArrowLeft']){dx=-2;GS.pDir=2;}
-if(keys['ArrowRight']){dx=2;GS.pDir=3;}
-if(keys['ArrowUp']){dy=-2;GS.pDir=1;}
-if(keys['ArrowDown']){dy=2;GS.pDir=0;}
-GS.pMoving=dx!==0||dy!==0;
-if(GS.pMoving)GS.pFrame=(GS.pFrame+1)%16;
-// Collision
-if(dx!==0){
-const nx=GS.px+dx;
-const gx=Math.floor((nx+(dx>0?12:3))/T);
-const gy1=Math.floor((GS.py+4)/T);
-const gy2=Math.floor((GS.py+14)/T);
-if(!isSolid(gx,gy1)&&!isSolid(gx,gy2))GS.px=nx;
-}
-if(dy!==0){
-const ny=GS.py+dy;
-const gx1=Math.floor((GS.px+3)/T);
-const gx2=Math.floor((GS.px+12)/T);
-const gy=Math.floor((ny+(dy>0?14:4))/T);
-if(!isSolid(gx1,gy)&&!isSolid(gx2,gy))GS.py=ny;
-}
-// Bounds
-GS.px=Math.max(T,Math.min(GS.px,(MW-1)*T-T));
-GS.py=Math.max(T,Math.min(GS.py,(MH-1)*T-T));
-// Interact
-if(jp('z')||jp('Z')){
-const inter=getInteraction();
-if(inter){
-switch(inter.type){
-case 'terminal':
-showMenu('TERMINAL',['WRITE CODE (1 AP)','CHECK METRICS','CANCEL'],(idx)=>{
-if(idx===0)doCode();
-if(idx===1)showDialog(['Product: '+GS.product+' | Next: '+(nxtMile(GS.product)?nxtMile(GS.product).name+' ('+nxtMile(GS.product).thr+')':'MAX'),'Customers: '+GS.customers+' | Revenue: $'+formatNum(GS.revenue)+'/day','Burn: $'+formatNum(GS.burn)+'/day | Cash runway: '+Math.floor(GS.cash/GS.burn)+' days']);
-if(idx===2)GS.state='playing';
-});break;
-case 'coffee':doCoffee();break;
-case 'whiteboard':
-showMenu('WHITEBOARD',['PLAN MARKETING (1 AP)','REVIEW ROADMAP','CANCEL'],(idx)=>{
-if(idx===0)doPlan();
-if(idx===1){
-const nm=nxtMile(GS.product);
-const roadmap=nm?'Next milestone: '+nm.name+' at '+nm.thr+' pts':'All milestones reached!';
-showDialog(['ROADMAP',roadmap,'Current product: '+GS.product+' pts']);
-}
-if(idx===2)GS.state='playing';
-});break;
-case 'cofounder':doTalkCofounder();break;
-case 'door':doDoor();break;
-}
-}
-}
-if(jp('x')||jp('X'))showGameMenu();
-if(jp(' '))endDay();
-// Hour advance per AP spent
-break;
-case 'dialog':
-if(jp('z')||jp('Z')||jp('Enter')||jp(' ')){
-GS.dialogIdx++;
-if(GS.dialogIdx>=GS.dialogLines.length){
-GS.state='playing';
-if(GS.dialogCb){const cb=GS.dialogCb;GS.dialogCb=null;cb();}
-}
-}
-break;
-case 'menu':
-if(jp('ArrowUp'))GS.menuIdx=Math.max(0,GS.menuIdx-1);
-if(jp('ArrowDown'))GS.menuIdx=Math.min(GS.menuItems.length-1,GS.menuIdx+1);
-if(jp('z')||jp('Z')||jp('Enter')){
-const cb=GS.menuCb;const idx=GS.menuIdx;
-GS.state='playing';
-if(cb)cb(idx);
-}
-if(jp('x')||jp('X')||jp('Escape'))GS.state='playing';
-break;
-case 'hire':
-if(jp('ArrowUp'))GS.hireIdx=Math.max(0,GS.hireIdx-1);
-if(jp('ArrowDown'))GS.hireIdx=Math.min(GS.hireOptions.length-1,GS.hireIdx+1);
-if(jp('z')||jp('Z')||jp('Enter')){
-if(GS.employees.length<GS.maxEmp)doHire(GS.hireIdx);
-else showDialog(['Team is full!']);
-}
-if(jp('x')||jp('X')||jp('Escape'))GS.state='playing';
-break;
-case 'victory':
-if(jp('Enter'))GS.state='stats';
-break;
-case 'stats':
-if(jp('Enter')){
-if(GS.victoryType){
-try{localStorage.removeItem('saas_sim_save');}catch(e){}
-GS.saveExists=false;GS.state='title';GS.titleIdx=0;checkSave();
-} else {
-GS.state='playing';
-}
-}
-if(jp('Escape')||jp('x')||jp('X')){
-if(!GS.victoryType)GS.state='playing';
-}
-break;
-case 'gameover':
-if(jp('Enter')){
-try{localStorage.removeItem('saas_sim_save');}catch(e){}
-GS.saveExists=false;GS.state='title';GS.titleIdx=0;checkSave();
-}
-break;
-}
-justPressed={};
 }
 
-// RENDER
-function render(){
+function drawDialog(){
+rect(16,NH-70,NW-32,55,P.dBg);
+outline(16,NH-70,NW-32,55,P.dBd,2);
+for(let i=0;i<=G.dialogIdx&&i<G.dialogLines.length;i++){
+text(G.dialogLines[i],24,NH-58+i*14,P.dTx,7);
+}
+if(G.dialogIdx<G.dialogLines.length-1){
+text('▼',NW-36,NH-22,P.dBd,8);
+}else{
+text('[Z] OK',NW-60,NH-22,P.dBd,6);
+}
+}
+
+function drawMenu(){
+const items=G.menuItems;
+const mw=160,mh=items.length*14+10;
+const mx=NW/2-mw/2,my=NH/2-mh/2;
+rect(mx,my,mw,mh,P.dBg);
+outline(mx,my,mw,mh,P.dBd,2);
+for(let i=0;i<items.length;i++){
+const sel=i===G.menuIdx;
+if(sel)rect(mx+2,my+4+i*14,mw-4,13,'#58b86833');
+text((sel?'► ':'  ')+items[i].label,mx+8,my+14+i*14,sel?P.hGr:P.dTx,7);
+}
+}
+
+function drawHireScreen(){
+rect(20,20,NW-40,NH-40,P.dBg);
+outline(20,20,NW-40,NH-40,P.dBd,2);
+textC('— HIRE EMPLOYEE —',36,P.hGd,9);
+text('Cash: $'+G.cash.toLocaleString(),30,50,P.hGr,7);
+text('Staff: '+G.employees.length+'/'+G.maxEmp,180,50,P.hTx,7);
+for(let i=0;i<G.hireOptions.length;i++){
+const h=G.hireOptions[i];
+const sel=i===G.hireIdx;
+const y=68+i*32;
+if(sel)rect(28,y-4,NW-56,28,'#58b86822');
+outline(28,y-4,NW-56,28,sel?P.hGr:'#444',1);
+text((sel?'► ':' ')+h.role,36,y+6,sel?P.hGr:P.dTx,8);
+text('$'+h.cost+'/day',160,y+6,P.hYl,7);
+text('Boosts: '+h.effect,36,y+18,P.neu,6);
+text('Hiring cost: $'+h.cost,160,y+18,P.acc,6);
+}
+text('[Z] Hire  [X] Cancel',80,NH-32,P.neu,7);
+}
+
+function drawVictory(){
+const colors={IPO:P.vIPO,Profit:P.vPr,'R&D':P.vRD,World:P.vWd};
+const titles={IPO:'IPO GLORY!',Profit:'PROFIT MACHINE!','R&D':'R&D UTOPIA!',World:'WORLD DOMINATION!'};
+const descs={
+IPO:'You took the company public!\nWall Street celebrates your vision.',
+Profit:'Sustainable profits achieved!\nBootstrapped brilliance.',
+'R&D':'Technology transcended!\nYour R&D lab changed the world.',
+World:'Global domination complete!\nYour SaaS empire spans the globe.'
+};
+const vc=colors[G.victoryType]||P.hGd;
+const vt=titles[G.victoryType]||'VICTORY!';
+const vd=descs[G.victoryType]||'You won!';
+// Overlay
+B.fillStyle='#000000cc';B.fillRect(0,0,NW,NH);
+// Border
+rect(30,20,NW-60,NH-40,'#1a1a2eee');
+outline(30,20,NW-60,NH-40,vc,3);
+// Stars animation
+const st=G.animT/10;
+for(let i=0;i<12;i++){
+const sx=NW/2+Math.cos(st+i*0.52)*80+Math.sin(st*0.7+i)*20;
+const sy=60+Math.sin(st+i*0.52)*25;
+rect(sx,sy,2,2,vc);
+}
+// Title
+textC('★ '+vt+' ★',50,vc,11);
+// Description
+const lines=vd.split('\n');
+for(let i=0;i<lines.length;i++)textC(lines[i],72+i*12,P.dTx,7);
+// Stats
+const sy=105;
+text('Days Survived: '+G.day,60,sy,P.hTx,7);
+text('Final Cash: $'+G.cash.toLocaleString(),60,sy+12,P.hGr,7);
+text('Customers: '+G.customers,60,sy+24,P.hTx,7);
+text('Product Level: '+G.productLevel,60,sy+36,P.hTx,7);
+text('Employees: '+G.employees.length,60,sy+48,P.hTx,7);
+text('Features Shipped: '+G.featuresShipped,170,sy,P.hTx,7);
+text('Total Revenue: $'+G.totalRevenue.toLocaleString(),170,sy+12,P.hTx,7);
+text('Coffees: '+G.coffeesDrunk,170,sy+24,P.hYl,7);
+textC('[ENTER] New Game   [S] Stats',NH-8,P.neu,7);
+}
+
+function drawGameOver(){
+B.fillStyle='#000000dd';B.fillRect(0,0,NW,NH);
+rect(40,40,NW-80,NH-80,'#1a1a2e');
+outline(40,40,NW-80,NH-80,P.acc,3);
+textC('GAME OVER',65,P.acc,12);
+textC('Your startup ran out of cash!',85,P.dTx,7);
+text('Days: '+G.day,80,110,P.hTx,7);
+text('Customers: '+G.customers,80,124,P.hTx,7);
+text('Product: '+G.product,80,138,P.hTx,7);
+text('Revenue: $'+G.totalRevenue.toLocaleString(),80,152,P.hTx,7);
+textC('[ENTER] Try Again',175,P.hGr,8);
+}
+
+function drawStats(){
+B.fillStyle='#000000dd';B.fillRect(0,0,NW,NH);
+rect(20,10,NW-40,NH-20,'#1a1a2eee');
+outline(20,10,NW-40,NH-20,P.dBd,2);
+textC('— COMPANY STATS —',28,P.hGd,9);
+const col1=35,col2=170;let y=44;
+text('Day: '+G.day,col1,y,P.hTx);text('Phase: '+G.phase,col2,y,P.hTx);y+=12;
+text('Cash: $'+G.cash.toLocaleString(),col1,y,P.hGr);text('Burn: $'+(G.burn+G.employees.reduce((s,e)=>s+e.cost,0)),col2,y,P.acc);y+=12;
+text('Revenue: $'+G.revenue+'/day',col1,y,P.hGr);text('Customers: '+G.customers,col2,y,P.hTx);y+=12;
+text('Product: '+G.product+' (Lv.'+G.productLevel+')',col1,y,P.hTx);text('Morale: '+G.morale+'%',col2,y,G.morale>50?P.hGr:P.acc);y+=12;
+text('Profit Streak: '+G.profitStreak+' days',col1,y,G.profitStreak>0?P.hGr:P.neu);y+=14;
+text('— EMPLOYEES ('+G.employees.length+'/'+G.maxEmp+') —',col1,y,P.hYl);y+=12;
+if(G.employees.length===0)text('No employees yet',col1,y,P.neu);
+for(const e of G.employees){text(e.role+' ($'+e.cost+'/day)',col1,y,P.hTx);y+=10;}
+y+=6;
+text('— TOTALS —',col1,y,P.hYl);y+=12;
+text('Revenue: $'+G.totalRevenue.toLocaleString(),col1,y,P.hTx);text('Spent: $'+G.totalSpent.toLocaleString(),col2,y,P.hTx);y+=12;
+text('Hires: '+G.hiresDone,col1,y,P.hTx);text('Features: '+G.featuresShipped,col2,y,P.hTx);y+=12;
+text('Coffees: '+G.coffeesDrunk,col1,y,P.hYl);y+=14;
+text('— VICTORY CONDITIONS —',col1,y,P.hGd);y+=12;
+const vcs=[
+{n:'IPO Glory',c:G.cash>=50000&&G.customers>=50,d:'$50K + 50 cust'},
+{n:'Profit Machine',c:G.profitStreak>=3,d:'3-day profit streak'},
+{n:'R&D Utopia',c:G.productLevel>=10,d:'Product Lv.10'},
+{n:'World Domination',c:G.customers>=100&&G.employees.length>=10,d:'100 cust + 10 emp'},
+];
+for(const v of vcs){
+text((v.c?'✓':'○')+' '+v.n,col1,y,v.c?P.hGr:P.neu,6);
+text(v.d,col2,y,P.neu,6);y+=10;
+}
+textC('[X] Close',NH-18,P.neu,7);
+}
+
+function drawTitle(){
 B.fillStyle=P.bg;B.fillRect(0,0,NW,NH);
-if(GS.state==='title'){drawTitle();}
-else if(GS.state==='stats'&&GS.victoryType){drawStats();}
-else if(GS.state==='gameover'){
-// Draw office behind
-drawOffice();drawGameOver();
-} else if(GS.state==='victory'){
-drawOffice();drawVictory();
-} else {
-drawOffice();
-drawHUD();
-drawPrompt();
-if(GS.state==='dialog')drawDialog();
-if(GS.state==='menu')drawMenu();
-if(GS.state==='hire')drawHire();
-drawFlash();
-// Day transition overlay
-if(GS.dayTrans>0){
-const alpha=GS.dayTrans>30?(60-GS.dayTrans)/30:(GS.dayTrans)/30;
-B.fillStyle='rgba(0,0,0,'+Math.min(1,alpha*1.5)+')';
-B.fillRect(0,0,NW,NH);
-if(GS.dayTrans>25&&GS.dayTrans<35){
-drawTextCentered(100,'DAY '+GS.day,P.hGd,2);
-drawTextCentered(120,'CASH: $'+formatNum(GS.cash),GS.cash<10000?P.hRd:P.hGr);
+// Office background suggestion
+for(let x=0;x<NW;x+=T)for(let y=0;y<NH;y+=T){
+rect(x,y,T,T,(x+y)%32===0?P.flA:P.bg);
 }
+// Logo area
+rect(40,30,NW-80,50,'#1a1a2ecc');
+outline(40,30,NW-80,50,P.hGr,2);
+// Animated title
+const bounce=Math.sin(G.animT/15)*3;
+textC('SaaS STARTUP',52+bounce,P.hGr,12);
+textC('SIMULATOR',68+bounce,P.hGd,10);
+// Pixel art character preview
+drawChar(NW/2-30,120,2,(G.animT/15|0)%2,P.hd,P.hair,false);
+drawChar(NW/2+30,120,2,(G.animT/18|0)%2,P.cof,'#555',true);
+// Menu
+const items=hasSave()?['New Game','Continue','Controls']:['New Game','Controls'];
+for(let i=0;i<items.length;i++){
+const sel=G.titleIdx===i;
+const y=148+i*16;
+if(sel)rect(NW/2-60,y-8,120,14,'#58b86822');
+textC((sel?'► ':'')+items[i],y,sel?P.hGr:P.dTx,8);
 }
-// Stats overlay (temporary from menu)
-if(GS.state==='stats'&&!GS.victoryType)drawStats();
-}
-// Blit
-ctx.imageSmoothingEnabled=false;
-ctx.drawImage(buf,0,0,NW,NH,0,0,NW*SC,NH*SC);
+// Footer
+textC('Arrow Keys to Move | Z to Act | X to Cancel',NH-14,P.neu,6);
+// Version
+text('v0.18',NW-36,NH-6,'#333',5);
 }
 
-function drawOffice(){
-// Draw tiles
-for(let y=0;y<MH;y++)for(let x=0;x<MW;x++)drawTile(x,y);
-// Collect sprites for Y-sort
-const sprites=[];
-// Employees
-const spots=[{x:2,y:11},{x:3,y:11},{x:13,y:2},{x:14,y:2},{x:13,y:11},{x:14,y:11}];
-for(let i=0;i<GS.employees.length&&i<spots.length;i++){
-sprites.push({y:spots[i].y*T+14,draw:()=>{
-const s=spots[i];const e=GS.employees[i];
-const px=s.x*T,py=s.y*T;
-B.fillStyle=P.chrS;B.fillRect(px+4,py+6,8,8);
-const colors={Developer:'#4488aa',Salesperson:'#aa6644',Designer:'#aa44aa',Marketer:'#44aa66'};
-B.fillStyle=colors[e.role]||P.hd;
-B.fillRect(px+4,py+2,8,6);
-B.fillStyle=P.skin;B.fillRect(px+5,py,6,3);
-B.fillStyle=P.hair;B.fillRect(px+5,py-1,6,2);
-// Role label
-drawText(px,py-6,e.role.substr(0,3),colors[e.role]||P.neu);
-}});
+// DAY TRANSITION
+function drawDayTransition(){
+if(G.dayTrans>0){
+const alpha=G.dayTrans>30?((60-G.dayTrans)/30):(G.dayTrans/30);
+B.fillStyle='rgba(0,0,0,'+alpha+')';
+B.fillRect(0,0,NW,NH);
+if(G.dayTrans>20&&G.dayTrans<50){
+B.globalAlpha=Math.min(1,(G.dayTrans-20)/10);
+textC('Day '+G.day,NH/2-10,P.hGd,14);
+textC(G.phase==='morning'?'☀ Morning':'☾ Evening',NH/2+10,P.hTx,8);
+B.globalAlpha=1;
 }
-// Cofounder
-sprites.push({y:cofPos.y+14,draw:drawCofounder});
-// Player
-sprites.push({y:GS.py+14,draw:()=>drawPlayer(GS.px,GS.py,GS.pDir,Math.floor(GS.pFrame/4),false)});
-// Sort by Y
-sprites.sort((a,b)=>a.y-b.y);
-for(const s of sprites)s.draw();
+G.dayTrans--;
+}
+}
+
+// MAIN UPDATE
+function update(dt){
+G.animT++;
+
+if(G.state==='title'){
+const items=hasSave()?3:2;
+if(wasPressed('ArrowUp'))G.titleIdx=(G.titleIdx-1+items)%items;
+if(wasPressed('ArrowDown'))G.titleIdx=(G.titleIdx+1)%items;
+if(wasPressed('z')||wasPressed('Z')||wasPressed('Enter')){
+if(hasSave()){
+if(G.titleIdx===0){initGame();G.state='playing';G.dayTrans=60;flash('Welcome, Co-Founder!',P.hGr);}
+else if(G.titleIdx===1){if(loadGame())flash('Game Loaded!',P.hGr);else{initGame();G.state='playing';}}
+else if(G.titleIdx===2){G.dialogLines=['Controls:','Arrows/WASD: Move','Z/Enter: Interact/Confirm','X/Esc: Cancel/Back','C: Quick Stats'];G.dialogIdx=0;G.dialogCb=null;G.state='dialog';}
+}else{
+if(G.titleIdx===0){initGame();G.state='playing';G.dayTrans=60;flash('Welcome, Co-Founder!',P.hGr);}
+else{G.dialogLines=['Controls:','Arrows/WASD: Move','Z/Enter: Interact/Confirm','X/Esc: Cancel/Back','C: Quick Stats'];G.dialogIdx=0;G.dialogCb=null;G.state='dialog';}
+}
+}
+}
+else if(G.state==='playing'){
+updatePlayer(dt);
+updateCofounder(dt);
+if(wasPressed('z')||wasPressed('Z'))interact();
+if(wasPressed('x')||wasPressed('X'))openMenu('general');
+if(wasPressed('c')||wasPressed('C')){G.state='stats';G.statsScroll=0;}
+}
+else if(G.state==='dialog'){
+if(wasPressed('z')||wasPressed('Z')||wasPressed('Enter')){
+if(G.dialogIdx<G.dialogLines.length-1)G.dialogIdx++;
+else{
+G.state=G.dialogCb?'playing':'title';
+if(G.dialogCb){G.dialogCb();G.dialogCb=null;}
+if(G.state!=='playing'&&G.state!=='title'){}
+}
+}
+if(wasPressed('x')||wasPressed('X')||wasPressed('Escape')){
+G.state=G.dialogCb?'playing':'title';
+G.dialogCb=null;
+}
+}
+else if(G.state==='menu'){
+if(wasPressed('ArrowUp'))G.menuIdx=(G.menuIdx-1+G.menuItems.length)%G.menuItems.length;
+if(wasPressed('ArrowDown'))G.menuIdx=(G.menuIdx+1)%G.menuItems.length;
+if(wasPressed('z')||wasPressed('Z')||wasPressed('Enter')){
+const act=G.menuItems[G.menuIdx].action;
+G.state='playing';
+act();
+}
+if(wasPressed('x')||wasPressed('X')||wasPressed('Escape'))G.state='playing';
+}
+else if(G.state==='hire'){
+if(wasPressed('ArrowUp'))G.hireIdx=(G.hireIdx-1+G.hireOptions.length)%G.hireOptions.length;
+if(wasPressed('ArrowDown'))G.hireIdx=(G.hireIdx+1)%G.hireOptions.length;
+if(wasPressed('z')||wasPressed('Z')||wasPressed('Enter'))hireEmployee(G.hireOptions[G.hireIdx]);
+if(wasPressed('x')||wasPressed('X')||wasPressed('Escape'))G.state='playing';
+}
+else if(G.state==='victory'){
+if(wasPressed('Enter')){try{localStorage.removeItem('saas_save');}catch(e){}initGame();G.state='title';}
+if(wasPressed('s')||wasPressed('S')){G.state='stats';}
+}
+else if(G.state==='gameover'){
+if(wasPressed('Enter')){try{localStorage.removeItem('saas_save');}catch(e){}initGame();G.state='title';}
+}
+else if(G.state==='stats'){
+if(wasPressed('x')||wasPressed('X')||wasPressed('Escape')||wasPressed('c')||wasPressed('C')){
+G.state=G.victoryType?'victory':'playing';
+}
+}
+
+clearInput();
+}
+
+// MAIN DRAW
+function draw(){
+B.fillStyle=P.bg;
+B.fillRect(0,0,NW,NH);
+
+if(G.state==='title'){
+drawTitle();
+}else{
+drawMap();
+// Draw employees
+for(let i=0;i<G.employees.length;i++)drawEmployee(G.employees[i],i);
+// Draw co-founder
+drawChar(G.cofX,G.cofY,G.cofDir,(G.cofFrame/10|0)%2,P.cof,'#555',true);
+// Draw player
+drawChar(G.px,G.py,G.pDir,G.pMoving?(G.pFrame/5|0)%2:0,P.hd,P.hair,false);
+// Interaction hint
+const tx=Math.floor(G.px/T),ty=Math.floor(G.py/T);
+const dirs=[[0,-1],[0,1],[-1,0],[1,0]];
+let canInteract=false;
+for(const[dx,dy]of dirs){
+const ct=gT(tx+dx,ty+dy);
+if([TL.DK,TL.TM,TL.CF,TL.CM,TL.WB,TL.DR].includes(ct)){canInteract=true;break;}
+}
+if(Math.abs(G.px-G.cofX)<20&&Math.abs(G.py-G.cofY)<20)canInteract=true;
+if(canInteract&&G.state==='playing'){
+const blink=Math.sin(G.animT/8)>0;
+if(blink)text('[Z]',G.px-6,G.py-20,P.hGr,6);
+}
+drawHUD();
+if(G.state==='dialog')drawDialog();
+if(G.state==='menu')drawMenu();
+if(G.state==='hire')drawHireScreen();
+if(G.state==='victory')drawVictory();
+if(G.state==='gameover')drawGameOver();
+if(G.state==='stats')drawStats();
+drawDayTransition();
+}
+
+// Render to screen
+ctx.imageSmoothingEnabled=false;
+ctx.drawImage(buf,0,0,NW*SC,NH*SC);
 }
 
 // GAME LOOP
-function loop(){
-update();render();requestAnimationFrame(loop);
+let lastTime=0;
+function loop(time){
+const dt=time-lastTime;
+lastTime=time;
+update(dt);
+draw();
+requestAnimationFrame(loop);
 }
-
-// INIT
-checkSave();
-loop();
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
