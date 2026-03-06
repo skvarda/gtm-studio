@@ -603,6 +603,72 @@ header {
 .log-line.dim    .log-msg { color: var(--dim2); }
 .log-line.normal .log-msg { color: var(--text); }
 
+/* ── ASSET THUMBNAILS ── */
+.asset-thumb-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.asset-thumb-card {
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  padding: 6px;
+  width: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.asset-thumb-img {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: var(--border);
+  display: block;
+}
+.asset-thumb-id {
+  font-size: 8px;
+  color: var(--text2);
+  text-align: center;
+  word-break: break-all;
+  line-height: 1.3;
+}
+.asset-thumb-meta {
+  font-size: 7px;
+  color: var(--dim2);
+  text-align: center;
+}
+.asset-status-btns {
+  display: flex;
+  gap: 3px;
+  margin-top: 2px;
+}
+.asset-status-btns button {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  padding: 2px 5px;
+  border: 1px solid;
+  cursor: pointer;
+  background: transparent;
+  transition: all 0.15s;
+}
+.asset-approve-btn { color: var(--green); border-color: var(--green); }
+.asset-approve-btn:hover { background: rgba(88,184,104,0.15); }
+.asset-flag-btn    { color: var(--orange); border-color: var(--orange); }
+.asset-flag-btn:hover { background: rgba(255,140,66,0.15); }
+.asset-thumb-card.approved { border-color: var(--green); }
+.asset-thumb-card.needs_revision { border-color: var(--orange); }
+
+.iris-asset-log {
+  margin-top: 6px;
+  font-size: 9px;
+  color: var(--text2);
+  line-height: 1.8;
+}
+.iris-asset-log .asset-ok   { color: var(--green); }
+.iris-asset-log .asset-skip { color: var(--dim2); }
+
 /* Scrollbars */
 ::-webkit-scrollbar { width: 3px; height: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -652,11 +718,12 @@ header {
   <!-- CENTER: Agent Pipeline -->
   <div class="pipeline-section" id="pipeline"></div>
 
-  <!-- RIGHT: Build Report -->
+  <!-- RIGHT: Last Round Summary -->
   <div class="build-report-panel">
-    <div class="panel-header">BUILD REPORT</div>
+    <div class="panel-header">LAST ROUND SUMMARY</div>
     <div class="build-report-body">
-      <a class="play-btn" href="/docs/game.html" target="_blank">PLAY LATEST BUILD</a>
+      <div id="summary-round-info" style="font-size:0.75rem;color:#888;margin-bottom:6px;"></div>
+      <a class="play-btn" href="https://skvarda.github.io/gtm-studio/game.html" target="_blank">PLAY LATEST BUILD</a>
       <div class="qa-verdict-block">
         <div class="verdict-label">QA VERDICT</div>
         <div class="verdict-value pending" id="qa-verdict">—</div>
@@ -668,6 +735,12 @@ header {
       <div>
         <div class="report-section-label">QA NOTES</div>
         <div class="report-text" id="qa-report-text">No QA report yet.</div>
+      </div>
+      <div>
+        <div class="report-section-label">ASSETS THIS ROUND</div>
+        <div class="asset-thumb-grid" id="asset-thumb-grid">
+          <div style="font-size:10px;color:var(--dim2)">No assets yet.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -691,15 +764,16 @@ header {
 <script>
 // ── Agent Definitions ──
 const AGENTS = [
-  { id: 'executive-director', name: 'Vivian Cross',  role: 'Executive Director', emoji: '👑', model: 'opus',   tier: 'EXECUTIVE',     exec: true  },
-  { id: 'gtm-specialist',     name: 'Luna Reyes',    role: 'GTM Specialist',     emoji: '📣', model: 'sonnet', tier: 'LEADERSHIP'          },
-  { id: 'game-designer',      name: 'Marcus Webb',   role: 'Game Designer',      emoji: '🎮', model: 'sonnet', tier: 'LEADERSHIP'          },
-  { id: 'art-director',       name: 'Sage Moretti',  role: 'Art Director',       emoji: '🎨', model: 'sonnet', tier: 'CREATIVE TEAM'       },
-  { id: 'narrative-designer', name: 'Felix Park',    role: 'Narrative Designer', emoji: '📖', model: 'sonnet', tier: 'CREATIVE TEAM'       },
-  { id: 'playtester',         name: 'Priya Vasquez', role: 'Playtester',         emoji: '🕹', model: 'sonnet', tier: 'CREATIVE TEAM'       },
-  { id: 'producer',           name: 'Ren Tanaka',    role: 'Scope Controller',   emoji: '📋', model: 'sonnet', tier: 'SCOPE'               },
-  { id: 'developer',          name: 'Atlas Novak',   role: 'Developer',          emoji: '💻', model: 'opus',   tier: 'EXECUTION'           },
-  { id: 'qa-engineer',        name: 'Bea Ortiz',     role: 'QA Engineer',        emoji: '🔍', model: 'sonnet', tier: 'EXECUTION'           },
+  { id: 'exec-director',     name: 'Vivian Cross',  role: 'Executive Director', emoji: '👔', model: 'opus',   tier: 'EXECUTIVE',    exec: true },
+  { id: 'creative-director', name: 'Luna Reyes',    role: 'Creative Director',  emoji: '🎬', model: 'sonnet', tier: 'LEADERSHIP'          },
+  { id: 'tech-lead',         name: 'Marcus Webb',   role: 'Tech Lead',          emoji: '🏗️', model: 'opus',   tier: 'LEADERSHIP'          },
+  { id: 'writer',            name: 'Sage Moretti',  role: 'Writer',             emoji: '✍️', model: 'sonnet', tier: 'CREATIVE TEAM'       },
+  { id: 'game-designer',     name: 'Felix Park',    role: 'Game Designer',      emoji: '🎮', model: 'sonnet', tier: 'CREATIVE TEAM'       },
+  { id: 'art-director',      name: 'Priya Vasquez', role: 'Art Director',       emoji: '🎨', model: 'sonnet', tier: 'CREATIVE TEAM'       },
+  { id: 'asset-generator',   name: 'Iris Nakamura', role: 'Asset Generator',    emoji: '🖼️', model: 'sonnet', tier: 'ASSETS'              },
+  { id: 'producer',          name: 'Ren Tanaka',    role: 'Producer',           emoji: '📋', model: 'sonnet', tier: 'SCOPE'               },
+  { id: 'developer',         name: 'Atlas Novak',   role: 'Developer',          emoji: '💻', model: 'opus',   tier: 'EXECUTION'           },
+  { id: 'qa-playtester',     name: 'Bea Ortiz',     role: 'QA Playtester',      emoji: '🕹️', model: 'opus',   tier: 'EXECUTION'           },
 ];
 
 // ── Build Pipeline ──
@@ -734,6 +808,7 @@ for (const agent of AGENTS) {
     </div>
     <div class="card-expanded">
       <div class="card-output-text" id="output-${agent.id}">No output yet.</div>
+      ${agent.id === 'asset-generator' ? '<div class="iris-asset-log" id="iris-asset-log"></div>' : ''}
     </div>
     <div class="expand-hint">click to expand</div>
   `;
@@ -894,7 +969,7 @@ function connectSSE() {
 
       case 'agent_start':
         setAgentStatus(data.agentId, 'running');
-        log(`${data.agentName || data.agentId} running…`);
+        log(`${data.name || data.agentId} running…`);
         break;
 
       case 'agent_complete':
@@ -929,6 +1004,8 @@ function connectSSE() {
         log(`Round ${data.round} complete`, 'gold');
         loadRoundHistory();
         loadReports(data.round);
+        loadAssetRegistry();
+        document.getElementById('summary-round-info').textContent = `Round ${data.round}`;
         break;
 
       case 'committed':
@@ -945,8 +1022,47 @@ function connectSSE() {
         loadPendingFeedback();
         break;
 
+      case 'feedback_cleared':
+        document.getElementById('pending-block').style.display = 'none';
+        document.getElementById('pending-text').textContent = '';
+        log('Feedback consumed by Vivian', 'dim');
+        break;
+
       case 'no_html':
         log('Developer did not produce valid HTML this round', 'red');
+        break;
+
+      case 'iris_generating':
+        log(`🖼️ Iris generating: ${data.assetId}…`, 'normal');
+        break;
+
+      case 'asset_complete': {
+        const logEl = document.getElementById('iris-asset-log');
+        if (logEl) {
+          const line = document.createElement('div');
+          line.className = 'asset-ok';
+          line.textContent = `✓ ${data.assetId} → ${data.filename}`;
+          logEl.appendChild(line);
+        }
+        log(`🖼️ Asset ready: ${data.assetId} (${data.filename})`, 'green');
+        break;
+      }
+
+      case 'asset_skipped': {
+        const logEl = document.getElementById('iris-asset-log');
+        if (logEl) {
+          const line = document.createElement('div');
+          line.className = 'asset-skip';
+          line.textContent = `— ${data.assetId} skipped`;
+          logEl.appendChild(line);
+        }
+        log(`🖼️ Asset skipped: ${data.assetId}`, 'dim');
+        break;
+      }
+
+      case 'asset_status_changed':
+        loadAssetRegistry();
+        log(`Asset ${data.assetId} → ${data.status}`, 'dim');
         break;
 
       case 'error':
@@ -1042,6 +1158,54 @@ async function loadRoundHistory() {
   } catch {}
 }
 
+// ── Asset Registry ──
+async function loadAssetRegistry() {
+  try {
+    const r = await fetch('/asset-registry');
+    if (!r.ok) return;
+    const reg = await r.json();
+    const grid = document.getElementById('asset-thumb-grid');
+    if (!grid) return;
+    const assets = Object.entries(reg.assets || {});
+    if (assets.length === 0) {
+      grid.innerHTML = '<div style="font-size:10px;color:var(--dim2)">No assets yet.</div>';
+      return;
+    }
+    grid.innerHTML = '';
+    for (const [id, a] of assets) {
+      const subfolder = a.subfolder || 'sprites';
+      const imgSrc = `/assets/${subfolder}/${a.file}`;
+      const card = document.createElement('div');
+      card.className = 'asset-thumb-card' + (a.status !== 'pending' ? ' ' + a.status : '');
+      card.id = 'asset-card-' + id;
+      card.innerHTML = `
+        <img class="asset-thumb-img" src="${esc(imgSrc)}" alt="${esc(id)}" title="${esc(a.prompt || '')}">
+        <div class="asset-thumb-id">${esc(id)}</div>
+        <div class="asset-thumb-meta">v${a.version} · ${a.target_width}×${a.target_height} · ${esc(a.status)}</div>
+        <div class="asset-status-btns">
+          <button class="asset-approve-btn" onclick="patchAsset('${esc(id)}','approved')">✓</button>
+          <button class="asset-flag-btn"    onclick="patchAsset('${esc(id)}','needs_revision')">!</button>
+        </div>
+      `;
+      grid.appendChild(card);
+    }
+  } catch {}
+}
+
+async function patchAsset(assetId, status) {
+  try {
+    const r = await fetch(`/asset-registry/${encodeURIComponent(assetId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    if (r.ok) {
+      log(`Asset ${assetId} marked ${status}`, status === 'approved' ? 'green' : 'orange');
+      loadAssetRegistry();
+    } else { log(`Failed to update asset ${assetId}`, 'red'); }
+  } catch (e) { log('Patch error: ' + e.message, 'red'); }
+}
+
 // ── Build & QA Reports ──
 async function loadReports(round) {
   try {
@@ -1091,6 +1255,7 @@ async function init() {
 
   await loadRoundHistory();
   await loadPendingFeedback();
+  await loadAssetRegistry();
 
   const reportRound = lastRound || currentRound;
   if (reportRound) loadReports(reportRound);

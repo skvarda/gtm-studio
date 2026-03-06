@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "lastUpdated": "round-28",
+  "assets": {
+    "npc_jordan_idle": {
+      "file": "npc_jordan_idle_v1.png",
+      "original_file": "npc_jordan_idle_v1_original.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art character sprite, SNES Harvest Moon and Chrono Trigger style, young tech founder with messy dark brown hair and round glasses, wearing a muted teal hoodie and blue jeans, neutral friendly expression, facing forward, warm amber skin tone, transparent background, 2px black outline, clean flat shading with 3-tone depth, retro nostalgic feel, SD proportions with large head, inspired by Harvest Moon 64 and Stardew Valley character design",
+      "style_notes": "Warm peach skin (#f5c78e), teal hoodie (#4a7c7e), dark brown hair (#2c1a0e). Harvest Moon SD proportions — head ~40% of height. Light source upper-left. Max 16 colors total.",
+      "revision_notes": "",
+      "target_width": 32,
+      "target_height": 48,
+      "created_round": 28,
+      "last_modified_round": 28
+    },
+    "tile_office_floor": {
+      "file": "tile_office_floor_v1.png",
+      "original_file": "tile_office_floor_v1_original.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art top-down floor tile, SNES Harvest Moon style, warm hardwood plank flooring, horizontal planks every 8 pixels, alternating amber and tan tones, subtle wood grain texture, 2-tone dithering for depth, seamlessly tileable, retro nostalgic feel, inspired by Harvest Moon 64 and EarthBound interior environments",
+      "style_notes": "Floor colors: dark #8b6f47, mid #a8845a, light #c4a26e. No pure black. South and east edges 1px darker for faux isometric depth. Must tile seamlessly.",
+      "revision_notes": "",
+      "target_width": 32,
+      "target_height": 32,
+      "created_round": 28,
+      "last_modified_round": 28
+    }
+  }
+}
