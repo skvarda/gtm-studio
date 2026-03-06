@@ -14,7 +14,7 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 <canvas id="game"></canvas>
 <script>
 // ============================================================
-// SaaS STARTUP SIMULATOR — Round 27: "Sound & Scanlines"
+// SaaS STARTUP SIMULATOR — Round 28: "First Light"
 // ============================================================
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -32,6 +32,28 @@ buf.width = NATIVE_W;
 buf.height = NATIVE_H;
 const bctx = buf.getContext('2d');
 bctx.imageSmoothingEnabled = false;
+ctx.imageSmoothingEnabled = false;
+
+// ============================================================
+// ASSET PRELOADER
+// ============================================================
+const GAME_ASSETS = {};
+const ASSET_MANIFEST = [
+    { id: 'npc_jordan_idle', path: '/assets/sprites/npc_jordan_idle_v1.png', width: 32, height: 48 },
+    { id: 'tile_office_floor', path: '/assets/tiles/tile_office_floor_v1.png', width: 32, height: 32 },
+    { id: 'ui_hud_panel', path: '/assets/ui/ui_hud_panel_v1.png', width: 128, height: 32 }
+];
+
+function preloadAssets() {
+    return Promise.all(ASSET_MANIFEST.map(asset =>
+        new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => { GAME_ASSETS[asset.id] = img; resolve(); };
+            img.onerror = () => { console.warn('Failed to load:', asset.path); resolve(); };
+            img.src = asset.path;
+        })
+    ));
+}
 
 // ============================================================
 // PALETTE
@@ -94,275 +116,6 @@ const PAL = {
     textHighlight: '#f5a623',
     textDim:    '#6c7a8a',
 };
-
-// ============================================================
-// AUDIO MANAGER — Procedural Web Audio chiptune system
-// ============================================================
-const AudioManager = {
-    ctx: null,
-    masterGain: null,
-    musicGain: null,
-    sfxGain: null,
-    muted: false,
-    currentTrack: null,
-    initialized: false,
-    trackNodes: [],
-
-    init() {
-        if (this.initialized) return;
-        try {
-            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-            this.masterGain = this.ctx.createGain();
-            this.masterGain.gain.value = 0.35;
-            this.masterGain.connect(this.ctx.destination);
-
-            this.musicGain = this.ctx.createGain();
-            this.musicGain.gain.value = 0.5;
-            this.musicGain.connect(this.masterGain);
-
-            this.sfxGain = this.ctx.createGain();
-            this.sfxGain.gain.value = 0.7;
-            this.sfxGain.connect(this.masterGain);
-
-            this.initialized = true;
-            // Restore mute state
-            const saved = sessionStorage.getItem('sss_muted');
-            if (saved === 'true') {
-                this.muted = true;
-                this.masterGain.gain.value = 0;
-            }
-        } catch(e) {}
-    },
-
-    toggleMute() {
-        if (!this.initialized) return;
-        this.muted = !this.muted;
-        this.masterGain.gain.setTargetAtTime(this.muted ? 0 : 0.35, this.ctx.currentTime, 0.02);
-        sessionStorage.setItem('sss_muted', this.muted);
-    },
-
-    stopMusic() {
-        for (const n of this.trackNodes) {
-            try { n.stop(); } catch(e) {}
-        }
-        this.trackNodes = [];
-        this.currentTrack = null;
-    },
-
-    // Note frequency helper
-    noteFreq(note, octave) {
-        const notes = { C:0, 'C#':1, D:2, 'D#':3, E:4, F:5, 'F#':6, G:7, 'G#':8, A:9, 'A#':10, B:11 };
-        const n = notes[note] || 0;
-        return 440 * Math.pow(2, (n - 9) / 12 + (octave - 4));
-    },
-
-    // Play a sequence of notes as a looping track
-    playTrack(trackName, melody, bass, tempo, loop) {
-        if (!this.initialized) return;
-        if (this.currentTrack === trackName) return;
-        this.stopMusic();
-        this.currentTrack = trackName;
-
-        const beatDur = 60 / tempo;
-        const totalBeats = melody.reduce((s, n) => s + n.dur, 0);
-        const loopLen = totalBeats * beatDur;
-
-        const scheduleVoice = (notes, waveType, gainVal, detune) => {
-            const schedule = (startOffset) => {
-                let t = this.ctx.currentTime + 0.05 + startOffset;
-                for (const n of notes) {
-                    const dur = n.dur * beatDur;
-                    if (n.note !== 'R') {
-                        const osc = this.ctx.createOscillator();
-                        const g = this.ctx.createGain();
-                        osc.type = waveType;
-                        osc.frequency.value = this.noteFreq(n.note, n.oct);
-                        if (detune) osc.detune.value = detune;
-                        g.gain.setValueAtTime(gainVal, t);
-                        g.gain.setValueAtTime(gainVal, t + dur * 0.7);
-                        g.gain.linearRampToValueAtTime(0, t + dur * 0.95);
-                        osc.connect(g);
-                        g.connect(this.musicGain);
-                        osc.start(t);
-                        osc.stop(t + dur);
-                        this.trackNodes.push(osc);
-                    }
-                    t += dur;
-                }
-            };
-
-            if (loop) {
-                // Schedule several loops ahead
-                for (let i = 0; i < 80; i++) {
-                    schedule(i * loopLen);
-                }
-            } else {
-                schedule(0);
-            }
-        };
-
-        scheduleVoice(melody, 'square', 0.15, 0);
-        if (bass && bass.length > 0) {
-            scheduleVoice(bass, 'triangle', 0.2, 0);
-        }
-    },
-
-    // ---- TITLE THEME ----
-    playTitleTheme() {
-        const melody = [
-            {note:'E',oct:5,dur:1},{note:'G',oct:5,dur:1},{note:'A',oct:5,dur:1},{note:'B',oct:5,dur:1},
-            {note:'A',oct:5,dur:1},{note:'G',oct:5,dur:1},{note:'E',oct:5,dur:2},
-            {note:'D',oct:5,dur:1},{note:'E',oct:5,dur:1},{note:'G',oct:5,dur:1},{note:'A',oct:5,dur:1},
-            {note:'G',oct:5,dur:1},{note:'E',oct:5,dur:1},{note:'D',oct:5,dur:2},
-            {note:'C',oct:5,dur:1},{note:'D',oct:5,dur:1},{note:'E',oct:5,dur:1},{note:'G',oct:5,dur:1},
-            {note:'A',oct:5,dur:2},{note:'G',oct:5,dur:1},{note:'E',oct:5,dur:1},
-            {note:'D',oct:5,dur:1},{note:'C',oct:5,dur:1},{note:'D',oct:5,dur:1},{note:'E',oct:5,dur:1},
-            {note:'G',oct:5,dur:2},{note:'R',oct:0,dur:2},
-        ];
-        const bass = [
-            {note:'C',oct:3,dur:2},{note:'G',oct:3,dur:2},{note:'A',oct:3,dur:2},{note:'E',oct:3,dur:2},
-            {note:'D',oct:3,dur:2},{note:'G',oct:3,dur:2},{note:'A',oct:3,dur:2},{note:'E',oct:3,dur:2},
-            {note:'C',oct:3,dur:2},{note:'G',oct:3,dur:2},{note:'A',oct:3,dur:2},{note:'E',oct:3,dur:2},
-            {note:'D',oct:3,dur:2},{note:'G',oct:3,dur:2},{note:'C',oct:3,dur:2},{note:'R',oct:0,dur:2},
-        ];
-        this.playTrack('title', melody, bass, 180, true);
-    },
-
-    // ---- GAMEPLAY BGM ----
-    playGameplayBGM() {
-        const melody = [
-            {note:'E',oct:4,dur:2},{note:'R',oct:0,dur:1},{note:'G',oct:4,dur:1},
-            {note:'A',oct:4,dur:2},{note:'R',oct:0,dur:2},
-            {note:'G',oct:4,dur:1},{note:'E',oct:4,dur:1},{note:'D',oct:4,dur:2},
-            {note:'R',oct:0,dur:2},{note:'C',oct:4,dur:1},{note:'D',oct:4,dur:1},
-            {note:'E',oct:4,dur:2},{note:'R',oct:0,dur:1},{note:'D',oct:4,dur:1},
-            {note:'C',oct:4,dur:2},{note:'R',oct:0,dur:2},
-            {note:'D',oct:4,dur:1},{note:'E',oct:4,dur:1},{note:'G',oct:4,dur:2},
-            {note:'R',oct:0,dur:4},
-        ];
-        const bass = [
-            {note:'A',oct:2,dur:4},{note:'E',oct:2,dur:4},
-            {note:'G',oct:2,dur:4},{note:'D',oct:2,dur:4},
-            {note:'A',oct:2,dur:4},{note:'C',oct:3,dur:4},
-            {note:'G',oct:2,dur:4},{note:'D',oct:2,dur:4},
-        ];
-        this.playTrack('gameplay', melody, bass, 100, true);
-    },
-
-    // ---- DAY END JINGLE ----
-    playDayEndJingle() {
-        if (!this.initialized) return;
-        this.stopMusic();
-        const melody = [
-            {note:'C',oct:5,dur:1},{note:'E',oct:5,dur:1},{note:'G',oct:5,dur:1},{note:'C',oct:6,dur:2},
-        ];
-        const bass = [
-            {note:'C',oct:3,dur:2},{note:'G',oct:3,dur:2},{note:'R',oct:0,dur:1},
-        ];
-        this.playTrack('jingle', melody, bass, 200, false);
-        this.currentTrack = 'jingle';
-    },
-
-    // ---- SFX ----
-    playSFX(type) {
-        if (!this.initialized) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const g = this.ctx.createGain();
-        osc.connect(g);
-        g.connect(this.sfxGain);
-
-        switch(type) {
-            case 'menuOpen':
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(400, now);
-                osc.frequency.linearRampToValueAtTime(800, now + 0.06);
-                g.gain.setValueAtTime(0.12, now);
-                g.gain.linearRampToValueAtTime(0, now + 0.08);
-                osc.start(now); osc.stop(now + 0.08);
-                break;
-            case 'menuClose':
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(600, now);
-                osc.frequency.linearRampToValueAtTime(300, now + 0.06);
-                g.gain.setValueAtTime(0.1, now);
-                g.gain.linearRampToValueAtTime(0, now + 0.07);
-                osc.start(now); osc.stop(now + 0.07);
-                break;
-            case 'select':
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(660, now);
-                osc.frequency.setValueAtTime(880, now + 0.04);
-                g.gain.setValueAtTime(0.12, now);
-                g.gain.linearRampToValueAtTime(0, now + 0.1);
-                osc.start(now); osc.stop(now + 0.1);
-                break;
-            case 'cursor':
-                osc.type = 'square';
-                osc.frequency.value = 440;
-                g.gain.setValueAtTime(0.06, now);
-                g.gain.linearRampToValueAtTime(0, now + 0.03);
-                osc.start(now); osc.stop(now + 0.03);
-                break;
-            case 'dialogTick':
-                osc.type = 'square';
-                osc.frequency.value = 600 + Math.random() * 100;
-                g.gain.setValueAtTime(0.04, now);
-                g.gain.linearRampToValueAtTime(0, now + 0.02);
-                osc.start(now); osc.stop(now + 0.02);
-                break;
-            case 'hire':
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(523, now);
-                osc.frequency.setValueAtTime(659, now + 0.08);
-                osc.frequency.setValueAtTime(784, now + 0.16);
-                osc.frequency.setValueAtTime(1047, now + 0.24);
-                g.gain.setValueAtTime(0.15, now);
-                g.gain.linearRampToValueAtTime(0, now + 0.35);
-                osc.start(now); osc.stop(now + 0.35);
-                break;
-            case 'apSpend':
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(500, now);
-                osc.frequency.linearRampToValueAtTime(350, now + 0.08);
-                g.gain.setValueAtTime(0.1, now);
-                g.gain.linearRampToValueAtTime(0, now + 0.1);
-                osc.start(now); osc.stop(now + 0.1);
-                break;
-            case 'gameOver':
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(400, now);
-                osc.frequency.linearRampToValueAtTime(100, now + 0.6);
-                g.gain.setValueAtTime(0.12, now);
-                g.gain.linearRampToValueAtTime(0, now + 0.7);
-                osc.start(now); osc.stop(now + 0.7);
-                break;
-        }
-    },
-
-    // Dialog tick throttle
-    _lastTickTime: 0,
-    playDialogTick() {
-        if (!this.initialized) return;
-        const now = this.ctx.currentTime;
-        if (now - this._lastTickTime < 0.04) return;
-        this._lastTickTime = now;
-        this.playSFX('dialogTick');
-    }
-};
-
-// ============================================================
-// TEXT RENDERING
-// ============================================================
-function drawText(text, x, y, color, font) {
-    const rx = Math.round(x);
-    const ry = Math.round(y);
-    if (font) bctx.font = font;
-    bctx.fillStyle = PAL.bgDark;
-    bctx.fillText(text, rx + 1, ry + 1);
-    bctx.fillStyle = color || PAL.dialogTxt;
-    bctx.fillText(text, rx, ry);
-}
 
 // ============================================================
 // TILE MAP
@@ -493,8 +246,6 @@ const justPressed = {};
 window.addEventListener('keydown', e => {
     if (!keys[e.code]) justPressed[e.code] = true;
     keys[e.code] = true;
-    // Init audio on first user gesture
-    if (!AudioManager.initialized) AudioManager.init();
     e.preventDefault();
 });
 window.addEventListener('keyup', e => {
@@ -565,7 +316,6 @@ function advanceDialog() {
     } else {
         dialog.active = false;
         gameState.phase = 'play';
-        AudioManager.playSFX('menuClose');
         if (dialog.callback) {
             dialog.callback();
             dialog.callback = null;
@@ -587,7 +337,6 @@ function showMenu(title, options, callback, disabledIndices, optionColors) {
     menu.disabledIndices = disabledIndices || [];
     menu.optionColors = optionColors || [];
     gameState.phase = 'menu';
-    AudioManager.playSFX('menuOpen');
     while (menu.disabledIndices.includes(menu.cursor) && menu.cursor < menu.options.length - 1) {
         menu.cursor++;
     }
@@ -599,7 +348,6 @@ function menuSelect() {
     const choice = menu.cursor;
     menu.active = false;
     gameState.phase = 'play';
-    AudioManager.playSFX('select');
     if (menu.callback) menu.callback(choice);
 }
 
@@ -705,7 +453,6 @@ function hireEmployee(type) {
     gameState.employees.push(emp);
     gameState.ap--;
     recalcBurn();
-    AudioManager.playSFX('hire');
 
     const role = type === 'dev' ? 'Developer' : 'Salesperson';
     const cost = type === 'dev' ? DEV_BURN : SALES_BURN;
@@ -800,7 +547,6 @@ function doBuild() {
     const gain = 5 + Math.floor(Math.random() * 8);
     gameState.productProgress = Math.min(100, gameState.productProgress + gain);
     gameState.ap--;
-    AudioManager.playSFX('apSpend');
     showDialog(randFrom(buildMessages) + "\n\n[Product Progress +" + gain + "%  ->  " + gameState.productProgress + "%]");
 }
 
@@ -808,13 +554,11 @@ function doResearch() {
     const gain = 1 + Math.floor(Math.random() * 2);
     gameState.marketInsight += gain;
     gameState.ap--;
-    AudioManager.playSFX('apSpend');
     showDialog(randFrom(researchMessages) + "\n\n[Market Insight +" + gain + "  ->  " + gameState.marketInsight + "]");
 }
 
 function doSales() {
     gameState.ap--;
-    AudioManager.playSFX('apSpend');
     let successChance = 0.25;
     if (gameState.productProgress < 25) successChance *= 0.5;
     if (gameState.marketInsight > 3) successChance += 0.15;
@@ -845,8 +589,6 @@ function doSales() {
 // END OF DAY
 // ============================================================
 function endDay() {
-    AudioManager.playDayEndJingle();
-
     const dailyMrrIncome = Math.floor(gameState.mrr / 30);
     gameState.cash -= gameState.dayBurn;
     gameState.cash += dailyMrrIncome;
@@ -892,7 +634,6 @@ function endDay() {
     if (gameState.cash <= 0) {
         gameState.cash = 0;
         gameState.phase = 'gameOver';
-        AudioManager.playSFX('gameOver');
         return;
     }
 
@@ -916,10 +657,7 @@ function endDay() {
         summary += "\n\n!! RUNWAY CRITICAL — " + runway + " days left !!";
     }
 
-    showDialog(summary, () => {
-        // Resume gameplay BGM after jingle dialog dismissed
-        AudioManager.playGameplayBGM();
-    });
+    showDialog(summary);
 }
 
 // ============================================================
@@ -1201,6 +939,7 @@ function drawTile(gx, gy) {
         case WALL_TRIM_TILE: drawWallTrimTile(x, y); break;
         case RUG: drawRug(x, y, gx, gy); break;
         case DOOR: drawDoor(x, y); break;
+        case WINDOW_TILE: drawWindow(x, y); break;
         case EMPTY: drawRect(x, y, T, T, PAL.bgDark); break;
         default: drawFloorTile(x, y, gx, gy); break;
     }
@@ -1295,9 +1034,39 @@ function drawPlayerSprite(px, py, dir, frame) {
     }
 }
 
+// ============================================================
+// CO-FOUNDER SPRITE — with PNG fallback
+// ============================================================
 function drawCofounderSprite(px, py) {
     const x = Math.floor(px);
     const y = Math.floor(py);
+
+    // Try PNG sprite first
+    const sprite = GAME_ASSETS['npc_jordan_idle'];
+    if (sprite) {
+        bctx.imageSmoothingEnabled = false;
+        // Shadow
+        drawRect(x + 3, y + 14, 10, 2, PAL.shadow);
+        // Draw the 32x48 sprite scaled to fit the 16x16 tile character slot
+        // The sprite is 32x48, we draw it at 16x16 tile scale to match existing hitbox
+        // Offset: center horizontally, align bottom with shadow
+        bctx.drawImage(sprite, x, y - 16, 16, 24);
+        // Idle thought bubble (preserve existing behavior)
+        const idle = Math.sin(performance.now() * 0.001) > 0.5 ? 1 : 0;
+        if (idle && Math.sin(performance.now() * 0.0007) > 0.3) {
+            drawRect(x + 13, y - 19, 5, 6, PAL.dialogBg);
+            drawRect(x + 13, y - 19, 5, 1, PAL.dialogBdr);
+            drawRect(x + 13, y - 14, 5, 1, PAL.dialogBdr);
+            drawRect(x + 13, y - 19, 1, 6, PAL.dialogBdr);
+            drawRect(x + 17, y - 19, 1, 6, PAL.dialogBdr);
+            bctx.fillStyle = PAL.white;
+            bctx.font = '5px monospace';
+            bctx.fillText('?', x + 14, y - 15);
+        }
+        return;
+    }
+
+    // Fallback: original rectangle rendering
     const idle = Math.sin(performance.now() * 0.001) > 0.5 ? 1 : 0;
 
     drawRect(x + 3, y + 14, 10, 2, PAL.shadow);
@@ -1400,7 +1169,6 @@ function drawHUD() {
     bctx.font = '7px monospace';
     bctx.textBaseline = 'top';
 
-    // Row 1
     bctx.fillStyle = PAL.hudTxt;
     bctx.fillText('Day ' + gameState.day, 4, y + 3);
 
@@ -1423,7 +1191,6 @@ function drawHUD() {
         drawRect(apX + 16 + i * 8, y + 4, 6, 1, i < gameState.ap ? '#7aea8a' : '#444455');
     }
 
-    // Row 2
     const dailyMrrIncome = Math.floor(gameState.mrr / 30);
     const netBurn = gameState.dayBurn - dailyMrrIncome;
     const runway = netBurn > 0 ? Math.floor(gameState.cash / netBurn) : 999;
@@ -1450,13 +1217,6 @@ function drawHUD() {
     }
     bctx.fillStyle = PAL.hudTxt;
     bctx.fillText(teamStr, 235, y + 14);
-
-    // Mute indicator
-    if (AudioManager.muted) {
-        bctx.fillStyle = PAL.hudRed;
-        bctx.font = '5px monospace';
-        bctx.fillText('MUTE', NATIVE_W - 24, y + 22);
-    }
 }
 
 // ============================================================
@@ -1641,7 +1401,7 @@ function drawTitleScreen() {
     bctx.fillText('Burn Rate: $2,740/day', NATIVE_W / 2, 109);
 
     bctx.fillStyle = PAL.hireWarn;
-    bctx.fillText('NOW WITH SOUND! Press M to mute/unmute', NATIVE_W / 2, 125);
+    bctx.fillText('NEW: Hire developers & salespeople!', NATIVE_W / 2, 125);
 
     titleBlink += 0.04;
     if (Math.sin(titleBlink * 2) > 0) {
@@ -1653,30 +1413,6 @@ function drawTitleScreen() {
     bctx.fillText('Arrow Keys / WASD: Move  |  Z / Enter: Interact', NATIVE_W / 2, 205);
 
     bctx.textAlign = 'left';
-}
-
-// ============================================================
-// CRT SCANLINE POST-PROCESSING
-// ============================================================
-let crtEnabled = true;
-
-function applyCRT() {
-    if (!crtEnabled) return;
-    const w = canvas.width;
-    const h = canvas.height;
-
-    // Scanlines — draw semi-transparent dark lines every 3 pixels (SCALE)
-    ctx.fillStyle = 'rgba(0,0,0,0.12)';
-    for (let y = 0; y < h; y += SCALE) {
-        ctx.fillRect(0, y + SCALE - 1, w, 1);
-    }
-
-    // Subtle vignette corners
-    const grd = ctx.createRadialGradient(w / 2, h / 2, w * 0.35, w / 2, h / 2, w * 0.7);
-    grd.addColorStop(0, 'rgba(0,0,0,0)');
-    grd.addColorStop(1, 'rgba(0,0,0,0.25)');
-    ctx.fillStyle = grd;
-    ctx.fillRect(0, 0, w, h);
 }
 
 // ============================================================
@@ -1759,7 +1495,6 @@ function showIntro() {
             showDialog("Walk to the TERMINAL (green monitor) and press Z to work.", () => {
                 showDialog("Visit the DOOR to hire your first employee!", () => {
                     showDialog("You get 3 Action Points per day. Spend them wisely -- the burn rate is real.", () => {
-                        // done
                     });
                 });
             });
@@ -1797,15 +1532,12 @@ function restart() {
     menu.active = false;
     introShown = false;
     titlePhase = true;
-    AudioManager.stopMusic();
 }
 
 // ============================================================
 // MAIN LOOP
 // ============================================================
 let lastTime = performance.now();
-let prevTitlePhase = true;
-let prevGamePhase = 'play';
 
 function gameLoop(now) {
     const dt = Math.min(now - lastTime, 50);
@@ -1820,42 +1552,24 @@ function gameLoop(now) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(buf, 0, 0, NATIVE_W, NATIVE_H, 0, 0, canvas.width, canvas.height);
 
-    // CRT post-process on scaled canvas
-    applyCRT();
-
     clearJustPressed();
     requestAnimationFrame(gameLoop);
 }
 
 function update(dt) {
-    // Mute toggle — works in any phase
-    if (consumePress('KeyM')) {
-        if (!AudioManager.initialized) AudioManager.init();
-        AudioManager.toggleMute();
-    }
-
     if (titlePhase) {
-        // Start title music
-        if (AudioManager.initialized && AudioManager.currentTrack !== 'title') {
-            AudioManager.playTitleTheme();
-        }
         if (consumePress('KeyZ') || consumePress('Enter') || consumePress('Space')) {
             titlePhase = false;
-            AudioManager.playGameplayBGM();
             showIntro();
         }
         return;
     }
 
     if (gameState.phase === 'gameOver') {
-        if (AudioManager.currentTrack !== null && AudioManager.currentTrack !== 'jingle') {
-            AudioManager.stopMusic();
-        }
         if (consumePress('KeyR')) restart();
         return;
     }
 
-    // Dialog input
     if (dialog.active) {
         if (!dialog.done) {
             dialog.charTimer += dt;
@@ -1863,7 +1577,6 @@ function update(dt) {
                 dialog.charTimer -= dialog.charSpeed;
                 dialog.charIndex++;
                 dialog.displayText = dialog.text.substring(0, dialog.charIndex);
-                AudioManager.playDialogTick();
             }
             if (dialog.charIndex >= dialog.text.length) {
                 dialog.done = true;
@@ -1875,19 +1588,16 @@ function update(dt) {
         return;
     }
 
-    // Menu input
     if (menu.active) {
         if (consumePress('ArrowUp') || consumePress('KeyW')) {
             do {
                 menu.cursor = (menu.cursor - 1 + menu.options.length) % menu.options.length;
             } while (menu.disabledIndices.includes(menu.cursor));
-            AudioManager.playSFX('cursor');
         }
         if (consumePress('ArrowDown') || consumePress('KeyS')) {
             do {
                 menu.cursor = (menu.cursor + 1) % menu.options.length;
             } while (menu.disabledIndices.includes(menu.cursor));
-            AudioManager.playSFX('cursor');
         }
         if (consumePress('KeyZ') || consumePress('Enter') || consumePress('Space')) {
             menuSelect();
@@ -1899,7 +1609,6 @@ function update(dt) {
         return;
     }
 
-    // Movement
     if (gameState.phase === 'play') {
         const dir = getMovementDir();
         if (dir >= 0 && !player.moving) {
@@ -1930,7 +1639,6 @@ function update(dt) {
             holdActive = false;
         }
 
-        // Interaction
         if (consumePress('KeyZ') || consumePress('Enter') || consumePress('Space')) {
             tryInteract();
         }
@@ -1939,7 +1647,6 @@ function update(dt) {
     updatePlayer(dt);
     updateCamera();
 
-    // Cofounder idle animation
     cofounder.idleTimer += dt;
     if (cofounder.idleTimer > 3000) {
         cofounder.idleTimer = 0;
@@ -2021,9 +1728,15 @@ function render() {
 }
 
 // ============================================================
-// START
+// START — preload assets then begin game loop
 // ============================================================
-requestAnimationFrame(gameLoop);
+preloadAssets().then(() => {
+    const loadedCount = Object.keys(GAME_ASSETS).length;
+    if (loadedCount > 0) {
+        console.log('Assets loaded:', loadedCount + '/' + ASSET_MANIFEST.length);
+    }
+    requestAnimationFrame(gameLoop);
+});
 
 </script>
 </body>

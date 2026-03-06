@@ -27,6 +27,19 @@
       "target_height": 32,
       "created_round": 28,
       "last_modified_round": 28
+    },
+    "ui_hud_panel": {
+      "file": "ui_hud_panel_v1.png",
+      "original_file": "ui_hud_panel_v1_original.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art UI HUD panel, SNES RPG style, dark slate background with teal border trim, small amber rivet dots in corners, clean retro interface aesthetic, inspired by Final Fantasy VI and Chrono Trigger menu panels, game UI element, no text",
+      "style_notes": "BG #1c2b3a, border #4e8098 (2px inset), outer border #1a1a2e (1px), corner rivets #f4a836 at 3x3px. Sharp pixel corners, no antialiasing.",
+      "revision_notes": "",
+      "target_width": 128,
+      "target_height": 32,
+      "created_round": 28,
+      "last_modified_round": 28
     }
   }
 }
