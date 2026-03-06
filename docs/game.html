@@ -14,7 +14,7 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 <canvas id="game"></canvas>
 <script>
 // ============================================================
-// SaaS STARTUP SIMULATOR — Round 24: "The Status Screen"
+// SaaS STARTUP SIMULATOR — Round 25: "The Interaction"
 // ============================================================
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -93,20 +93,27 @@ const PAL = {
     accentTeal: '#38b764',
     accentGold: '#f4c430',
     uiBorder:   '#566c86',
-    // Round 24 status panel colors
-    statusBg:      '#1a1a2e',
-    statusBdr:     '#4caf50',
-    statusBdrIn:   '#0a0a18',
-    statusTxt:     '#e8e8c8',
-    statusHeader:  '#52d45a',
-    runwayGreen:   '#52d45a',
-    runwayYellow:  '#f0c040',
-    runwayRed:     '#e84040',
-    statusDev:     '#5ba3e8',
-    statusSales:   '#e87d3e',
-    statusCursor:  '#f0c040',
-    inactiveTxt:   '#787878',
+    // Round 25 additions
+    ppGreen:    '#3d9e4a',
+    ppGreenDk:  '#2a6e34',
+    ppNet:      '#f0f0e8',
+    ppLeg:      '#2c2c2c',
+    textYellow: '#ffd166',
+    textRed:    '#ef476f',
 };
+
+// ============================================================
+// TEXT RENDERING WITH OUTLINES (Round 25)
+// ============================================================
+function drawText(text, x, y, color, font) {
+    const rx = Math.round(x);
+    const ry = Math.round(y);
+    if (font) bctx.font = font;
+    bctx.fillStyle = PAL.bgDark;
+    bctx.fillText(text, rx + 1, ry + 1);
+    bctx.fillStyle = color || PAL.dialogTxt;
+    bctx.fillText(text, rx, ry);
+}
 
 // ============================================================
 // TILE MAP
@@ -116,30 +123,32 @@ const MAP_W = 20;
 const MAP_H = 14;
 
 const EMPTY = 0, FLOOR = 1, WALL_TOP = 2, WALL_FACE = 3, DESK = 4, CHAIR = 5,
-      TERMINAL = 6, PLANT = 7, COFOUNDER_SPOT = 8, DOOR = 9, RUG = 10,
+      TERMINAL = 6, PLANT = 7, COFOUNDER_SPOT = 8, DOOR = 9, PPTABLE = 10,
       WHITEBOARD = 11, COFFEE_MACHINE = 12, WINDOW_TILE = 13, WALL_TRIM_TILE = 14;
 
 const SOLID = {
     [EMPTY]: 1, [FLOOR]: 0, [WALL_TOP]: 1, [WALL_FACE]: 1, [DESK]: 1,
     [CHAIR]: 0, [TERMINAL]: 1, [PLANT]: 1, [COFOUNDER_SPOT]: 1, [DOOR]: 0,
-    [RUG]: 0, [WHITEBOARD]: 1, [COFFEE_MACHINE]: 1, [WINDOW_TILE]: 1, [WALL_TRIM_TILE]: 1
+    [PPTABLE]: 1, [WHITEBOARD]: 1, [COFFEE_MACHINE]: 1, [WINDOW_TILE]: 1, [WALL_TRIM_TILE]: 1
 };
 
+// prettier-ignore
 const map = [
-    [2, 2, 2,13, 2, 2, 2,13, 2, 2, 2, 2,13, 2, 2, 2,13, 2, 2, 2],
-    [3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3],
-    [3, 1, 6, 4, 1, 1,11, 1, 1, 1, 1, 1, 1, 4, 4, 1, 1, 7, 1, 3],
-    [3, 1, 1, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 5, 1, 1, 1, 1, 3],
-    [3, 1, 1, 1, 1, 1, 1, 1,10,10,10,10, 1, 1, 1, 1, 1, 1, 1, 3],
-    [3, 1, 1, 1, 1, 1, 1, 1,10,10,10,10, 1, 1, 1, 1, 1, 1, 1, 3],
-    [3, 1, 1, 1, 1, 1, 1, 1,10,10,10,10, 1, 1, 1, 1, 1, 1, 1, 3],
-    [3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3],
-    [3, 1, 7, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 7, 1, 3],
-    [3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3],
-    [3, 1, 1, 1, 1,12, 1, 1, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 1, 3],
-    [3, 1, 4, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 1, 1, 1, 1, 3],
-    [3, 1, 5, 5, 1, 1, 1, 1, 1, 9, 1, 1, 1, 5, 5, 1, 1, 1, 1, 3],
-   [14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14],
+//  0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19
+    [2, 2, 2,13, 2, 2, 2,13, 2, 2, 2, 2,13, 2, 2, 2,13, 2, 2, 2], // 0
+    [3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3], // 1
+    [3, 1, 6, 4, 1, 1,11, 1, 1, 1, 1, 1, 1, 4, 4, 1, 1, 7, 1, 3], // 2
+    [3, 1, 1, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 5, 1, 1, 1, 1, 3], // 3
+    [3, 1, 1, 1, 1, 1, 1, 1, 1,10,10, 1, 1, 1, 1, 1, 1, 1, 1, 3], // 4
+    [3, 1, 1, 1, 1, 1, 1, 1, 1,10,10, 1, 1, 1, 1, 1, 1, 1, 1, 3], // 5
+    [3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3], // 6
+    [3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3], // 7
+    [3, 1, 7, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 7, 1, 3], // 8
+    [3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3], // 9
+    [3, 1, 1, 1, 1,12, 1, 1, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 1, 3], // 10
+    [3, 1, 4, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 1, 1, 1, 1, 3], // 11
+    [3, 1, 5, 5, 1, 1, 1, 1, 1, 9, 1, 1, 1, 5, 5, 1, 1, 1, 1, 3], // 12
+   [14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14], // 13
 ];
 
 function getTile(gx, gy) {
@@ -174,6 +183,38 @@ function pickName(pool) {
 }
 
 // ============================================================
+// EMPLOYEE DIALOG POOLS (Round 25)
+// ============================================================
+const devDialog = [
+    ["Debugging the auth module -- looks good.", null],
+    ["Uh... kinda in the zone here.", null],
+    ["Lost my train of thought. Thanks.", "debuff"],
+    ["Please... I'm so close to fixing this.", "debuff"],
+    ["...", "debuff"],
+];
+const salesDialog = [
+    ["Working the phones!", null],
+    ["Actually, talking it out gave me a new angle.", null],
+    ["I'm ON FIRE. Let me make some calls!", "buff"],
+    ["Seriously, keep 'em coming! I'm unstoppable!", "buff"],
+    ["DEALS! DEALS! DEALS!", "buff"],
+];
+
+const ppTableMessages = [
+    "You serve an ace to nobody. Startup life.",
+    "The ball bounces off the table and rolls under a desk.",
+    "You practice your backhand. Form: questionable.",
+];
+const ppTableDevMessages = [
+    "You challenge {name} to a quick rally. They don't look up.",
+    "You bounce a ball toward {name}. They catch it without looking.",
+];
+const ppTableSalesMessages = [
+    "You challenge {name} to a game. They talk the whole time.",
+    "{name} smashes the ball back. \"That's how I close deals!\"",
+];
+
+// ============================================================
 // GAME STATE
 // ============================================================
 const MAX_EMPLOYEES = 4;
@@ -187,10 +228,12 @@ const gameState = {
     productProgress: 0,
     customers: 0,
     marketInsight: 0,
-    phase: 'play', // play, dialog, menu, dayEnd, gameOver, titleScreen, statusMenu
+    phase: 'play', // play, dialog, menu, dayEnd, gameOver, titleScreen
     dayBurn: 2740,
     baseBurn: 2740,
-    employees: [],
+    employees: [], // {type, name, hireDay, interactionCount, productivityMod, bubbleType}
+    cofounderInteractions: 0,
+    cofounderChairRotated: false,
 };
 
 function getDevCount() { return gameState.employees.filter(e => e.type === 'dev').length; }
@@ -203,12 +246,6 @@ function recalcBurn() {
         burn += emp.type === 'dev' ? 1800 : 1500;
     }
     gameState.dayBurn = burn;
-}
-
-function getRunwayDays() {
-    const dailyMrrIncome = Math.floor(gameState.mrr / 30);
-    const netBurn = gameState.dayBurn - dailyMrrIncome;
-    return netBurn > 0 ? Math.floor(gameState.cash / netBurn) : 999;
 }
 
 // ============================================================
@@ -275,6 +312,7 @@ const dialog = {
     done: false,
     callback: null,
     queue: [],
+    color: null, // optional color override for dialog text
 };
 
 const menu = {
@@ -288,9 +326,9 @@ const menu = {
     optionColors: [],
 };
 
-function showDialog(text, callback) {
+function showDialog(text, callback, color) {
     if (dialog.active || menu.active) {
-        dialog.queue.push({ text, callback });
+        dialog.queue.push({ text, callback, color });
         return;
     }
     dialog.active = true;
@@ -300,6 +338,7 @@ function showDialog(text, callback) {
     dialog.charTimer = 0;
     dialog.done = false;
     dialog.callback = callback || null;
+    dialog.color = color || null;
     gameState.phase = 'dialog';
 }
 
@@ -318,7 +357,7 @@ function advanceDialog() {
         }
         if (dialog.queue.length > 0) {
             const next = dialog.queue.shift();
-            showDialog(next.text, next.callback);
+            showDialog(next.text, next.callback, next.color);
         }
     }
 }
@@ -345,31 +384,6 @@ function menuSelect() {
     menu.active = false;
     gameState.phase = 'play';
     if (menu.callback) menu.callback(choice);
-}
-
-// ============================================================
-// STATUS MENU (Round 24)
-// ============================================================
-const statusMenu = {
-    active: false,
-    cursor: 0,
-    cursorBlink: 0,
-    confirmExit: false,
-    confirmCursor: 0,
-};
-
-function openStatusMenu() {
-    statusMenu.active = true;
-    statusMenu.cursor = 0;
-    statusMenu.cursorBlink = 0;
-    statusMenu.confirmExit = false;
-    statusMenu.confirmCursor = 0;
-    gameState.phase = 'statusMenu';
-}
-
-function closeStatusMenu() {
-    statusMenu.active = false;
-    gameState.phase = 'play';
 }
 
 // ============================================================
@@ -470,7 +484,7 @@ function hireEmployee(type) {
     }
 
     const name = pickName(type === 'dev' ? DEV_NAMES : SALES_NAMES);
-    const emp = { type, name, hireDay: gameState.day };
+    const emp = { type, name, hireDay: gameState.day, interactionCount: 0, productivityMod: 1.0, bubbleType: null };
     gameState.employees.push(emp);
     gameState.ap--;
     recalcBurn();
@@ -515,10 +529,10 @@ function openHiringMenu() {
 
     const colors = [PAL.devColor, PAL.salesColor, PAL.hudTxt, PAL.dialogTxt];
 
-    showMenu("Hiring — " + slotsLeft + " slot" + (slotsLeft !== 1 ? "s" : "") + " open  |  " + gameState.ap + " AP", opts, (choice) => {
+    showMenu("Hiring -- " + slotsLeft + " slot" + (slotsLeft !== 1 ? "s" : "") + " open  |  " + gameState.ap + " AP", opts, (choice) => {
         if (choice === 0) {
             showMenu("Hire a Developer?", [
-                "Yes — +$" + DEV_BURN.toLocaleString() + "/day burn, +3-6% product/day",
+                "Yes -- +$" + DEV_BURN.toLocaleString() + "/day burn, +3-6% product/day",
                 "No, go back"
             ], (c) => {
                 if (c === 0) hireEmployee('dev');
@@ -526,7 +540,7 @@ function openHiringMenu() {
             });
         } else if (choice === 1) {
             showMenu("Hire a Salesperson?", [
-                "Yes — +$" + SALES_BURN.toLocaleString() + "/day burn, passive sales",
+                "Yes -- +$" + SALES_BURN.toLocaleString() + "/day burn, passive sales",
                 "No, go back"
             ], (c) => {
                 if (c === 0) hireEmployee('sales');
@@ -539,9 +553,9 @@ function openHiringMenu() {
 }
 
 function showTeamRoster() {
-    let msg = "— TEAM ROSTER —\n\n";
-    msg += "You (Founder) — Building the dream\n";
-    msg += "??? (Co-Founder) — ???\n";
+    let msg = "-- TEAM ROSTER --\n\n";
+    msg += "You (Founder) -- Building the dream\n";
+    msg += "??? (Co-Founder) -- ???\n";
 
     if (gameState.employees.length === 0) {
         msg += "\nNo employees yet. Visit the door to hire!";
@@ -551,8 +565,8 @@ function showTeamRoster() {
             const role = emp.type === 'dev' ? 'Developer' : 'Salesperson';
             const cost = emp.type === 'dev' ? DEV_BURN : SALES_BURN;
             const days = gameState.day - emp.hireDay;
-            msg += emp.name + " (" + role + ") — $" + cost.toLocaleString() + "/day";
-            if (days > 0) msg += " — " + days + "d tenure";
+            msg += emp.name + " (" + role + ") -- $" + cost.toLocaleString() + "/day";
+            if (days > 0) msg += " -- " + days + "d tenure";
             msg += "\n";
         }
     }
@@ -565,10 +579,22 @@ function showTeamRoster() {
 // ACTIONS
 // ============================================================
 function doBuild() {
-    const gain = 5 + Math.floor(Math.random() * 8);
+    let gain = 5 + Math.floor(Math.random() * 8); // 5-12%
+    // Apply dev productivity mods
+    let devMod = 1.0;
+    for (const emp of gameState.employees) {
+        if (emp.type === 'dev' && emp.productivityMod !== 1.0) {
+            devMod = Math.min(devMod, emp.productivityMod);
+        }
+    }
+    gain = Math.max(1, Math.round(gain * devMod));
     gameState.productProgress = Math.min(100, gameState.productProgress + gain);
     gameState.ap--;
-    showDialog(randFrom(buildMessages) + "\n\n[Product Progress +" + gain + "%  ->  " + gameState.productProgress + "%]");
+    let msg = randFrom(buildMessages) + "\n\n[Product Progress +" + gain + "%  ->  " + gameState.productProgress + "%]";
+    if (devMod < 1.0) {
+        msg += "\n(Dev distracted -- reduced output)";
+    }
+    showDialog(msg);
 }
 
 function doResearch() {
@@ -585,12 +611,26 @@ function doSales() {
     if (gameState.marketInsight > 3) successChance += 0.15;
     if (gameState.productProgress >= 50) successChance += 0.15;
 
+    // Apply sales productivity mods
+    let salesMod = 1.0;
+    for (const emp of gameState.employees) {
+        if (emp.type === 'sales' && emp.productivityMod !== 1.0) {
+            salesMod = Math.max(salesMod, emp.productivityMod);
+        }
+    }
+    successChance *= salesMod;
+
     if (Math.random() < successChance) {
-        const mrrGain = 50 + Math.floor(Math.random() * 150);
+        let mrrGain = 50 + Math.floor(Math.random() * 150);
+        mrrGain = Math.round(mrrGain * salesMod);
         const custGain = 1;
         gameState.mrr += mrrGain;
         gameState.customers += custGain;
-        showDialog(randFrom(salesMessages) + "\n\nDeal closed! [+$" + mrrGain + " MRR, +1 Customer]");
+        let msg = randFrom(salesMessages) + "\n\nDeal closed! [+$" + mrrGain + " MRR, +1 Customer]";
+        if (salesMod > 1.0) {
+            msg += "\n(Sales team fired up!)";
+        }
+        showDialog(msg);
     } else {
         const failMsgs = [
             "No bites today. The grind continues.",
@@ -621,7 +661,8 @@ function endDay() {
 
     for (const emp of gameState.employees) {
         if (emp.type === 'dev') {
-            const devGain = 3 + Math.floor(Math.random() * 4);
+            let devGain = 3 + Math.floor(Math.random() * 4);
+            devGain = Math.max(1, Math.round(devGain * emp.productivityMod));
             totalDevProgress += devGain;
             empReport += emp.name + " " + randFrom(devPassiveMessages) + " [+" + devGain + "% prod]\n";
         } else if (emp.type === 'sales') {
@@ -629,9 +670,11 @@ function endDay() {
             if (gameState.productProgress < 25) passiveChance *= 0.4;
             if (gameState.marketInsight > 3) passiveChance += 0.08;
             if (gameState.productProgress >= 50) passiveChance += 0.10;
+            passiveChance *= emp.productivityMod;
 
             if (Math.random() < passiveChance) {
-                const mrrGain = 30 + Math.floor(Math.random() * 100);
+                let mrrGain = 30 + Math.floor(Math.random() * 100);
+                mrrGain = Math.round(mrrGain * emp.productivityMod);
                 totalSalesRevenue += mrrGain;
                 totalNewCustomers += 1;
                 empReport += emp.name + " closed a deal! [+$" + mrrGain + " MRR]\n";
@@ -649,6 +692,14 @@ function endDay() {
         gameState.customers += totalNewCustomers;
     }
 
+    // Reset interaction counters and productivity mods (Round 25)
+    for (const emp of gameState.employees) {
+        emp.interactionCount = 0;
+        emp.productivityMod = 1.0;
+        emp.bubbleType = null;
+    }
+    gameState.cofounderInteractions = 0;
+
     gameState.day++;
     gameState.ap = gameState.maxAp;
 
@@ -658,7 +709,7 @@ function endDay() {
         return;
     }
 
-    const runway = getRunwayDays();
+    const runway = Math.floor(gameState.cash / Math.max(1, gameState.dayBurn - dailyMrrIncome));
     let summary = "-- End of Day " + (gameState.day - 1) + " --\n\n";
     summary += "Burn: -$" + gameState.dayBurn.toLocaleString() + "\n";
     if (dailyMrrIncome > 0) summary += "MRR Income: +$" + dailyMrrIncome.toLocaleString() + "\n";
@@ -675,10 +726,69 @@ function endDay() {
     summary += "\nDay " + gameState.day + " begins. You have " + gameState.maxAp + " action points.";
 
     if (runway <= 10 && runway > 0) {
-        summary += "\n\n!! RUNWAY CRITICAL — " + runway + " days left !!";
+        summary += "\n\n!! RUNWAY CRITICAL -- " + runway + " days left !!";
     }
 
     showDialog(summary);
+}
+
+// ============================================================
+// EMPLOYEE INTERACTION (Round 25)
+// ============================================================
+function interactWithEmployee(empIndex) {
+    const emp = gameState.employees[empIndex];
+    if (!emp) return;
+
+    emp.interactionCount++;
+    const count = emp.interactionCount;
+
+    if (emp.type === 'dev') {
+        const idx = Math.min(count - 1, devDialog.length - 1);
+        const [line, effect] = devDialog[idx];
+        const displayLine = emp.name + ": \"" + line + "\"";
+        if (effect === 'debuff') {
+            emp.productivityMod = 0.70;
+            emp.bubbleType = 'dots';
+            showDialog(displayLine + "\n\n[Dev distracted -- Build output -30% today]", null, PAL.textRed);
+        } else {
+            showDialog(displayLine);
+        }
+    } else if (emp.type === 'sales') {
+        const idx = Math.min(count - 1, salesDialog.length - 1);
+        const [line, effect] = salesDialog[idx];
+        const displayLine = emp.name + ": \"" + line + "\"";
+        if (effect === 'buff') {
+            emp.productivityMod = 1.30;
+            emp.bubbleType = 'fire';
+            showDialog(displayLine + "\n\n[Sales fired up -- Sell output +30% today]", null, PAL.textYellow);
+        } else {
+            showDialog(displayLine);
+        }
+    }
+}
+
+function interactWithCofounder() {
+    gameState.cofounderInteractions++;
+    if (gameState.cofounderInteractions === 3) {
+        gameState.cofounderChairRotated = true;
+        showDialog(randFrom(cofounderMessages) + "\n\n...did his chair just move?");
+    } else {
+        showDialog(randFrom(cofounderMessages));
+    }
+}
+
+function interactWithPPTable() {
+    const devs = gameState.employees.filter(e => e.type === 'dev');
+    const sales = gameState.employees.filter(e => e.type === 'sales');
+    if (devs.length > 0 && Math.random() < 0.4) {
+        const d = randFrom(devs);
+        showDialog(randFrom(ppTableDevMessages).replace('{name}', d.name));
+    } else if (sales.length > 0 && Math.random() < 0.5) {
+        const s = randFrom(sales);
+        showDialog(randFrom(ppTableSalesMessages).replace('{name}', s.name));
+    } else {
+        showDialog(randFrom(ppTableMessages));
+    }
 }
 
 // ============================================================
@@ -691,30 +801,33 @@ function tryInteract() {
     const fy = player.gy + dy;
     const tile = getTile(fx, fy);
 
+    // Check if facing an employee
+    for (let i = 0; i < gameState.employees.length; i++) {
+        const pos = EMP_POSITIONS[i];
+        if (pos && fx === pos.gx && fy === pos.gy) {
+            interactWithEmployee(i);
+            return;
+        }
+    }
+
     if (tile === TERMINAL || (getTile(player.gx, player.gy) === CHAIR && getTile(player.gx - 1, player.gy) === TERMINAL)) {
         openTerminal();
     } else if (tile === COFOUNDER_SPOT || (fx === cofounder.gx && fy === cofounder.gy)) {
-        showDialog(randFrom(cofounderMessages));
+        interactWithCofounder();
     } else if (tile === COFFEE_MACHINE) {
         showDialog(randFrom(coffeMessages));
     } else if (tile === WHITEBOARD) {
         showDialog(randFrom(whiteboardMessages));
     } else if (tile === DOOR) {
         openHiringMenu();
+    } else if (tile === PPTABLE) {
+        interactWithPPTable();
     } else if (tile === DESK) {
         showDialog("A standard-issue startup desk. Covered in sticky notes and energy drink cans.");
     } else if (tile === PLANT) {
         showDialog("A hardy pothos plant. The only living thing in this office that doesn't need funding.");
     } else if (tile === WINDOW_TILE) {
         showDialog("Through the window you see other startups burning cash. You're not alone.");
-    } else {
-        if (getTile(player.gx, player.gy) === RUG) {
-            if (gameState.employees.length === 0) {
-                showDialog("A meeting area rug. No meetings scheduled (there's no one to meet with yet).");
-            } else {
-                showDialog("A meeting area rug. " + gameState.employees.length + " employee" + (gameState.employees.length !== 1 ? "s" : "") + " busy working around the office.");
-            }
-        }
     }
 }
 
@@ -755,12 +868,12 @@ function openTerminal() {
 // ============================================================
 function drawRect(x, y, w, h, color) {
     bctx.fillStyle = color;
-    bctx.fillRect(Math.floor(x), Math.floor(y), w, h);
+    bctx.fillRect(Math.round(x), Math.round(y), w, h);
 }
 
 function drawPixel(x, y, color) {
     bctx.fillStyle = color;
-    bctx.fillRect(Math.floor(x), Math.floor(y), 1, 1);
+    bctx.fillRect(Math.round(x), Math.round(y), 1, 1);
 }
 
 // ============================================================
@@ -826,18 +939,17 @@ function drawTerminal(x, y) {
     drawRect(x + 7, y + 5, 2, 1, '#444466');
     drawRect(x + 4, y + 6, 8, 2, '#444466');
     drawRect(x + 5, y + 6, 6, 1, '#555577');
+    // Interaction prompt
     const pdx = Math.abs(player.gx - Math.floor(x / T));
     const pdy = Math.abs(player.gy - Math.floor(y / T));
     if (pdx <= 1 && pdy <= 1 && gameState.phase === 'play') {
-        const bobY = Math.sin(performance.now() * 0.005) * 1.5;
+        const bobY = Math.round(Math.sin(performance.now() * 0.005) * 1.5);
         drawRect(x + 5, y - 5 + bobY, 6, 5, PAL.dialogBg);
         drawRect(x + 5, y - 5 + bobY, 6, 1, PAL.dialogBdr);
         drawRect(x + 5, y - 1 + bobY, 6, 1, PAL.dialogBdr);
         drawRect(x + 5, y - 5 + bobY, 1, 5, PAL.dialogBdr);
         drawRect(x + 10, y - 5 + bobY, 1, 5, PAL.dialogBdr);
-        bctx.fillStyle = PAL.white;
-        bctx.font = '4px monospace';
-        bctx.fillText('Z', x + 7, y - 1 + bobY);
+        drawText('Z', x + 7, y - 1 + bobY, PAL.white, '4px monospace');
     }
 }
 
@@ -865,16 +977,40 @@ function drawPlant(x, y) {
     drawPixel(x + 7, y + 6, '#3eb050');
 }
 
-function drawRug(x, y, gx, gy) {
-    const checker = (gx + gy) % 2 === 0;
-    drawRect(x, y, T, T, checker ? PAL.rug : PAL.rugB);
-    if (checker) {
-        drawPixel(x + 7, y + 4, PAL.rugB);
-        drawPixel(x + 8, y + 4, PAL.rugB);
-        drawPixel(x + 6, y + 7, PAL.rugB);
-        drawPixel(x + 9, y + 7, PAL.rugB);
-        drawPixel(x + 7, y + 10, PAL.rugB);
-        drawPixel(x + 8, y + 10, PAL.rugB);
+// ============================================================
+// PING PONG TABLE (Round 25 — replaces rug)
+// ============================================================
+function drawPPTable(x, y, gx, gy) {
+    // Floor beneath
+    drawFloorTile(x, y, gx, gy);
+    // Table surface — 2 tiles wide, so draw per-tile
+    const isLeft = (gx === 9 && gy === 4) || (gx === 9 && gy === 5);
+    const isTop = (gy === 4);
+    // Green surface
+    drawRect(x + 1, y + 2, 14, 12, PAL.ppGreen);
+    // Shadow edge
+    drawRect(x + 1, y + 13, 14, 1, PAL.ppGreenDk);
+    if (!isLeft) {
+        drawRect(x + 14, y + 2, 1, 12, PAL.ppGreenDk);
+    }
+    // Net stripe (horizontal center of table — on row boundary between top and bottom)
+    if (isTop) {
+        drawRect(x + 1, y + 13, 14, 1, PAL.ppNet);
+    } else {
+        drawRect(x + 1, y + 2, 14, 1, PAL.ppNet);
+    }
+    // Legs at corners
+    if (isTop && isLeft) {
+        drawRect(x + 1, y + 2, 2, 2, PAL.ppLeg);
+    }
+    if (isTop && !isLeft) {
+        drawRect(x + 13, y + 2, 2, 2, PAL.ppLeg);
+    }
+    if (!isTop && isLeft) {
+        drawRect(x + 1, y + 12, 2, 2, PAL.ppLeg);
+    }
+    if (!isTop && !isLeft) {
+        drawRect(x + 13, y + 12, 2, 2, PAL.ppLeg);
     }
 }
 
@@ -924,27 +1060,27 @@ function drawDoor(x, y) {
     const pdx = Math.abs(player.gx - Math.floor(x / T));
     const pdy = Math.abs(player.gy - Math.floor(y / T));
     if (pdx <= 2 && pdy <= 2 && gameState.phase === 'play') {
-        const bobY = Math.sin(performance.now() * 0.004) * 1;
+        const bobY = Math.round(Math.sin(performance.now() * 0.004) * 1);
         drawRect(x + 2, y - 7 + bobY, 12, 6, PAL.dialogBg);
         drawRect(x + 2, y - 7 + bobY, 12, 1, PAL.hireWarn);
         drawRect(x + 2, y - 2 + bobY, 12, 1, PAL.hireWarn);
         drawRect(x + 2, y - 7 + bobY, 1, 6, PAL.hireWarn);
         drawRect(x + 13, y - 7 + bobY, 1, 6, PAL.hireWarn);
-        bctx.fillStyle = PAL.white;
-        bctx.font = '4px monospace';
-        bctx.fillText('HIRE', x + 4, y - 2 + bobY);
+        drawText('HIRE', x + 4, y - 2 + bobY, PAL.white, '4px monospace');
     }
 }
 
 function drawCofounderSpot(x, y) {
     drawFloorTile(x, y, x / T, y / T);
+    // Chair rotation on 3rd interaction
+    const rotOff = gameState.cofounderChairRotated ? 1 : 0;
     drawRect(x + 1, y + 0, 14, 6, PAL.desk);
     drawRect(x + 1, y + 0, 14, 2, PAL.deskTop);
     drawRect(x + 4, y + 1, 8, 4, '#333344');
     drawRect(x + 5, y + 2, 6, 2, '#1a1a2e');
     const g = (Math.sin(performance.now() * 0.002) > 0) ? '#4477aa' : '#5588bb';
     drawPixel(x + 6, y + 2, g);
-    drawPixel(x + 8, y + 2, g);
+    drawPixel(x + 8 + rotOff, y + 2, g);
     drawPixel(x + 7, y + 3, g);
 }
 
@@ -958,7 +1094,7 @@ function drawTile(gx, gy) {
         case WALL_TOP: drawWallTop(x, y); break;
         case WALL_FACE: drawWallFace(x, y); break;
         case WALL_TRIM_TILE: drawWallTrimTile(x, y); break;
-        case RUG: drawRug(x, y, gx, gy); break;
+        case PPTABLE: drawPPTable(x, y, gx, gy); break;
         case DOOR: drawDoor(x, y); break;
         case EMPTY: drawRect(x, y, T, T, PAL.bgDark); break;
         default: drawFloorTile(x, y, gx, gy); break;
@@ -985,13 +1121,13 @@ function drawObject(gx, gy) {
 // CHARACTER SPRITES
 // ============================================================
 function drawPlayerSprite(px, py, dir, frame) {
-    const x = Math.floor(px);
-    const y = Math.floor(py);
+    const x = Math.round(px);
+    const y = Math.round(py);
     const walkBob = (frame % 2 === 1) ? -1 : 0;
 
     drawRect(x + 3, y + 14, 10, 2, PAL.shadow);
 
-    if (dir === 0) {
+    if (dir === 0) { // Down
         drawRect(x + 5, y + 14 + walkBob, 2, 2, PAL.shoes);
         drawRect(x + 9, y + 14 - walkBob, 2, 2, PAL.shoes);
         drawRect(x + 5, y + 11, 2, 4, PAL.pants);
@@ -1011,7 +1147,7 @@ function drawPlayerSprite(px, py, dir, frame) {
         drawPixel(x + 9, y + 3, '#1a1a2e');
         drawPixel(x + 7, y + 5, '#d4a880');
         drawPixel(x + 8, y + 5, '#d4a880');
-    } else if (dir === 1) {
+    } else if (dir === 1) { // Up
         drawRect(x + 5, y + 14 + walkBob, 2, 2, PAL.shoes);
         drawRect(x + 9, y + 14 - walkBob, 2, 2, PAL.shoes);
         drawRect(x + 5, y + 11, 2, 4, PAL.pants);
@@ -1023,7 +1159,7 @@ function drawPlayerSprite(px, py, dir, frame) {
         drawRect(x + 5, y + 1, 6, 5, PAL.skinTone);
         drawRect(x + 4, y + 0, 8, 3, PAL.hair);
         drawRect(x + 5, y + 3, 6, 2, PAL.hair);
-    } else if (dir === 2) {
+    } else if (dir === 2) { // Left
         drawRect(x + 5, y + 14 + walkBob, 3, 2, PAL.shoes);
         drawRect(x + 8, y + 14 - walkBob, 2, 2, PAL.shoes);
         drawRect(x + 6, y + 11, 2, 4, PAL.pants);
@@ -1037,7 +1173,7 @@ function drawPlayerSprite(px, py, dir, frame) {
         drawRect(x + 6, y + 0, 6, 3, PAL.hair);
         drawRect(x + 7, y + 3, 4, 1, PAL.hair);
         drawPixel(x + 6, y + 3, '#1a1a2e');
-    } else {
+    } else { // Right
         drawRect(x + 5, y + 14 + walkBob, 2, 2, PAL.shoes);
         drawRect(x + 8, y + 14 - walkBob, 3, 2, PAL.shoes);
         drawRect(x + 6, y + 11, 2, 4, PAL.pants);
@@ -1055,9 +1191,8 @@ function drawPlayerSprite(px, py, dir, frame) {
 }
 
 function drawCofounderSprite(px, py) {
-    const x = Math.floor(px);
-    const y = Math.floor(py);
-    const idle = Math.sin(performance.now() * 0.001) > 0.5 ? 1 : 0;
+    const x = Math.round(px);
+    const y = Math.round(py);
 
     drawRect(x + 3, y + 14, 10, 2, PAL.shadow);
     drawRect(x + 5, y + 14, 2, 2, PAL.shoes);
@@ -1080,15 +1215,14 @@ function drawCofounderSprite(px, py) {
     drawPixel(x + 8, y + 3, '#444466');
     drawPixel(x + 6, y + 3, '#aaccee');
     drawPixel(x + 9, y + 3, '#aaccee');
+    const idle = Math.sin(performance.now() * 0.001) > 0.5 ? 1 : 0;
     if (idle && Math.sin(performance.now() * 0.0007) > 0.3) {
         drawRect(x + 13, y - 3, 5, 6, PAL.dialogBg);
         drawRect(x + 13, y - 3, 5, 1, PAL.dialogBdr);
         drawRect(x + 13, y + 2, 5, 1, PAL.dialogBdr);
         drawRect(x + 13, y - 3, 1, 6, PAL.dialogBdr);
         drawRect(x + 17, y - 3, 1, 6, PAL.dialogBdr);
-        bctx.fillStyle = PAL.white;
-        bctx.font = '5px monospace';
-        bctx.fillText('?', x + 14, y + 1);
+        drawText('?', x + 14, y + 1, PAL.white, '5px monospace');
     }
 }
 
@@ -1106,43 +1240,82 @@ function drawEmployeeSprite(emp, posIndex) {
     const pos = EMP_POSITIONS[posIndex];
     if (!pos) return;
 
-    const x = Math.floor(pos.gx * T);
-    const y = Math.floor(pos.gy * T);
+    const x = Math.round(pos.gx * T);
+    const y = Math.round(pos.gy * T);
 
     const hoodieColor = emp.type === 'dev' ? PAL.devColor : PAL.salesColor;
     const hoodieDark = emp.type === 'dev' ? '#618a7a' : '#c2a06f';
+
+    // Dev debuff slump
+    const slumpY = (emp.type === 'dev' && emp.productivityMod < 1.0) ? 1 : 0;
+    // Sales buff lean
+    const leanY = (emp.type === 'sales' && emp.productivityMod > 1.0) ? -1 : 0;
+    const sprY = y + slumpY + leanY;
 
     drawRect(x + 3, y + 14, 10, 2, PAL.shadow);
     drawRect(x + 5, y + 14, 2, 2, PAL.shoes);
     drawRect(x + 9, y + 14, 2, 2, PAL.shoes);
     drawRect(x + 5, y + 11, 2, 4, PAL.pants);
     drawRect(x + 9, y + 11, 2, 4, PAL.pants);
-    drawRect(x + 4, y + 5, 8, 7, hoodieColor);
-    drawRect(x + 4, y + 5, 8, 1, hoodieDark);
-    drawRect(x + 3, y + 6, 2, 5, hoodieColor);
-    drawRect(x + 11, y + 6, 2, 5, hoodieColor);
-    drawRect(x + 3, y + 11, 2, 1, PAL.skinTone);
-    drawRect(x + 11, y + 11, 2, 1, PAL.skinTone);
-    drawRect(x + 5, y + 4, 6, 2, hoodieDark);
-    drawRect(x + 5, y + 1, 6, 5, PAL.skinTone);
+    drawRect(x + 4, sprY + 5, 8, 7, hoodieColor);
+    drawRect(x + 4, sprY + 5, 8, 1, hoodieDark);
+    drawRect(x + 3, sprY + 6, 2, 5, hoodieColor);
+    drawRect(x + 11, sprY + 6, 2, 5, hoodieColor);
+    drawRect(x + 3, sprY + 11, 2, 1, PAL.skinTone);
+    drawRect(x + 11, sprY + 11, 2, 1, PAL.skinTone);
+    drawRect(x + 5, sprY + 4, 6, 2, hoodieDark);
+    drawRect(x + 5, sprY + 1, 6, 5, PAL.skinTone);
     const hairHash = emp.name.charCodeAt(0) % 4;
     const hairColors = ['#3a2a1a', '#5a3a1a', '#2a1a1a', '#6a4a2a'];
     const hairCol = hairColors[hairHash];
-    drawRect(x + 5, y + 0, 6, 2, hairCol);
-    drawRect(x + 4, y + 1, 1, 2, hairCol);
-    drawRect(x + 11, y + 1, 1, 2, hairCol);
-    drawPixel(x + 6, y + 3, '#1a1a2e');
-    drawPixel(x + 9, y + 3, '#1a1a2e');
+    drawRect(x + 5, sprY + 0, 6, 2, hairCol);
+    drawRect(x + 4, sprY + 1, 1, 2, hairCol);
+    drawRect(x + 11, sprY + 1, 1, 2, hairCol);
+    drawPixel(x + 6, sprY + 3, '#1a1a2e');
+    drawPixel(x + 9, sprY + 3, '#1a1a2e');
 
+    // Sales buff shimmer
+    if (emp.type === 'sales' && emp.productivityMod > 1.0) {
+        const shimmer = Math.sin(performance.now() * 0.008) > 0;
+        if (shimmer) {
+            drawPixel(x + 5, sprY + 5, '#ffe0a0');
+            drawPixel(x + 10, sprY + 5, '#ffe0a0');
+        }
+    }
+
+    // Dev debuff sweat drop
+    if (emp.type === 'dev' && emp.productivityMod < 1.0) {
+        drawPixel(x + 12, sprY + 1, '#88bbee');
+        drawPixel(x + 12, sprY + 2, '#6699cc');
+    }
+
+    // Bubble persistence (Round 25)
+    if (emp.bubbleType === 'dots') {
+        // "..." bubble for distracted dev
+        drawRect(x + 13, sprY - 2, 8, 6, PAL.dialogBg);
+        drawRect(x + 13, sprY - 2, 8, 1, PAL.textRed);
+        drawRect(x + 13, sprY + 3, 8, 1, PAL.textRed);
+        drawRect(x + 13, sprY - 2, 1, 6, PAL.textRed);
+        drawRect(x + 20, sprY - 2, 1, 6, PAL.textRed);
+        drawText('...', x + 14, sprY + 2, PAL.textRed, '4px monospace');
+    } else if (emp.bubbleType === 'fire') {
+        // "!" bubble for fired-up sales
+        drawRect(x + 13, sprY - 2, 6, 6, PAL.dialogBg);
+        drawRect(x + 13, sprY - 2, 6, 1, PAL.textYellow);
+        drawRect(x + 13, sprY + 3, 6, 1, PAL.textYellow);
+        drawRect(x + 13, sprY - 2, 1, 6, PAL.textYellow);
+        drawRect(x + 18, sprY - 2, 1, 6, PAL.textYellow);
+        drawText('!', x + 15, sprY + 2, PAL.textYellow, '4px monospace');
+    }
+
+    // Name tag
     if (gameState.phase === 'play') {
         const nameW = emp.name.length * 4 + 4;
-        const tagX = x + 8 - nameW / 2;
+        const tagX = x + 8 - Math.round(nameW / 2);
         const tagColor = emp.type === 'dev' ? PAL.devColor : PAL.salesColor;
-        drawRect(tagX, y - 4, nameW, 5, PAL.dialogBg);
-        drawRect(tagX, y - 4, nameW, 1, tagColor);
-        bctx.fillStyle = tagColor;
-        bctx.font = '4px monospace';
-        bctx.fillText(emp.name, tagX + 2, y);
+        drawRect(tagX, sprY - 6, nameW, 5, PAL.dialogBg);
+        drawRect(tagX, sprY - 6, nameW, 1, tagColor);
+        drawText(emp.name, tagX + 2, sprY - 2, tagColor, '4px monospace');
     }
 }
 
@@ -1156,43 +1329,37 @@ function drawHUD() {
     drawRect(0, y, NATIVE_W, hudH, PAL.hudBg);
     drawRect(0, y + hudH - 1, NATIVE_W, 1, PAL.dialogBdr);
 
-    bctx.font = '7px monospace';
     bctx.textBaseline = 'top';
 
-    bctx.fillStyle = PAL.hudTxt;
-    bctx.fillText('Day ' + gameState.day, 4, y + 3);
+    // Row 1
+    drawText('Day ' + gameState.day, 4, y + 3, PAL.hudTxt, '7px monospace');
 
     const cashColor = gameState.cash < 30000 ? PAL.hudRed : PAL.hudGreen;
-    bctx.fillStyle = cashColor;
-    bctx.fillText('$' + gameState.cash.toLocaleString(), 48, y + 3);
+    drawText('$' + gameState.cash.toLocaleString(), 48, y + 3, cashColor, '7px monospace');
 
-    bctx.fillStyle = PAL.hudYellow;
-    bctx.fillText('MRR $' + gameState.mrr.toLocaleString(), 120, y + 3);
+    drawText('MRR $' + gameState.mrr.toLocaleString(), 120, y + 3, PAL.hudYellow, '7px monospace');
 
-    bctx.fillStyle = PAL.hudTxt;
-    bctx.fillText('Prod ' + gameState.productProgress + '%', 210, y + 3);
+    drawText('Prod ' + gameState.productProgress + '%', 210, y + 3, PAL.hudTxt, '7px monospace');
 
+    // AP dots
     const apX = 270;
-    bctx.fillStyle = PAL.hudTxt;
-    bctx.fillText('AP', apX, y + 3);
+    drawText('AP', apX, y + 3, PAL.hudTxt, '7px monospace');
     for (let i = 0; i < gameState.maxAp; i++) {
         const dotColor = i < gameState.ap ? PAL.apFull : PAL.apEmpty;
         drawRect(apX + 16 + i * 8, y + 4, 6, 6, dotColor);
         drawRect(apX + 16 + i * 8, y + 4, 6, 1, i < gameState.ap ? '#7aea8a' : '#444455');
     }
 
+    // Row 2
     const dailyMrrIncome = Math.floor(gameState.mrr / 30);
     const netBurn = gameState.dayBurn - dailyMrrIncome;
     const runway = netBurn > 0 ? Math.floor(gameState.cash / netBurn) : 999;
     const runwayColor = runway < 20 ? PAL.hudRed : runway < 40 ? PAL.hudYellow : PAL.hudGreen;
-    bctx.fillStyle = runwayColor;
-    bctx.fillText('~' + Math.min(runway, 999) + 'd runway', 4, y + 14);
+    drawText('~' + Math.min(runway, 999) + 'd runway', 4, y + 14, runwayColor, '7px monospace');
 
-    bctx.fillStyle = PAL.hireWarn;
-    bctx.fillText('Burn $' + gameState.dayBurn.toLocaleString() + '/d', 90, y + 14);
+    drawText('Burn $' + gameState.dayBurn.toLocaleString() + '/d', 90, y + 14, PAL.hireWarn, '7px monospace');
 
-    bctx.fillStyle = PAL.hudTxt;
-    bctx.fillText(gameState.customers + ' cust', 185, y + 14);
+    drawText(gameState.customers + ' cust', 185, y + 14, PAL.hudTxt, '7px monospace');
 
     const devs = getDevCount();
     const sales = getSalesCount();
@@ -1205,281 +1372,7 @@ function drawHUD() {
         teamStr += parts.join('/');
         teamStr += ')';
     }
-    bctx.fillStyle = PAL.hudTxt;
-    bctx.fillText(teamStr, 235, y + 14);
-
-    // Status hint
-    bctx.fillStyle = PAL.apEmpty;
-    bctx.font = '5px monospace';
-    bctx.fillText('[M]enu', NATIVE_W - 34, y + 22);
-}
-
-// ============================================================
-// STATUS PANEL RENDERING (Round 24)
-// ============================================================
-function drawStatusPanel() {
-    if (!statusMenu.active) return;
-
-    const pw = 256;
-    const ph = 192;
-    const px = Math.floor((NATIVE_W - pw) / 2);
-    const py = Math.floor((NATIVE_H - ph) / 2);
-
-    // Shadow
-    drawRect(px + 2, py + 2, pw, ph, '#0a0a18');
-
-    // Panel fill
-    drawRect(px, py, pw, ph, PAL.statusBg);
-
-    // Outer border (2px)
-    drawRect(px, py, pw, 2, PAL.statusBdr);
-    drawRect(px, py + ph - 2, pw, 2, PAL.statusBdr);
-    drawRect(px, py, 2, ph, PAL.statusBdr);
-    drawRect(px + pw - 2, py, 2, ph, PAL.statusBdr);
-
-    // Inner border (1px)
-    drawRect(px + 3, py + 3, pw - 6, 1, PAL.statusBdrIn);
-    drawRect(px + 3, py + ph - 4, pw - 6, 1, PAL.statusBdrIn);
-    drawRect(px + 3, py + 3, 1, ph - 6, PAL.statusBdrIn);
-    drawRect(px + pw - 4, py + 3, 1, ph - 6, PAL.statusBdrIn);
-
-    // Corner accents
-    drawRect(px + 2, py + 2, 2, 2, PAL.statusBdr);
-    drawRect(px + pw - 4, py + 2, 2, 2, PAL.statusBdr);
-    drawRect(px + 2, py + ph - 4, 2, 2, PAL.statusBdr);
-    drawRect(px + pw - 4, py + ph - 4, 2, 2, PAL.statusBdr);
-
-    bctx.textBaseline = 'top';
-    const lx = px + 12; // left text margin
-    const rx = px + pw - 12; // right margin
-    let cy = py + 8;
-
-    // ---- HEADER ----
-    bctx.font = '7px monospace';
-    bctx.fillStyle = PAL.statusHeader;
-    bctx.fillText('COMPANY REPORT', lx, cy);
-    bctx.fillStyle = PAL.statusTxt;
-    bctx.textAlign = 'right';
-    bctx.fillText('Day ' + gameState.day, rx, cy);
-    bctx.textAlign = 'left';
-    cy += 12;
-
-    // Divider
-    drawRect(lx, cy, pw - 24, 1, PAL.statusHeader);
-    cy += 6;
-
-    // ---- FINANCIALS ----
-    const runway = getRunwayDays();
-    const dailyMrrIncome = Math.floor(gameState.mrr / 30);
-
-    bctx.font = '6px monospace';
-
-    // Cash
-    const isVibes = gameState.cash === 0;
-    const cashLabel = isVibes ? 'VIBES' : 'CASH';
-    const cashValue = isVibes ? '$0 (RAMEN BUDGET)' : '$' + gameState.cash.toLocaleString();
-    const cashColor = gameState.cash === 0 ? PAL.runwayYellow : (gameState.cash < 30000 ? PAL.runwayRed : PAL.statusTxt);
-    bctx.fillStyle = PAL.statusTxt;
-    bctx.fillText(cashLabel, lx, cy);
-    bctx.fillStyle = cashColor;
-    bctx.textAlign = 'right';
-    bctx.fillText(cashValue, rx, cy);
-    bctx.textAlign = 'left';
-    cy += 10;
-
-    // Daily Burn
-    bctx.fillStyle = PAL.statusTxt;
-    bctx.fillText('DAILY BURN', lx, cy);
-    bctx.fillStyle = PAL.hireWarn;
-    bctx.textAlign = 'right';
-    bctx.fillText('-$' + gameState.dayBurn.toLocaleString(), rx, cy);
-    bctx.textAlign = 'left';
-    cy += 10;
-
-    // MRR
-    bctx.fillStyle = PAL.statusTxt;
-    bctx.fillText('MRR', lx, cy);
-    bctx.fillStyle = gameState.mrr > 0 ? PAL.runwayGreen : PAL.inactiveTxt;
-    bctx.textAlign = 'right';
-    bctx.fillText('$' + gameState.mrr.toLocaleString() + (dailyMrrIncome > 0 ? ' (+$' + dailyMrrIncome + '/d)' : ''), rx, cy);
-    bctx.textAlign = 'left';
-    cy += 10;
-
-    // Runway
-    let runwayColor = PAL.runwayGreen;
-    if (runway <= 15) runwayColor = PAL.runwayRed;
-    else if (runway <= 30) runwayColor = PAL.runwayYellow;
-
-    // Pulse effect for critical runway
-    if (runway <= 15 && runway > 0) {
-        const pulse = Math.sin(performance.now() * 0.006);
-        runwayColor = pulse > 0 ? PAL.runwayRed : PAL.statusTxt;
-    }
-
-    bctx.fillStyle = PAL.statusTxt;
-    bctx.fillText('RUNWAY', lx, cy);
-    bctx.fillStyle = runwayColor;
-    bctx.textAlign = 'right';
-    bctx.fillText('~' + Math.min(runway, 999) + ' days', rx, cy);
-    bctx.textAlign = 'left';
-    cy += 14;
-
-    // Divider
-    drawRect(lx, cy, pw - 24, 1, PAL.statusHeader);
-    cy += 6;
-
-    // ---- PRODUCT & CUSTOMERS ----
-    bctx.fillStyle = PAL.statusHeader;
-    bctx.font = '6px monospace';
-    bctx.fillText('PRODUCT & GROWTH', lx, cy);
-    cy += 10;
-
-    // Product progress bar
-    bctx.fillStyle = PAL.statusTxt;
-    bctx.fillText('PRODUCT', lx, cy);
-    const barX = lx + 56;
-    const barW = 100;
-    const barH = 6;
-    drawRect(barX, cy, barW, barH, PAL.apEmpty);
-    const fillW = Math.floor(barW * gameState.productProgress / 100);
-    if (fillW > 0) drawRect(barX, cy, fillW, barH, PAL.runwayGreen);
-    drawRect(barX, cy, barW, 1, '#444455');
-    bctx.fillStyle = PAL.statusTxt;
-    bctx.textAlign = 'right';
-    bctx.fillText(gameState.productProgress + '%', rx, cy);
-    bctx.textAlign = 'left';
-    cy += 10;
-
-    // Customers
-    bctx.fillStyle = PAL.statusTxt;
-    bctx.fillText('CUSTOMERS', lx, cy);
-    bctx.fillStyle = gameState.customers > 0 ? PAL.statusTxt : PAL.inactiveTxt;
-    bctx.textAlign = 'right';
-    bctx.fillText(gameState.customers.toString(), rx, cy);
-    bctx.textAlign = 'left';
-    cy += 14;
-
-    // Divider
-    drawRect(lx, cy, pw - 24, 1, PAL.statusHeader);
-    cy += 6;
-
-    // ---- TEAM ----
-    bctx.fillStyle = PAL.statusHeader;
-    bctx.fillText('TEAM (' + getTeamSize() + ')', lx, cy);
-    cy += 10;
-
-    // Founders
-    bctx.fillStyle = PAL.statusTxt;
-    bctx.fillText('You (Founder)', lx, cy);
-    cy += 9;
-    bctx.fillStyle = PAL.inactiveTxt;
-    bctx.fillText('??? (Co-Founder)', lx, cy);
-    cy += 9;
-
-    // Employees as chips - up to 4 per row
-    if (gameState.employees.length === 0) {
-        bctx.fillStyle = PAL.inactiveTxt;
-        bctx.fillText('No hires yet', lx, cy);
-        cy += 9;
-    } else {
-        let chipX = lx;
-        for (let i = 0; i < gameState.employees.length; i++) {
-            const emp = gameState.employees[i];
-            const chipColor = emp.type === 'dev' ? PAL.statusDev : PAL.statusSales;
-            const roleTag = emp.type === 'dev' ? 'D' : 'S';
-            const label = emp.name + ' [' + roleTag + ']';
-            const chipW = label.length * 4 + 6;
-
-            // Wrap to next line if needed
-            if (chipX + chipW > rx) {
-                chipX = lx;
-                cy += 10;
-            }
-
-            // Chip background
-            drawRect(chipX, cy, chipW, 8, chipColor + '44');
-            drawRect(chipX, cy, chipW, 1, chipColor);
-
-            bctx.fillStyle = chipColor;
-            bctx.font = '5px monospace';
-            bctx.fillText(label, chipX + 3, cy + 2);
-            bctx.font = '6px monospace';
-
-            chipX += chipW + 4;
-        }
-        cy += 12;
-    }
-
-    // Divider
-    cy += 2;
-    drawRect(lx, cy, pw - 24, 1, PAL.statusHeader);
-    cy += 6;
-
-    // ---- AP ----
-    bctx.fillStyle = PAL.statusTxt;
-    bctx.font = '6px monospace';
-    bctx.fillText('ACTION POINTS', lx, cy);
-    const apStartX = lx + 88;
-    for (let i = 0; i < gameState.maxAp; i++) {
-        const filled = i < gameState.ap;
-        drawRect(apStartX + i * 10, cy, 7, 7, filled ? PAL.apFull : PAL.apEmpty);
-        drawRect(apStartX + i * 10, cy, 7, 1, filled ? '#7aea8a' : '#444455');
-    }
-    bctx.fillStyle = PAL.statusTxt;
-    bctx.textAlign = 'right';
-    bctx.fillText(gameState.ap + '/' + gameState.maxAp, rx, cy);
-    bctx.textAlign = 'left';
-
-    // ---- MENU OPTIONS ----
-    if (statusMenu.confirmExit) {
-        drawStatusConfirmExit(px, py, pw, ph);
-    } else {
-        const menuY = py + ph - 24;
-        drawRect(lx, menuY - 4, pw - 24, 1, PAL.statusBdrIn);
-
-        const opts = ['RESUME', 'EXIT TO TITLE'];
-        statusMenu.cursorBlink += 0.05;
-        const cursorShow = Math.sin(statusMenu.cursorBlink * 3) > 0;
-
-        for (let i = 0; i < opts.length; i++) {
-            const oy = menuY + i * 10;
-            if (i === statusMenu.cursor && cursorShow) {
-                bctx.fillStyle = PAL.statusCursor;
-                // Draw arrow cursor
-                drawRect(lx, oy + 1, 2, 5, PAL.statusCursor);
-                drawRect(lx + 2, oy + 2, 1, 3, PAL.statusCursor);
-                drawRect(lx + 3, oy + 3, 1, 1, PAL.statusCursor);
-            }
-            bctx.fillStyle = i === statusMenu.cursor ? PAL.white : PAL.statusTxt;
-            bctx.font = '6px monospace';
-            bctx.fillText(opts[i], lx + 8, oy);
-        }
-    }
-}
-
-function drawStatusConfirmExit(px, py, pw, ph) {
-    const menuY = py + ph - 34;
-    drawRect(lx, menuY - 4, pw - 24, 1, PAL.statusBdrIn);
-
-    const lx2 = px + 12;
-    bctx.fillStyle = PAL.runwayYellow;
-    bctx.font = '6px monospace';
-    bctx.fillText('Exit to title? Progress will be lost!', lx2, menuY);
-
-    const opts = ['YES, EXIT', 'NO, GO BACK'];
-    statusMenu.cursorBlink += 0.05;
-    const cursorShow = Math.sin(statusMenu.cursorBlink * 3) > 0;
-
-    for (let i = 0; i < opts.length; i++) {
-        const oy = menuY + 12 + i * 10;
-        if (i === statusMenu.confirmCursor && cursorShow) {
-            drawRect(lx2, oy + 1, 2, 5, PAL.statusCursor);
-            drawRect(lx2 + 2, oy + 2, 1, 3, PAL.statusCursor);
-            drawRect(lx2 + 3, oy + 3, 1, 1, PAL.statusCursor);
-        }
-        bctx.fillStyle = i === statusMenu.confirmCursor ? PAL.white : PAL.statusTxt;
-        bctx.fillText(opts[i], lx2 + 8, oy);
-    }
+    drawText(teamStr, 235, y + 14, PAL.hudTxt, '7px monospace');
 }
 
 // ============================================================
@@ -1503,13 +1396,12 @@ function drawDialogBox() {
     drawRect(bx + 2, by + bh - 4, 2, 2, PAL.dialogBdr);
     drawRect(bx + bw - 4, by + bh - 4, 2, 2, PAL.dialogBdr);
 
-    bctx.font = '6px monospace';
-    bctx.fillStyle = PAL.dialogTxt;
     bctx.textBaseline = 'top';
+    const textColor = dialog.color || PAL.dialogTxt;
 
     const lines = wrapText(dialog.displayText, bw - 20);
     for (let i = 0; i < lines.length && i < 5; i++) {
-        bctx.fillText(lines[i], bx + 8, by + 8 + i * 9);
+        drawText(lines[i], bx + 8, by + 8 + i * 9, textColor, '6px monospace');
     }
 
     if (dialog.done) {
@@ -1543,11 +1435,11 @@ function drawMenuBox() {
     drawRect(bx + 2, by + bh - 4, 2, 2, PAL.dialogBdr);
     drawRect(bx + bw - 4, by + bh - 4, 2, 2, PAL.dialogBdr);
 
-    bctx.font = '6px monospace';
-    bctx.fillStyle = PAL.hudYellow;
+    // Title
     bctx.textBaseline = 'top';
-    bctx.fillText(menu.title, bx + 10, by + 5);
+    drawText(menu.title, bx + 10, by + 5, PAL.hudYellow, '6px monospace');
 
+    // Options
     for (let i = 0; i < optCount; i++) {
         const oy = by + 18 + i * 12;
         const disabled = menu.disabledIndices.includes(i);
@@ -1555,7 +1447,6 @@ function drawMenuBox() {
         if (i === menu.cursor) {
             menu.cursorBlink += 0.05;
             const cursorColor = Math.sin(menu.cursorBlink * 3) > 0 ? PAL.cursorGrn : PAL.cursorLt;
-            bctx.fillStyle = cursorColor;
             drawRect(bx + 8, oy + 1, 2, 5, cursorColor);
             drawRect(bx + 10, oy + 2, 1, 3, cursorColor);
             drawRect(bx + 11, oy + 3, 1, 1, cursorColor);
@@ -1570,14 +1461,14 @@ function drawMenuBox() {
             optColor = i === menu.cursor ? PAL.white : PAL.dialogTxt;
         }
 
-        bctx.fillStyle = optColor;
-        bctx.fillText(menu.options[i], bx + 16, oy);
+        drawText(menu.options[i], bx + 16, oy, optColor, '6px monospace');
     }
 }
 
 function wrapText(text, maxWidth) {
     const lines = [];
     const paragraphs = text.split('\n');
+    bctx.font = '6px monospace';
     for (const para of paragraphs) {
         if (para === '') { lines.push(''); continue; }
         const words = para.split(' ');
@@ -1602,28 +1493,18 @@ function wrapText(text, maxWidth) {
 // ============================================================
 function drawGameOver() {
     drawRect(0, 0, NATIVE_W, NATIVE_H, '#0f0f1aDD');
-    bctx.font = '12px monospace';
-    bctx.fillStyle = PAL.hudRed;
     bctx.textBaseline = 'top';
     bctx.textAlign = 'center';
-    bctx.fillText('GAME OVER', NATIVE_W / 2, 50);
-    bctx.font = '7px monospace';
-    bctx.fillStyle = PAL.dialogTxt;
-    bctx.fillText('Your startup ran out of cash.', NATIVE_W / 2, 75);
-    bctx.fillText('Day ' + gameState.day + '  |  ' + gameState.customers + ' customers  |  $' + gameState.mrr + ' MRR', NATIVE_W / 2, 90);
-
-    bctx.fillStyle = PAL.hudTxt;
-    bctx.fillText('Product: ' + gameState.productProgress + '%  |  Team: ' + getTeamSize(), NATIVE_W / 2, 108);
+    drawText('GAME OVER', NATIVE_W / 2, 50, PAL.hudRed, '12px monospace');
+    drawText('Your startup ran out of cash.', NATIVE_W / 2, 75, PAL.dialogTxt, '7px monospace');
+    drawText('Day ' + gameState.day + '  |  ' + gameState.customers + ' customers  |  $' + gameState.mrr + ' MRR', NATIVE_W / 2, 90, PAL.dialogTxt, '7px monospace');
+    drawText('Product: ' + gameState.productProgress + '%  |  Team: ' + getTeamSize(), NATIVE_W / 2, 108, PAL.hudTxt, '7px monospace');
     if (gameState.employees.length > 0) {
-        bctx.fillStyle = PAL.apEmpty;
         let empLine = 'Employees: ';
         empLine += gameState.employees.map(e => e.name + '(' + (e.type === 'dev' ? 'D' : 'S') + ')').join(', ');
-        bctx.fillText(empLine, NATIVE_W / 2, 120);
+        drawText(empLine, NATIVE_W / 2, 120, PAL.apEmpty, '7px monospace');
     }
-
-    bctx.font = '6px monospace';
-    bctx.fillStyle = PAL.hudYellow;
-    bctx.fillText('Press R to restart', NATIVE_W / 2, 145);
+    drawText('Press R to restart', NATIVE_W / 2, 145, PAL.hudYellow, '6px monospace');
     bctx.textAlign = 'left';
 }
 
@@ -1648,33 +1529,23 @@ function drawTitleScreen() {
     bctx.textAlign = 'center';
     bctx.textBaseline = 'top';
 
-    bctx.font = '14px monospace';
-    bctx.fillStyle = PAL.hudGreen;
-    bctx.fillText('SaaS STARTUP', NATIVE_W / 2, 25);
-    bctx.fillText('SIMULATOR', NATIVE_W / 2, 43);
+    drawText('SaaS STARTUP', NATIVE_W / 2, 25, PAL.hudGreen, '14px monospace');
+    drawText('SIMULATOR', NATIVE_W / 2, 43, PAL.hudGreen, '14px monospace');
 
-    bctx.font = '6px monospace';
-    bctx.fillStyle = PAL.hudYellow;
-    bctx.fillText('A 16-bit tale of burn rates and pivot tables', NATIVE_W / 2, 65);
+    drawText('A 16-bit tale of burn rates and pivot tables', NATIVE_W / 2, 65, PAL.hudYellow, '6px monospace');
 
-    bctx.font = '6px monospace';
-    bctx.fillStyle = PAL.dialogTxt;
-    bctx.fillText('Angel Funding: $150,000', NATIVE_W / 2, 85);
-    bctx.fillText('Team: You + mysterious co-founder', NATIVE_W / 2, 97);
-    bctx.fillText('Burn Rate: $2,740/day', NATIVE_W / 2, 109);
+    drawText('Angel Funding: $150,000', NATIVE_W / 2, 85, PAL.dialogTxt, '6px monospace');
+    drawText('Team: You + mysterious co-founder', NATIVE_W / 2, 97, PAL.dialogTxt, '6px monospace');
+    drawText('Burn Rate: $2,740/day', NATIVE_W / 2, 109, PAL.dialogTxt, '6px monospace');
 
-    bctx.fillStyle = PAL.hireWarn;
-    bctx.fillText('NEW: Hire developers & salespeople!', NATIVE_W / 2, 125);
+    drawText('NEW: Talk to employees! Manage wisely...', NATIVE_W / 2, 125, PAL.hireWarn, '6px monospace');
 
     titleBlink += 0.04;
     if (Math.sin(titleBlink * 2) > 0) {
-        bctx.fillStyle = PAL.white;
-        bctx.fillText('Press Z or ENTER to begin', NATIVE_W / 2, 185);
+        drawText('Press Z or ENTER to begin', NATIVE_W / 2, 185, PAL.white, '6px monospace');
     }
 
-    bctx.fillStyle = PAL.apEmpty;
-    bctx.fillText('Arrow Keys / WASD: Move  |  Z / Enter: Interact', NATIVE_W / 2, 200);
-    bctx.fillText('M / ESC: Status Menu', NATIVE_W / 2, 210);
+    drawText('Arrow Keys / WASD: Move  |  Z / Enter: Interact', NATIVE_W / 2, 205, PAL.apEmpty, '6px monospace');
 
     bctx.textAlign = 'left';
 }
@@ -1757,8 +1628,8 @@ function showIntro() {
     showDialog("Day 1. You've just signed the angel investment papers.", () => {
         showDialog("$150,000 in the bank. A mysterious co-founder. And a dream.", () => {
             showDialog("Walk to the TERMINAL (green monitor) and press Z to work.", () => {
-                showDialog("Visit the DOOR to hire your first employee!", () => {
-                    showDialog("Press M or ESC anytime for your Company Report.", () => {
+                showDialog("Visit the DOOR to hire employees. Talk to them -- it matters!", () => {
+                    showDialog("You get 3 Action Points per day. Talking is free. Spend wisely.", () => {
                         // done
                     });
                 });
@@ -1783,6 +1654,8 @@ function restart() {
     gameState.dayBurn = 2740;
     gameState.baseBurn = 2740;
     gameState.employees = [];
+    gameState.cofounderInteractions = 0;
+    gameState.cofounderChairRotated = false;
     usedNames.clear();
     player.gx = 9;
     player.gy = 7;
@@ -1794,8 +1667,8 @@ function restart() {
     player.moving = false;
     dialog.active = false;
     dialog.queue = [];
+    dialog.color = null;
     menu.active = false;
-    statusMenu.active = false;
     introShown = false;
     titlePhase = true;
 }
@@ -1833,50 +1706,6 @@ function update(dt) {
 
     if (gameState.phase === 'gameOver') {
         if (consumePress('KeyR')) restart();
-        return;
-    }
-
-    // Status menu input
-    if (gameState.phase === 'statusMenu') {
-        if (statusMenu.confirmExit) {
-            if (consumePress('ArrowUp') || consumePress('KeyW')) {
-                statusMenu.confirmCursor = (statusMenu.confirmCursor - 1 + 2) % 2;
-            }
-            if (consumePress('ArrowDown') || consumePress('KeyS')) {
-                statusMenu.confirmCursor = (statusMenu.confirmCursor + 1) % 2;
-            }
-            if (consumePress('KeyZ') || consumePress('Enter') || consumePress('Space')) {
-                if (statusMenu.confirmCursor === 0) {
-                    // Yes, exit to title
-                    closeStatusMenu();
-                    restart();
-                } else {
-                    // No, go back
-                    statusMenu.confirmExit = false;
-                }
-            }
-            if (consumePress('Escape') || consumePress('KeyX') || consumePress('KeyM') || consumePress('Backspace')) {
-                statusMenu.confirmExit = false;
-            }
-        } else {
-            if (consumePress('ArrowUp') || consumePress('KeyW')) {
-                statusMenu.cursor = (statusMenu.cursor - 1 + 2) % 2;
-            }
-            if (consumePress('ArrowDown') || consumePress('KeyS')) {
-                statusMenu.cursor = (statusMenu.cursor + 1) % 2;
-            }
-            if (consumePress('KeyZ') || consumePress('Enter') || consumePress('Space')) {
-                if (statusMenu.cursor === 0) {
-                    closeStatusMenu();
-                } else {
-                    statusMenu.confirmExit = true;
-                    statusMenu.confirmCursor = 1; // Default to "No"
-                }
-            }
-            if (consumePress('Escape') || consumePress('KeyX') || consumePress('KeyM') || consumePress('Backspace')) {
-                closeStatusMenu();
-            }
-        }
         return;
     }
 
@@ -1923,12 +1752,6 @@ function update(dt) {
 
     // Movement
     if (gameState.phase === 'play') {
-        // Open status menu with ESC or M
-        if (consumePress('Escape') || consumePress('KeyM')) {
-            openStatusMenu();
-            return;
-        }
-
         const dir = getMovementDir();
         if (dir >= 0 && !player.moving) {
             if (dir !== lastDir) {
@@ -1984,8 +1807,8 @@ function render() {
         return;
     }
 
-    const cx = Math.floor(camera.x);
-    const cy = Math.floor(camera.y);
+    const cx = Math.round(camera.x);
+    const cy = Math.round(camera.y);
 
     bctx.save();
     bctx.translate(-cx, -cy);
@@ -2001,6 +1824,7 @@ function render() {
         }
     }
 
+    // Y-sort
     const renderables = [];
 
     for (let gy = startGy; gy <= endGy; gy++) {
@@ -2039,19 +1863,10 @@ function render() {
 
     bctx.restore();
 
-    // HUD (screen-space)
     drawHUD();
-
-    // Dialog / Menu (screen-space)
     drawDialogBox();
     drawMenuBox();
 
-    // Status panel overlay (screen-space)
-    if (gameState.phase === 'statusMenu') {
-        drawStatusPanel();
-    }
-
-    // Game Over overlay
     if (gameState.phase === 'gameOver') {
         drawGameOver();
     }
