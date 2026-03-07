@@ -1,0 +1,1 @@
+allow the user to create a name at the beginning

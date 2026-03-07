@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "round-28",
+  "lastUpdated": "round-29",
   "assets": {
     "npc_jordan_idle": {
       "file": "npc_jordan_idle_v1.png",
@@ -40,6 +40,19 @@
       "target_height": 32,
       "created_round": 28,
       "last_modified_round": 28
+    },
+    "ui_nameentry_panel": {
+      "file": "ui_nameentry_panel_v1.png",
+      "original_file": "ui_nameentry_panel_v1_original.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art UI panel, SNES Harvest Moon style, dark navy background with double-pixel green border frame, cream colored empty text input field inside, retro game dialog box aesthetic, clean pixel linework, warm nostalgic palette with deep navy #1a1a2e background and green #4ec94e border accent, no text or characters inside the frame, inspired by Pokemon and Chrono Trigger name entry screens",
+      "style_notes": "Must feel like a classic SNES RPG name entry panel — clean, minimal, no gradients",
+      "revision_notes": "",
+      "target_width": 240,
+      "target_height": 96,
+      "created_round": 29,
+      "last_modified_round": 29
     }
   }
 }

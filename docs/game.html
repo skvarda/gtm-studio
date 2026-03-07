@@ -14,7 +14,7 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 <canvas id="game"></canvas>
 <script>
 // ============================================================
-// SaaS STARTUP SIMULATOR — Round 28: "First Light"
+// SaaS STARTUP SIMULATOR — Round 29: "What's Your Name, Founder?"
 // ============================================================
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -41,7 +41,8 @@ const GAME_ASSETS = {};
 const ASSET_MANIFEST = [
     { id: 'npc_jordan_idle', path: '/assets/sprites/npc_jordan_idle_v1.png', width: 32, height: 48 },
     { id: 'tile_office_floor', path: '/assets/tiles/tile_office_floor_v1.png', width: 32, height: 32 },
-    { id: 'ui_hud_panel', path: '/assets/ui/ui_hud_panel_v1.png', width: 128, height: 32 }
+    { id: 'ui_hud_panel', path: '/assets/ui/ui_hud_panel_v1.png', width: 128, height: 32 },
+    { id: 'ui_nameentry_panel', path: '/assets/ui/ui_nameentry_panel_v1.png', width: 240, height: 96 }
 ];
 
 function preloadAssets() {
@@ -86,6 +87,7 @@ const PAL = {
     dialogBg:   '#1a1a2e',
     dialogBdr:  '#58b868',
     dialogTxt:  '#f5f0e1',
+    dialogShadow: '#0a0a1a',
     hudBg:      '#0f0f1aCC',
     hudTxt:     '#f5f0e1',
     hudGreen:   '#58b868',
@@ -188,6 +190,8 @@ function pickName(pool) {
 // ============================================================
 const MAX_EMPLOYEES = 4;
 
+let playerName = 'Alex';
+
 const gameState = {
     day: 1,
     cash: 150000,
@@ -197,7 +201,7 @@ const gameState = {
     productProgress: 0,
     customers: 0,
     marketInsight: 0,
-    phase: 'play',
+    phase: 'play', // play, dialog, menu, dayEnd, gameOver, titleScreen, nameEntry
     dayBurn: 2740,
     baseBurn: 2740,
     employees: [],
@@ -243,9 +247,28 @@ const cofounder = {
 // ============================================================
 const keys = {};
 const justPressed = {};
+let nameEntryBuffer = '';
+let nameEntryFrameCount = 0;
+
 window.addEventListener('keydown', e => {
     if (!keys[e.code]) justPressed[e.code] = true;
     keys[e.code] = true;
+
+    // Name entry: capture typed characters
+    if (nameEntryActive) {
+        if (e.key === 'Backspace') {
+            nameEntryBuffer = nameEntryBuffer.slice(0, -1);
+        } else if (e.key === 'Enter') {
+            // handled in update via justPressed
+        } else if (e.key.length === 1 && e.key.charCodeAt(0) >= 32 && e.key.charCodeAt(0) <= 126) {
+            if (nameEntryBuffer.length < 12) {
+                nameEntryBuffer += e.key;
+            }
+        }
+        e.preventDefault();
+        return;
+    }
+
     e.preventDefault();
 });
 window.addEventListener('keyup', e => {
@@ -265,6 +288,26 @@ const HOLD_DELAY = 220;
 const HOLD_REPEAT = 100;
 let lastDir = -1;
 let holdActive = false;
+
+// ============================================================
+// NAME ENTRY STATE
+// ============================================================
+let nameEntryActive = false;
+
+function startNameEntry() {
+    nameEntryActive = true;
+    nameEntryBuffer = '';
+    nameEntryFrameCount = 0;
+    gameState.phase = 'nameEntry';
+}
+
+function confirmNameEntry() {
+    const trimmed = nameEntryBuffer.trim();
+    playerName = trimmed.length > 0 ? trimmed : 'Alex';
+    nameEntryActive = false;
+    gameState.phase = 'play';
+    showIntro();
+}
 
 // ============================================================
 // DIALOG / MENU SYSTEM
@@ -456,8 +499,9 @@ function hireEmployee(type) {
 
     const role = type === 'dev' ? 'Developer' : 'Salesperson';
     const cost = type === 'dev' ? DEV_BURN : SALES_BURN;
+    const emoji = type === 'dev' ? '[DEV]' : '[SALES]';
 
-    let msg = name + " has joined as " + role + "!\n\n";
+    let msg = name + " has joined as " + role + "! " + emoji + "\n\n";
     msg += "Salary: +$" + cost.toLocaleString() + "/day burn\n";
     msg += "New burn rate: $" + gameState.dayBurn.toLocaleString() + "/day\n";
     msg += "Team size: " + getTeamSize();
@@ -519,7 +563,7 @@ function openHiringMenu() {
 
 function showTeamRoster() {
     let msg = "— TEAM ROSTER —\n\n";
-    msg += "You (Founder) — Building the dream\n";
+    msg += playerName + " (Founder) — Building the dream\n";
     msg += "??? (Co-Founder) — ???\n";
 
     if (gameState.employees.length === 0) {
@@ -939,7 +983,6 @@ function drawTile(gx, gy) {
         case WALL_TRIM_TILE: drawWallTrimTile(x, y); break;
         case RUG: drawRug(x, y, gx, gy); break;
         case DOOR: drawDoor(x, y); break;
-        case WINDOW_TILE: drawWindow(x, y); break;
         case EMPTY: drawRect(x, y, T, T, PAL.bgDark); break;
         default: drawFloorTile(x, y, gx, gy); break;
     }
@@ -1034,39 +1077,9 @@ function drawPlayerSprite(px, py, dir, frame) {
     }
 }
 
-// ============================================================
-// CO-FOUNDER SPRITE — with PNG fallback
-// ============================================================
 function drawCofounderSprite(px, py) {
     const x = Math.floor(px);
     const y = Math.floor(py);
-
-    // Try PNG sprite first
-    const sprite = GAME_ASSETS['npc_jordan_idle'];
-    if (sprite) {
-        bctx.imageSmoothingEnabled = false;
-        // Shadow
-        drawRect(x + 3, y + 14, 10, 2, PAL.shadow);
-        // Draw the 32x48 sprite scaled to fit the 16x16 tile character slot
-        // The sprite is 32x48, we draw it at 16x16 tile scale to match existing hitbox
-        // Offset: center horizontally, align bottom with shadow
-        bctx.drawImage(sprite, x, y - 16, 16, 24);
-        // Idle thought bubble (preserve existing behavior)
-        const idle = Math.sin(performance.now() * 0.001) > 0.5 ? 1 : 0;
-        if (idle && Math.sin(performance.now() * 0.0007) > 0.3) {
-            drawRect(x + 13, y - 19, 5, 6, PAL.dialogBg);
-            drawRect(x + 13, y - 19, 5, 1, PAL.dialogBdr);
-            drawRect(x + 13, y - 14, 5, 1, PAL.dialogBdr);
-            drawRect(x + 13, y - 19, 1, 6, PAL.dialogBdr);
-            drawRect(x + 17, y - 19, 1, 6, PAL.dialogBdr);
-            bctx.fillStyle = PAL.white;
-            bctx.font = '5px monospace';
-            bctx.fillText('?', x + 14, y - 15);
-        }
-        return;
-    }
-
-    // Fallback: original rectangle rendering
     const idle = Math.sin(performance.now() * 0.001) > 0.5 ? 1 : 0;
 
     drawRect(x + 3, y + 14, 10, 2, PAL.shadow);
@@ -1335,6 +1348,130 @@ function wrapText(text, maxWidth) {
 }
 
 // ============================================================
+// NAME ENTRY SCREEN
+// ============================================================
+function drawNameEntryScreen() {
+    drawRect(0, 0, NATIVE_W, NATIVE_H, PAL.dialogBg);
+
+    // Subtle background pattern
+    for (let i = 0; i < 20; i++) {
+        for (let j = 0; j < 14; j++) {
+            if ((i + j) % 2 === 0) {
+                drawRect(i * 16, j * 16, 16, 16, PAL.dialogShadow);
+            }
+        }
+    }
+
+    // Draw player sprite on the left side
+    const spriteX = 60;
+    const spriteY = 80;
+    // Scale up the sprite 2x for emphasis
+    bctx.save();
+    drawPlayerSprite(spriteX, spriteY, 0, 0);
+    bctx.restore();
+
+    // Panel background — try asset first, fallback to drawn panel
+    const panelX = 100;
+    const panelY = 55;
+    const panelW = 180;
+    const panelH = 100;
+
+    const panelAsset = GAME_ASSETS['ui_nameentry_panel'];
+    if (panelAsset) {
+        bctx.imageSmoothingEnabled = false;
+        bctx.drawImage(panelAsset, panelX, panelY, panelW, panelH);
+    } else {
+        // Fallback: draw SNES-style panel
+        // Shadow
+        drawRect(panelX + 2, panelY + 2, panelW, panelH, PAL.dialogShadow);
+        // Main panel
+        drawRect(panelX, panelY, panelW, panelH, PAL.dialogBg);
+        // Border
+        drawRect(panelX, panelY, panelW, 2, PAL.dialogBdr);
+        drawRect(panelX, panelY + panelH - 2, panelW, 2, PAL.dialogBdr);
+        drawRect(panelX, panelY, 2, panelH, PAL.dialogBdr);
+        drawRect(panelX + panelW - 2, panelY, 2, panelH, PAL.dialogBdr);
+        // Corner details
+        drawRect(panelX + 2, panelY + 2, 2, 2, PAL.dialogBdr);
+        drawRect(panelX + panelW - 4, panelY + 2, 2, 2, PAL.dialogBdr);
+        drawRect(panelX + 2, panelY + panelH - 4, 2, 2, PAL.dialogBdr);
+        drawRect(panelX + panelW - 4, panelY + panelH - 4, 2, 2, PAL.dialogBdr);
+    }
+
+    bctx.textBaseline = 'top';
+    bctx.textAlign = 'center';
+
+    // Title
+    bctx.font = '8px monospace';
+    bctx.fillStyle = PAL.hudGreen;
+    bctx.fillText('ENTER YOUR NAME', panelX + panelW / 2, panelY + 10);
+
+    // Subtitle
+    bctx.font = '6px monospace';
+    bctx.fillStyle = PAL.textDim;
+    bctx.fillText('What do they call you, founder?', panelX + panelW / 2, panelY + 24);
+
+    // Input field background
+    const fieldX = panelX + 20;
+    const fieldY = panelY + 40;
+    const fieldW = panelW - 40;
+    const fieldH = 16;
+
+    drawRect(fieldX, fieldY, fieldW, fieldH, '#0a0a1a');
+    drawRect(fieldX, fieldY, fieldW, 1, PAL.dialogBdr);
+    drawRect(fieldX, fieldY + fieldH - 1, fieldW, 1, PAL.dialogBdr);
+    drawRect(fieldX, fieldY, 1, fieldH, PAL.dialogBdr);
+    drawRect(fieldX + fieldW - 1, fieldY, 1, fieldH, PAL.dialogBdr);
+
+    // Input text
+    bctx.font = '8px monospace';
+    bctx.fillStyle = PAL.dialogTxt;
+    bctx.textAlign = 'left';
+    const displayName = nameEntryBuffer;
+    bctx.fillText(displayName, fieldX + 4, fieldY + 4);
+
+    // Blinking cursor
+    nameEntryFrameCount++;
+    const cursorOn = Math.floor(nameEntryFrameCount / 30) % 2 === 0;
+    if (cursorOn) {
+        const cursorX = fieldX + 4 + bctx.measureText(displayName).width;
+        drawRect(cursorX, fieldY + 3, 1, 10, PAL.dialogBdr);
+        drawRect(cursorX + 1, fieldY + 3, 1, 10, PAL.dialogBdr);
+    }
+
+    // Character count
+    bctx.textAlign = 'right';
+    bctx.font = '5px monospace';
+    bctx.fillStyle = nameEntryBuffer.length >= 12 ? PAL.hudRed : PAL.textDim;
+    bctx.fillText(nameEntryBuffer.length + '/12', fieldX + fieldW - 2, fieldY + fieldH + 2);
+
+    // Instructions
+    bctx.textAlign = 'center';
+    bctx.font = '6px monospace';
+
+    const confirmBlink = Math.sin(performance.now() * 0.005) > 0;
+    if (confirmBlink) {
+        bctx.fillStyle = PAL.hudYellow;
+        bctx.fillText('Press ENTER to confirm', panelX + panelW / 2, panelY + panelH - 20);
+    }
+
+    bctx.fillStyle = PAL.textDim;
+    bctx.fillText('(Leave empty for default: Alex)', panelX + panelW / 2, panelY + panelH - 10);
+
+    // Top header
+    bctx.font = '12px monospace';
+    bctx.fillStyle = PAL.hudGreen;
+    bctx.fillText('SaaS STARTUP SIMULATOR', NATIVE_W / 2, 15);
+
+    // Bottom flavor text
+    bctx.font = '5px monospace';
+    bctx.fillStyle = PAL.textDim;
+    bctx.fillText('$150,000 angel funding  |  1 mysterious co-founder  |  infinite ambition', NATIVE_W / 2, NATIVE_H - 20);
+
+    bctx.textAlign = 'left';
+}
+
+// ============================================================
 // GAME OVER SCREEN
 // ============================================================
 function drawGameOver() {
@@ -1346,7 +1483,7 @@ function drawGameOver() {
     bctx.fillText('GAME OVER', NATIVE_W / 2, 50);
     bctx.font = '7px monospace';
     bctx.fillStyle = PAL.dialogTxt;
-    bctx.fillText('Your startup ran out of cash.', NATIVE_W / 2, 75);
+    bctx.fillText(playerName + '\'s startup ran out of cash.', NATIVE_W / 2, 75);
     bctx.fillText('Day ' + gameState.day + '  |  ' + gameState.customers + ' customers  |  $' + gameState.mrr + ' MRR', NATIVE_W / 2, 90);
 
     bctx.fillStyle = PAL.hudTxt;
@@ -1490,11 +1627,12 @@ let introShown = false;
 
 function showIntro() {
     introShown = true;
-    showDialog("Day 1. You've just signed the angel investment papers.", () => {
+    showDialog("Day 1. Welcome to the office, " + playerName + ".", () => {
         showDialog("$150,000 in the bank. A mysterious co-founder. And a dream.", () => {
             showDialog("Walk to the TERMINAL (green monitor) and press Z to work.", () => {
                 showDialog("Visit the DOOR to hire your first employee!", () => {
                     showDialog("You get 3 Action Points per day. Spend them wisely -- the burn rate is real.", () => {
+                        // done
                     });
                 });
             });
@@ -1532,12 +1670,17 @@ function restart() {
     menu.active = false;
     introShown = false;
     titlePhase = true;
+    nameEntryActive = false;
 }
 
 // ============================================================
 // MAIN LOOP
 // ============================================================
 let lastTime = performance.now();
+
+function startGameLoop() {
+    requestAnimationFrame(gameLoop);
+}
 
 function gameLoop(now) {
     const dt = Math.min(now - lastTime, 50);
@@ -1560,7 +1703,15 @@ function update(dt) {
     if (titlePhase) {
         if (consumePress('KeyZ') || consumePress('Enter') || consumePress('Space')) {
             titlePhase = false;
-            showIntro();
+            startNameEntry();
+        }
+        return;
+    }
+
+    // Name entry state
+    if (nameEntryActive) {
+        if (consumePress('Enter')) {
+            confirmNameEntry();
         }
         return;
     }
@@ -1570,6 +1721,7 @@ function update(dt) {
         return;
     }
 
+    // Dialog input
     if (dialog.active) {
         if (!dialog.done) {
             dialog.charTimer += dt;
@@ -1588,6 +1740,7 @@ function update(dt) {
         return;
     }
 
+    // Menu input
     if (menu.active) {
         if (consumePress('ArrowUp') || consumePress('KeyW')) {
             do {
@@ -1609,6 +1762,7 @@ function update(dt) {
         return;
     }
 
+    // Movement
     if (gameState.phase === 'play') {
         const dir = getMovementDir();
         if (dir >= 0 && !player.moving) {
@@ -1660,6 +1814,11 @@ function update(dt) {
 function render() {
     if (titlePhase) {
         drawTitleScreen();
+        return;
+    }
+
+    if (nameEntryActive) {
+        drawNameEntryScreen();
         return;
     }
 
@@ -1728,15 +1887,9 @@ function render() {
 }
 
 // ============================================================
-// START — preload assets then begin game loop
+// START
 // ============================================================
-preloadAssets().then(() => {
-    const loadedCount = Object.keys(GAME_ASSETS).length;
-    if (loadedCount > 0) {
-        console.log('Assets loaded:', loadedCount + '/' + ASSET_MANIFEST.length);
-    }
-    requestAnimationFrame(gameLoop);
-});
+preloadAssets().then(() => startGameLoop());
 
 </script>
 </body>
