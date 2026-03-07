@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "last_updated_round": 0,
+  "last_updated_timestamp": "2026-03-07T00:00:00Z",
+  "resolution": {
+    "native_width": 640,
+    "native_height": 360,
+    "scale_factor": 2,
+    "display_width": 1280,
+    "display_height": 720
+  },
+  "player": {
+    "role": null,
+    "name": null,
+    "role_options": ["seller", "dev", "marketer"],
+    "stats": {},
+    "position": { "x": 0, "y": 0, "location": null },
+    "action_points_per_day": 5,
+    "action_points_remaining": 5
+  },
+  "economy": {
+    "starting_cash": 150000,
+    "cash": 150000,
+    "mrr": 0,
+    "monthly_burn": 0,
+    "runway_months": null,
+    "customers": 0,
+    "churn_rate": 0.0
+  },
+  "time": {
+    "current_day": 1,
+    "current_era": "garage",
+    "era_definitions": {
+      "garage": { "day_range": [1, 60], "office_stage": 1 },
+      "push": { "day_range": [61, 180], "office_stage": 2 },
+      "machine": { "day_range": [181, 360], "office_stage": 3 },
+      "empire": { "day_range": [361, null], "office_stage": 4 }
+    }
+  },
+  "locations_available": ["apartment"],
+  "locations_implemented": {
+    "apartment": {
+      "tilemap_defined": false,
+      "npcs": ["jordan"],
+      "interactables": ["laptop", "whiteboard"],
+      "dimensions": { "width_tiles": 12, "height_tiles": 10 }
+    }
+  },
+  "npcs": {
+    "jordan": {
+      "name": "Jordan",
+      "location": "apartment",
+      "sprite_id": "npc_jordan_idle",
+      "has_sprite": false,
+      "dialogue_pool_size": 0,
+      "relationship_level": 0,
+      "secret_path": null
+    }
+  },
+  "employees": [],
+  "systems_implemented": [],
+  "systems_planned": [
+    "canvas_rendering",
+    "pixel_font_renderer",
+    "tile_movement",
+    "hud_display",
+    "day_cycle",
+    "character_creation",
+    "action_point_system",
+    "email_inbox",
+    "dialogue_system",
+    "hiring_system",
+    "economy_tick",
+    "event_system",
+    "npc_interaction",
+    "location_transitions",
+    "asset_preloader"
+  ],
+  "demo_progress": {
+    "beats_complete": [],
+    "beats_remaining": [
+      "character_creation",
+      "apartment_day1",
+      "first_days",
+      "angel_arrives",
+      "wework_cubicle",
+      "first_hire",
+      "world_reacts",
+      "expansion"
+    ],
+    "current_target_beat": "character_creation"
+  }
+}

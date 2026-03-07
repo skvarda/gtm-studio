@@ -1,0 +1,7 @@
+{
+  "queue": [
+    { "round": 1, "type": "engine", "priority": "foundation", "note": "Build the base game: 640x360 canvas, DPR correction, pixel font renderer, tile-based movement, HUD (Day, Cash, MRR, Runway, AP). This is a brand new game — do not reference any previous builds." }
+  ],
+  "paused": false,
+  "auto_advance": false
+}

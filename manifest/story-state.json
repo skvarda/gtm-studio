@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "last_updated_round": 0,
+  "dialogue": {},
+  "emails": {},
+  "events": [],
+  "gazette_headlines": {},
+  "npc_schedules": {
+    "jordan": {
+      "apartment": {
+        "position": { "x": 8, "y": 3 },
+        "facing": "down",
+        "idle_behavior": "typing_with_occasional_pause"
+      }
+    }
+  },
+  "pending_npcs": []
+}
