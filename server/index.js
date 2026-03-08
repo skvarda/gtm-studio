@@ -54,6 +54,7 @@ setInterval(() => {
 
 let isRunning = false;
 let currentRoundType = null;
+let batchState = null;
 
 // ── Agent Roster ────────────────────────────────────────────────────────────
 
@@ -431,6 +432,11 @@ async function runRound(roundType, priority, note, broadcast) {
         throw new Error(`Unknown round type: ${roundType}`);
     }
   } catch (err) {
+    if (batchState && batchState.active) {
+      batchState.active = false;
+      batchState.stoppedReason = 'error';
+      broadcast({ type: 'batch_stopped', reason: 'round_failed', completed: batchState.completedRounds, failedRound: round });
+    }
     broadcast({ type: 'round_error', round, error: err.message });
     throw err;
   }
@@ -449,6 +455,30 @@ async function runRound(roundType, priority, note, broadcast) {
 
   broadcast({ type: 'round_complete', round, roundType, verdict: result.verdict || 'complete' });
   console.log(`=== ROUND ${round} (${roundType}) COMPLETE — ${result.verdict || 'complete'} ===\n`);
+
+  // Batch continuation logic
+  if (batchState && batchState.active) {
+    batchState.completedRounds++;
+    const queue = readManifest('round-queue.json');
+    const q = (queue && queue.queue) || [];
+    if (q.length === 0) {
+      batchState.active = false;
+      batchState.stoppedReason = 'complete';
+      broadcast({ type: 'batch_complete', reason: 'queue_empty', completed: batchState.completedRounds });
+    } else if (q[0].type === 'integration' || q[0].type === 'hotfix') {
+      batchState.active = false;
+      batchState.stoppedReason = 'checkpoint';
+      broadcast({ type: 'batch_paused', reason: 'checkpoint', completed: batchState.completedRounds, nextRound: q[0] });
+    } else if (batchState.completedRounds >= batchState.totalRounds) {
+      batchState.active = false;
+      batchState.stoppedReason = 'complete';
+      broadcast({ type: 'batch_complete', reason: 'batch_done', completed: batchState.completedRounds });
+    } else {
+      broadcast({ type: 'batch_progress', completed: batchState.completedRounds, total: batchState.totalRounds });
+      setTimeout(() => triggerRunNext(), 3000);
+    }
+  }
+
   return result;
 }
 
@@ -1387,6 +1417,72 @@ Does the fix look correct without breaking anything? VERDICT: SHIP or VERDICT: R
 
 // ── API ENDPOINTS ───────────────────────────────────────────────────────────
 
+// ── Batch / Run-to-Checkpoint helpers ────────────────────────────────────────
+
+async function triggerRunNext() {
+  if (isRunning) return;
+  const queue = readManifest('round-queue.json');
+  if (!queue || !queue.queue || queue.queue.length === 0) return;
+  const next = queue.queue.shift();
+  writeManifest('round-queue.json', queue);
+  isRunning = true;
+  currentRoundType = next.type;
+  try {
+    await runRound(next.type, next.priority || '', next.note || '', broadcast);
+  } catch (err) {
+    console.error('Round failed:', err);
+  } finally {
+    isRunning = false;
+    currentRoundType = null;
+  }
+}
+
+app.post('/run-to-checkpoint', (req, res) => {
+  if (isRunning) return res.status(409).json({ error: 'Round already in progress' });
+  const queue = readManifest('round-queue.json');
+  if (!queue || !queue.queue || queue.queue.length === 0) {
+    return res.status(400).json({ error: 'Queue empty' });
+  }
+  const q = queue.queue;
+  if (q[0].type === 'integration' || q[0].type === 'hotfix') {
+    return res.status(400).json({ error: 'Next round is an ' + q[0].type + ' checkpoint \u2014 run it manually after reviewing the build' });
+  }
+  // Count consecutive non-checkpoint rounds
+  let batchSize = 0;
+  let checkpointLabel = null;
+  for (let i = 0; i < q.length; i++) {
+    if (q[i].type === 'integration' || q[i].type === 'hotfix') {
+      checkpointLabel = 'Round #' + q[i].round + ' (' + q[i].type + ')';
+      break;
+    }
+    batchSize++;
+  }
+  if (!checkpointLabel && q.length > batchSize) {
+    checkpointLabel = 'end of queue';
+  }
+  batchState = {
+    active: true,
+    totalRounds: batchSize,
+    completedRounds: 0,
+    stoppedReason: null
+  };
+  const nextCheckpoint = checkpointLabel || 'end of queue';
+  broadcast({ type: 'batch_start', totalRounds: batchSize, nextCheckpoint });
+  res.json({ batchSize, nextCheckpoint });
+  // Kick off the first round
+  triggerRunNext();
+});
+
+app.post('/cancel-batch', (req, res) => {
+  if (!batchState || !batchState.active) {
+    return res.status(400).json({ error: 'No active batch' });
+  }
+  batchState.active = false;
+  batchState.stoppedReason = 'cancelled';
+  broadcast({ type: 'batch_cancelled', completed: batchState.completedRounds });
+  res.json({ ok: true, completed: batchState.completedRounds });
+});
+
 // Start a round
 app.post('/run', async (req, res) => {
   if (isRunning) return res.status(409).json({ error: 'Round already in progress' });
@@ -1454,9 +1550,9 @@ app.delete('/feedback', (req, res) => {
 app.get('/status', (req, res) => {
   try {
     const studioState = JSON.parse(fs.readFileSync(path.join(BUILDS, 'studio-state.json'), 'utf8'));
-    res.json({ isRunning, currentRound: studioState.lastRound, currentRoundType, lastRoundType: studioState.lastRoundType, lastQAVerdict: studioState.lastQAVerdict });
+    res.json({ isRunning, currentRound: studioState.lastRound, currentRoundType, lastRoundType: studioState.lastRoundType, lastQAVerdict: studioState.lastQAVerdict, batch: batchState });
   } catch(e) {
-    res.json({ isRunning, currentRound: 0, currentRoundType, lastRoundType: null, lastQAVerdict: null });
+    res.json({ isRunning, currentRound: 0, currentRoundType, lastRoundType: null, lastQAVerdict: null, batch: batchState });
   }
 });
 
