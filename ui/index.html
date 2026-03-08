@@ -470,6 +470,89 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
 ::-webkit-scrollbar-track { background: var(--bg-body); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+/* ── Round History ───────────────────────────────── */
+.history-card {
+  background: var(--bg-body);
+  border-left: 3px solid var(--border);
+  border-radius: 3px;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: 36px;
+}
+
+.history-card:hover { border-left-width: 4px; background: rgba(30, 30, 48, 0.8); }
+.history-card.older { opacity: 0.7; }
+
+.history-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.history-card-header .round-badge { font-size: 9px; padding: 1px 5px; }
+
+.history-ts {
+  font-size: 9px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.history-priority {
+  font-size: 10px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-summary {
+  font-size: 10px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+.history-full {
+  font-size: 10px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  max-height: 200px;
+  overflow-y: auto;
+  line-height: 1.4;
+}
+
+/* ── Next Up Preview ────────────────────────────── */
+.next-up-panel {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding: 8px;
+  border: 1px dashed var(--gold);
+  border-radius: 4px;
+  background: rgba(240, 192, 64, 0.03);
+}
+
+.team-roster {
+  font-size: 11px;
+  margin-top: 4px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.team-roster .arrow-sep {
+  color: var(--text-dim);
+  margin: 0 2px;
+}
 </style>
 </head>
 <body>
@@ -519,12 +602,19 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
       <input type="text" id="round-priority" placeholder="What to focus on...">
       <div class="field-label">Note (optional)</div>
       <input type="text" id="round-note" placeholder="Extra context...">
+      <div id="next-up-panel" class="next-up-panel" style="display:none;"></div>
       <div class="btn-row" style="margin-top: 10px;">
         <button class="btn btn-gold" id="btn-run-round" style="flex:1;">Run Round</button>
       </div>
       <div class="btn-row">
         <button class="btn" id="btn-run-next" style="flex:1;">Run Next from Queue</button>
       </div>
+    </div>
+
+    <!-- Round History -->
+    <div class="section">
+      <div class="section-title">Round History</div>
+      <div id="round-history"></div>
     </div>
 
     <!-- Round Queue -->
@@ -728,6 +818,32 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
     'bea-ortiz': { name: 'Bea Ortiz', role: 'QA Playtester', emoji: '\uD83D\uDD79\uFE0F' }
   };
 
+  const TEAM_ROSTER = {
+    engine: [
+      { emoji: '\uD83C\uDFD7\uFE0F', name: 'Marcus' },
+      { emoji: '\uD83D\uDCBB', name: 'Atlas' }
+    ],
+    story: [
+      { emoji: '\uD83C\uDFAC', name: 'Luna' },
+      { emoji: '\u270D\uFE0F', name: 'Sage' },
+      { emoji: '\uD83C\uDFAE', name: 'Felix' }
+    ],
+    art: [
+      { emoji: '\uD83C\uDFA8', name: 'Priya' },
+      { emoji: '\uD83D\uDDBC\uFE0F', name: 'Iris' }
+    ],
+    integration: [
+      { emoji: '\uD83D\uDC54', name: 'Vivian' },
+      { emoji: '\uD83D\uDCCB', name: 'Ren' },
+      { emoji: '\uD83D\uDCBB', name: 'Atlas' },
+      { emoji: '\uD83D\uDD79\uFE0F', name: 'Bea' }
+    ],
+    hotfix: [
+      { emoji: '\uD83D\uDCBB', name: 'Atlas' },
+      { emoji: '\uD83D\uDD79\uFE0F', name: 'Bea' }
+    ]
+  };
+
   // ── DOM refs ──
   const $connDot = document.getElementById('conn-dot');
   const $connLabel = document.getElementById('conn-label');
@@ -753,6 +869,8 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
   const $assetsPanel = document.getElementById('assets-panel');
   const $assetsGrid = document.getElementById('assets-grid');
   const $console = document.getElementById('console-area');
+  const $roundHistory = document.getElementById('round-history');
+  const $nextUpPanel = document.getElementById('next-up-panel');
 
   // ── Helpers ──
   function ts() {
@@ -775,6 +893,29 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
 
   function escHtml(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function relativeTime(isoStr) {
+    const diff = Date.now() - new Date(isoStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + 'm ago';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    const days = Math.floor(hrs / 24);
+    if (days === 1) return 'yesterday';
+    return days + 'd ago';
+  }
+
+  function typeBorderColor(type) {
+    switch(type) {
+      case 'engine': return 'var(--green)';
+      case 'story': return '#60a5fa';
+      case 'art': return 'var(--purple)';
+      case 'integration': return 'var(--orange)';
+      case 'hotfix': return 'var(--red)';
+      default: return 'var(--border)';
+    }
   }
 
   function formatKB(bytes) {
@@ -942,6 +1083,8 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
         // Fetch updated build report
         fetchBuildReport(data.round);
         loadQueue();
+        loadRoundHistory();
+        loadNextUpPreview();
         break;
 
       case 'round_error':
@@ -1037,6 +1180,105 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
     }).catch(() => {});
   }
 
+  function loadRoundHistory() {
+    fetch('/studio-state').then(r => r.json()).then(data => {
+      const history = (data.roundHistory || []).slice(-5).reverse();
+      if (history.length === 0) {
+        $roundHistory.innerHTML = '<div style="font-size:10px;color:var(--text-dim);">No rounds completed yet.</div>';
+        return;
+      }
+      $roundHistory.innerHTML = history.map((entry, i) => {
+        const olderCls = i >= 2 ? ' older' : '';
+        return '<div class="history-card' + olderCls + '" data-round="' + entry.round + '" style="border-left-color:' + typeBorderColor(entry.type) + ';">' +
+          '<div class="history-card-header">' +
+            '<span>#' + entry.round + ' <span class="round-badge badge-' + entry.type + '">' + entry.type + '</span></span>' +
+            '<span class="history-ts">' + relativeTime(entry.timestamp) + '</span>' +
+          '</div>' +
+          (entry.priority ? '<div class="history-priority">' + escHtml(entry.priority) + '</div>' : '') +
+          '<div class="history-summary" id="hsummary-' + entry.round + '">' + escHtml(entry.verdict) + '</div>' +
+          '<div class="history-full" id="hfull-' + entry.round + '" style="display:none;"></div>' +
+        '</div>';
+      }).join('');
+
+      // Fetch 1-line summaries
+      history.forEach(entry => {
+        fetch('/build-report/' + entry.round).then(r => {
+          if (r.ok) return r.text();
+          return null;
+        }).then(text => {
+          if (!text) return;
+          const firstLine = text.split('\n').find(l => l.trim()) || '';
+          const summary = firstLine.length > 80 ? firstLine.slice(0, 80) + '\u2026' : firstLine;
+          const el = document.getElementById('hsummary-' + entry.round);
+          if (el && summary) el.textContent = summary;
+        }).catch(() => {});
+      });
+
+      // Click to expand
+      $roundHistory.querySelectorAll('.history-card').forEach(card => {
+        card.addEventListener('click', function() {
+          const round = this.getAttribute('data-round');
+          const fullEl = document.getElementById('hfull-' + round);
+          if (!fullEl) return;
+          if (fullEl.style.display === 'none') {
+            if (!fullEl.textContent) {
+              fullEl.textContent = 'Loading...';
+              fetch('/build-report/' + round).then(r => r.ok ? r.text() : 'No report available.').then(text => {
+                fullEl.textContent = text;
+              }).catch(() => { fullEl.textContent = 'Failed to load report.'; });
+            }
+            fullEl.style.display = 'block';
+          } else {
+            fullEl.style.display = 'none';
+          }
+        });
+      });
+    }).catch(() => {});
+  }
+
+  function loadNextUpPreview() {
+    fetch('/round-queue').then(r => r.json()).then(data => {
+      const q = data.queue || [];
+      if (q.length === 0) {
+        $nextUpPanel.style.display = 'block';
+        $nextUpPanel.innerHTML = '<div style="font-size:10px;color:var(--text-dim);">No rounds queued \u2014 use manual launch below</div>';
+        return;
+      }
+      const next = q[0];
+      const nextRound = (currentRound || 0) + 1;
+      const roster = TEAM_ROSTER[next.type] || [];
+      const rosterHtml = roster.map(a => a.emoji + ' ' + a.name).join(' <span class="arrow-sep">\u2192</span> ');
+
+      // Auto-fill launcher fields
+      $roundType.value = next.type;
+      $roundPriority.value = next.priority || '';
+      $roundPriority.setAttribute('data-autofilled', 'true');
+      $roundNote.value = next.note || '';
+
+      let html = '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">' +
+        '<span style="color:var(--gold);font-size:10px;letter-spacing:1px;font-weight:bold;">NEXT UP</span>' +
+        '<span class="round-badge badge-' + next.type + '">' + next.type + '</span>' +
+        '<span style="color:var(--text-dim);font-size:10px;">#' + nextRound + '</span>' +
+      '</div>';
+      if (next.priority) html += '<div style="font-size:11px;">' + escHtml(next.priority) + '</div>';
+      if (next.note) html += '<div style="font-size:10px;color:var(--text-dim);font-style:italic;">' + escHtml(next.note) + '</div>';
+      html += '<div class="team-roster">' + rosterHtml + '</div>';
+
+      $nextUpPanel.innerHTML = html;
+      $nextUpPanel.style.display = 'block';
+
+      // Check for pending feedback
+      fetch('/feedback').then(r => r.json()).then(fb => {
+        if (fb.feedback && fb.feedback.trim()) {
+          const badge = document.createElement('div');
+          badge.style.cssText = 'font-size:10px;color:var(--gold);margin-top:4px;';
+          badge.textContent = '\uD83D\uDCDD Feedback queued';
+          $nextUpPanel.appendChild(badge);
+        }
+      }).catch(() => {});
+    }).catch(() => {});
+  }
+
   function fetchBuildReport(round) {
     fetch('/build-report/' + round).then(r => {
       if (r.ok) return r.text();
@@ -1101,11 +1343,52 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
     }).catch(() => {});
   });
 
+  // Clear auto-filled flag on manual edits
+  $roundPriority.addEventListener('input', function() {
+    $roundPriority.removeAttribute('data-autofilled');
+  });
+
+  // When round type changes, clear auto-suggested priority
+  $roundType.addEventListener('change', function() {
+    if ($roundPriority.getAttribute('data-autofilled') === 'true' || !$roundPriority.value.trim()) {
+      $roundPriority.value = '';
+      $roundPriority.removeAttribute('data-autofilled');
+      $roundPriority.style.borderColor = '';
+      $roundPriority.placeholder = 'What to focus on...';
+    }
+  });
+
   $btnRunRound.addEventListener('click', function() {
     if (isRunning) return;
     const roundType = $roundType.value;
     const priority = $roundPriority.value.trim();
     const note = $roundNote.value.trim();
+
+    // If priority is empty, fetch suggestion first
+    if (!priority) {
+      fetch('/suggest-priority?type=' + encodeURIComponent(roundType))
+        .then(r => r.json())
+        .then(data => {
+          if (data.suggestion === '') {
+            // Hotfix case: require explicit priority
+            $roundPriority.style.borderColor = '#e05c5c';
+            $roundPriority.placeholder = 'required for hotfix';
+            $roundPriority.focus();
+          } else {
+            // Auto-fill and highlight gold for 2s
+            $roundPriority.value = data.suggestion;
+            $roundPriority.setAttribute('data-autofilled', 'true');
+            $roundPriority.style.borderColor = '#f0c040';
+            setTimeout(function() { $roundPriority.style.borderColor = ''; }, 2000);
+            log('Auto-filled priority: ' + data.suggestion + ' — click Run Round again to confirm');
+          }
+        })
+        .catch(e => log('\u274C Failed to fetch suggestion: ' + e.message, 'error'));
+      return;
+    }
+
+    // Priority is filled — proceed with the round
+    $roundPriority.removeAttribute('data-autofilled');
     fetch('/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1154,6 +1437,8 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
   loadStudioState();
   loadFeedback();
   loadQueue();
+  loadRoundHistory();
+  loadNextUpPreview();
   loadAssets();
 })();
 </script>

@@ -115,12 +115,13 @@ function archiveFeedback(round) {
 
 async function runAgent(agentId, model, prompt, timeoutMs = 300000) {
   const tmpFile = `/tmp/gtm-${agentId}.txt`;
+  try { fs.unlinkSync(tmpFile); } catch(_) {}
   fs.writeFileSync(tmpFile, prompt);
   try { execSync(`chown gtm:gtm ${tmpFile}`); } catch(_) {}
 
   return new Promise((resolve, reject) => {
     const proc = spawn('su', ['-', 'gtm', '-s', '/bin/bash', '-c',
-      `claude --model ${model} --print < ${tmpFile}`
+      `claude --model ${model} --print --tools "" < ${tmpFile}`
     ], { timeout: timeoutMs });
 
     let stdout = '';
@@ -172,7 +173,7 @@ function validateEngineOutput(html, protectedSystems, previousHtml) {
   }
 
   // 3. Size sanity
-  if (previousHtml) {
+  if (previousHtml && previousHtml.length >= 1000) {
     const ratio = html.length / previousHtml.length;
     if (ratio < 0.5) errors.push(`SIZE_SHRUNK: Output is ${Math.round(ratio * 100)}% of previous size — possible truncation`);
     if (ratio > 3.0) errors.push(`SIZE_BLOATED: Output is ${Math.round(ratio * 100)}% of previous size — suspicious`);
@@ -379,18 +380,14 @@ function extractHtmlAndReport(rawOutput) {
   let gameHtml = rawOutput;
   let buildReport = '';
 
-  // Handle markdown-wrapped code
+  // Strip ALL markdown fences (leading spaces, multiple blocks, nested)
+  gameHtml = gameHtml.replace(/^\s*```+\s*(?:html)?\s*\n?/gim, '').replace(/\n?\s*```+\s*$/gim, '');
+
+  // Handle conversational preamble or any text before the actual HTML
   if (!gameHtml.trim().startsWith('<!DOCTYPE') && !gameHtml.trim().startsWith('<html')) {
     const htmlMatch = gameHtml.match(/(<!DOCTYPE[\s\S]*<\/html>)/i);
     if (htmlMatch) gameHtml = htmlMatch[1];
-    else {
-      const fallback = '/home/gtm/saas-startup-simulator.html';
-      if (fs.existsSync(fallback)) {
-        gameHtml = fs.readFileSync(fallback, 'utf8');
-      } else {
-        return { gameHtml: null, buildReport: '' };
-      }
-    }
+    else { return { gameHtml: null, buildReport: "" }; }
   }
 
   // Extract build report
@@ -445,7 +442,7 @@ async function runRound(roundType, priority, note, broadcast) {
   if (result.knownIssues) studioState.knownIssues = result.knownIssues;
   if (result.deferredWork) studioState.deferredWork = result.deferredWork;
   studioState.roundHistory.push({
-    round, type: roundType, verdict: result.verdict || 'complete',
+    round, type: roundType, priority, verdict: result.verdict || 'complete',
     timestamp: new Date().toISOString()
   });
   fs.writeFileSync(path.join(BUILDS, 'studio-state.json'), JSON.stringify(studioState, null, 2));
@@ -543,7 +540,7 @@ ENGINE SPEC:
 ${JSON.stringify(engineSpec, null, 2)}
 
 CURRENT game.html:
-${currentGame || '(No game.html yet — create the first version)'}
+${(!currentGame || currentGame.trim() === '<!-- empty -->') ? '(No game.html exists yet — you must create the COMPLETE game.html from scratch starting with <!DOCTYPE html>)' : currentGame}
 
 YOUR TASK:
 Implement Marcus's plan. Output the COMPLETE updated game.html file.
@@ -567,10 +564,17 @@ CRITICAL RULES:
     throw err;
   }
 
+  // Diagnostic: save raw Atlas output BEFORE parsing so we can inspect failures
+  console.log(`[DIAG] Atlas raw output length: ${atlasOutput.length}`);
+  console.log(`[DIAG] Atlas raw output first 500 chars:\n${atlasOutput.slice(0, 500)}`);
+  fs.writeFileSync(path.join(AGENT_LOGS, `round-${round}-atlas-raw.txt`), atlasOutput);
+
   // Parse Atlas output
   let { gameHtml, buildReport } = extractHtmlAndReport(atlasOutput);
 
   if (!gameHtml) {
+    // Save agent log even on failure so we have a record
+    fs.writeFileSync(path.join(AGENT_LOGS, `round-${round}-atlas-engine.md`), '# FAILED — Output was not valid HTML\n\nSee round-' + round + '-atlas-raw.txt for raw output.');
     broadcast({ type: 'agent_error', round, agentId: 'atlas-novak', error: 'Developer output is not valid HTML' });
     throw new Error('Developer output is not valid HTML and no fallback found');
   }
@@ -1120,9 +1124,15 @@ CRITICAL RULES:
     throw err;
   }
 
+  // Diagnostic: save raw Atlas output BEFORE parsing
+  console.log(`[DIAG-INT] Atlas raw output length: ${atlasOutput.length}`);
+  console.log(`[DIAG-INT] Atlas raw output first 500 chars:\n${atlasOutput.slice(0, 500)}`);
+  fs.writeFileSync(path.join(AGENT_LOGS, `round-${round}-atlas-int-raw.txt`), atlasOutput);
+
   let { gameHtml, buildReport } = extractHtmlAndReport(atlasOutput);
 
   if (!gameHtml) {
+    fs.writeFileSync(path.join(AGENT_LOGS, `round-${round}-atlas-integration.md`), '# FAILED — Output was not valid HTML\n\nSee round-' + round + '-atlas-int-raw.txt for raw output.');
     broadcast({ type: 'agent_error', round, agentId: 'atlas-novak', error: 'Developer output is not valid HTML' });
     throw new Error('Developer output is not valid HTML');
   }
@@ -1495,6 +1505,35 @@ app.get('/round-queue', (req, res) => {
   res.json(readManifest('round-queue.json') || { queue: [] });
 });
 
+app.get('/suggest-priority', async (req, res) => {
+  const type = req.query.type || 'engine';
+  try {
+    let suggestion = '';
+    if (type === 'engine') {
+      const spec = JSON.parse(fs.readFileSync(path.join(MANIFEST, 'engine-spec.json'), 'utf8'));
+      const next = Object.entries(spec.systems || {}).find(([, v]) => v.status === 'planned');
+      suggestion = next ? next[0] : 'engine-improvements';
+    } else if (type === 'story') {
+      const story = JSON.parse(fs.readFileSync(path.join(MANIFEST, 'story-state.json'), 'utf8'));
+      const beats = story.beats || {};
+      const next = Object.entries(beats).find(([, v]) => !v.dialogue || v.dialogue.length === 0);
+      suggestion = next ? next[0] : 'story-content';
+    } else if (type === 'art') {
+      const art = JSON.parse(fs.readFileSync(path.join(MANIFEST, 'art-state.json'), 'utf8'));
+      const assets = art.assets || {};
+      const next = Object.entries(assets).find(([, v]) => v.status !== 'approved');
+      suggestion = next ? `${next[0]}-sprite` : 'core-sprites';
+    } else if (type === 'integration') {
+      suggestion = 'assemble-latest';
+    } else if (type === 'hotfix') {
+      suggestion = '';
+    }
+    res.json({ suggestion, type });
+  } catch (e) {
+    res.json({ suggestion: type + '-round', type });
+  }
+});
+
 app.post('/round-queue', (req, res) => {
   const { queue } = req.body;
   writeManifest('round-queue.json', { queue, paused: false, auto_advance: false });
@@ -1532,6 +1571,7 @@ app.patch('/asset-registry/:assetId', (req, res) => {
 // Static files
 app.use('/assets', express.static(path.join(BASE, 'assets')));
 app.use(express.static(path.join(BASE, 'ui')));
+app.use("/docs", express.static(path.join(BASE, "docs")));
 
 // ── Start Server ────────────────────────────────────────────────────────────
 
