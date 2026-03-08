@@ -1,8 +1,15 @@
 {
-  "lastRound": 0,
-  "lastRoundType": null,
-  "lastQAVerdict": null,
+  "lastRound": 1,
+  "lastRoundType": "engine",
+  "lastQAVerdict": "ship",
   "knownIssues": [],
   "deferredWork": [],
-  "roundHistory": []
+  "roundHistory": [
+    {
+      "round": 1,
+      "type": "engine",
+      "verdict": "ship",
+      "timestamp": "2026-03-07T22:01:39.780Z"
+    }
+  ]
 }
