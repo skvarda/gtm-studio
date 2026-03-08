@@ -1,5 +1,5 @@
 {
-  "lastRound": 1,
+  "lastRound": 2,
   "lastRoundType": "engine",
   "lastQAVerdict": "ship",
   "knownIssues": [],
@@ -10,6 +10,12 @@
       "type": "engine",
       "verdict": "ship",
       "timestamp": "2026-03-07T22:01:39.780Z"
+    },
+    {
+      "round": 2,
+      "type": "engine",
+      "verdict": "ship",
+      "timestamp": "2026-03-08T16:56:22.037Z"
     }
   ]
 }

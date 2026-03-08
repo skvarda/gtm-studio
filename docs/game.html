@@ -13,7 +13,7 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 <body>
 <script>
 // ============================================================
-// SaaS Quest: Startup Simulator — Engine Round 1
+// SaaS Quest: Startup Simulator — Engine Round 2
 // ============================================================
 
 // --- Color Palette ---
@@ -41,7 +41,12 @@ const PAL = {
   white: '#FFFFFF',
   black: '#000000',
   danger: '#E05050',
-  success: '#50C050'
+  success: '#50C050',
+  magenta: '#E040A0',
+  panelDark: '#12122A',
+  uiBorder: '#404060',
+  textDim: '#555566',
+  textLight: '#C0C0D0'
 };
 
 // --- Pixel Font Renderer ---
@@ -528,6 +533,15 @@ const FONT_DATA = {};
       '00010',
       '01110'
     ],
+    '_': [
+      '00000',
+      '00000',
+      '00000',
+      '00000',
+      '00000',
+      '00000',
+      '11111'
+    ],
     ' ': [
       '00000',
       '00000',
@@ -550,7 +564,6 @@ const FONT_DATA = {};
     FONT_DATA[ch] = bits;
   }
 
-  // Map lowercase to uppercase
   for (let i = 97; i <= 122; i++) {
     const lower = String.fromCharCode(i);
     const upper = String.fromCharCode(i - 32);
@@ -596,7 +609,7 @@ function measureText(text, scale) {
       w += (FONT_W + 1) * scale;
     }
   }
-  if (text.length > 0) w -= 1 * scale; // remove trailing spacing
+  if (text.length > 0) w -= 1 * scale;
   return { width: w, height: FONT_H * scale };
 }
 
@@ -624,9 +637,17 @@ const gameState = {
   mrr: 0,
   ap: 5,
   maxAP: 5,
-  playerRole: null,
   currentRoom: 'apartment',
   player: {
+    name: null,
+    role: null,
+    stats: {
+      sales: 0,
+      dev: 0,
+      marketing: 0,
+      hustle: 0,
+      focus: 0
+    },
     tileX: 5, tileY: 6,
     drawX: 0, drawY: 0,
     facing: 'down',
@@ -638,11 +659,85 @@ const gameState = {
     startDrawY: 0
   },
   charSelect: 0,
+  nameInput: '',
   dialogue: null,
   laptopMenu: { selected: 0 },
   dayTransition: { timer: 0, phase: 'fadeOut' },
-  titleBlink: 0
+  titleBlink: 0,
+  transition: { active: false, timer: 0, phase: 'none', targetState: null, callback: null, duration: 10 }
 };
+
+// --- Screen Transition System ---
+function transitionToScreen(targetState, callback) {
+  gameState.transition.active = true;
+  gameState.transition.timer = 0;
+  gameState.transition.phase = 'fadeOut';
+  gameState.transition.targetState = targetState;
+  gameState.transition.callback = callback || null;
+}
+
+function updateTransition(dt) {
+  const t = gameState.transition;
+  if (!t.active) return;
+  t.timer += dt;
+
+  if (t.phase === 'fadeOut') {
+    if (t.timer >= 300) {
+      gameState.screen = t.targetState;
+      if (t.callback) t.callback();
+      t.phase = 'fadeIn';
+      t.timer = 0;
+    }
+  } else if (t.phase === 'fadeIn') {
+    if (t.timer >= 300) {
+      t.active = false;
+      t.phase = 'none';
+    }
+  }
+}
+
+function drawTransitionOverlay(ctx) {
+  const t = gameState.transition;
+  if (!t.active) return;
+  let alpha = 0;
+  if (t.phase === 'fadeOut') {
+    alpha = Math.min(t.timer / 300, 1);
+  } else if (t.phase === 'fadeIn') {
+    alpha = 1 - Math.min(t.timer / 300, 1);
+  }
+  ctx.fillStyle = 'rgba(0,0,0,' + alpha + ')';
+  ctx.fillRect(0, 0, 640, 360);
+}
+
+// --- Role Data ---
+function getRoleData(roleId) {
+  const roles = {
+    seller: {
+      id: 'seller',
+      label: 'THE SELLER',
+      description: 'BORN CLOSER. YOU COULD SELL ICE TO PENGUINS.',
+      stats: { sales: 3, hustle: 2, dev: 1, marketing: 0, focus: 0 },
+      accentColor: PAL.gold
+    },
+    dev: {
+      id: 'dev',
+      label: 'THE DEV',
+      description: 'CODE IS POETRY. BUGS ARE JUST UNDOCUMENTED FEATURES.',
+      stats: { dev: 3, focus: 2, sales: 1, marketing: 0, hustle: 0 },
+      accentColor: PAL.teal
+    },
+    marketer: {
+      id: 'marketer',
+      label: 'THE MARKETER',
+      description: 'GROWTH HACKER. FUNNEL WIZARD. LINKEDIN THOUGHT LEADER.',
+      stats: { marketing: 3, hustle: 2, dev: 1, sales: 0, focus: 0 },
+      accentColor: PAL.magenta
+    }
+  };
+  return roles[roleId] || null;
+}
+
+const ROLE_IDS = ['seller', 'dev', 'marketer'];
 
 // --- Rooms ---
 const TILE = 32;
@@ -653,24 +748,20 @@ const HUD_H = 32;
 const ROOMS = {
   apartment: {
     name: 'Apartment',
-    // 0=floor, 1=wall, 2=desk/laptop, 3=bed, 4=rug, 5=whiteboard, 6=door, 7=jordan
     tiles: (function() {
       const t = [];
       for (let y = 0; y < GRID_H; y++) {
         t[y] = [];
         for (let x = 0; x < GRID_W; x++) {
-          if (y < 2) t[y][x] = 1; // wall
-          else t[y][x] = 0; // floor
+          if (y < 2) t[y][x] = 1;
+          else t[y][x] = 0;
         }
       }
-      // Furniture
-      t[3][3] = 2; // desk with laptop
-      t[2][14] = 3; t[2][15] = 3; t[3][14] = 3; t[3][15] = 3; // bed
-      t[1][6] = 5; // whiteboard on wall
-      t[9][10] = 6; // door
-      // Jordan
+      t[3][3] = 2;
+      t[2][14] = 3; t[2][15] = 3; t[3][14] = 3; t[3][15] = 3;
+      t[1][6] = 5;
+      t[9][10] = 6;
       t[5][8] = 7;
-      // Rug
       for (let ry = 6; ry <= 8; ry++) {
         for (let rx = 8; rx <= 11; rx++) {
           t[ry][rx] = 4;
@@ -680,15 +771,11 @@ const ROOMS = {
     })(),
     collisions: (function() {
       const c = new Set();
-      // Walls
       for (let x = 0; x < GRID_W; x++) {
         c.add('0,' + x); c.add('1,' + x);
       }
-      // Desk
       c.add('3,3');
-      // Bed
       c.add('2,14'); c.add('2,15'); c.add('3,14'); c.add('3,15');
-      // Jordan
       c.add('5,8');
       return c;
     })(),
@@ -715,24 +802,19 @@ function drawRoom(ctx) {
       const tile = room.tiles[y][x];
 
       if (tile === 1) {
-        // Wall
         ctx.fillStyle = PAL.wall;
         ctx.fillRect(px, py, TILE, TILE);
-        // Slight variation for texture
         ctx.fillStyle = PAL.wallLight;
         ctx.fillRect(px + 2, py + 2, 4, 4);
       } else if (tile === 0 || tile === 7) {
-        // Floor
         ctx.fillStyle = ((x + y) % 2 === 0) ? PAL.wood : PAL.woodDark;
         ctx.fillRect(px, py, TILE, TILE);
       } else if (tile === 4) {
-        // Rug
         ctx.fillStyle = PAL.rug;
         ctx.fillRect(px, py, TILE, TILE);
         ctx.fillStyle = '#B07050';
         ctx.fillRect(px + 1, py + 1, TILE - 2, TILE - 2);
       } else if (tile === 2) {
-        // Desk with laptop
         ctx.fillStyle = ((x + y) % 2 === 0) ? PAL.wood : PAL.woodDark;
         ctx.fillRect(px, py, TILE, TILE);
         ctx.fillStyle = PAL.desk;
@@ -742,7 +824,6 @@ function drawRoom(ctx) {
         ctx.fillStyle = '#80C0E0';
         ctx.fillRect(px + 8, py + 8, 14, 10);
       } else if (tile === 3) {
-        // Bed
         ctx.fillStyle = ((x + y) % 2 === 0) ? PAL.wood : PAL.woodDark;
         ctx.fillRect(px, py, TILE, TILE);
         ctx.fillStyle = PAL.bed;
@@ -750,7 +831,6 @@ function drawRoom(ctx) {
         ctx.fillStyle = '#5070B0';
         ctx.fillRect(px + 3, py + 3, TILE - 6, TILE - 6);
       } else if (tile === 5) {
-        // Whiteboard
         ctx.fillStyle = PAL.wall;
         ctx.fillRect(px, py, TILE, TILE);
         ctx.fillStyle = PAL.white;
@@ -759,7 +839,6 @@ function drawRoom(ctx) {
         ctx.fillRect(px + 6, py + 8, 20, 2);
         ctx.fillRect(px + 6, py + 14, 16, 2);
       } else if (tile === 6) {
-        // Door
         ctx.fillStyle = ((x + y) % 2 === 0) ? PAL.wood : PAL.woodDark;
         ctx.fillRect(px, py, TILE, TILE);
         ctx.fillStyle = PAL.door;
@@ -773,26 +852,20 @@ function drawRoom(ctx) {
 
 // --- Drawing: Player Sprite ---
 function drawPlayer(ctx, x, y, facing) {
-  // 16x28 character, centered in tile
   const ox = x + 8;
   const oy = y + 2;
 
-  // Body (hoodie)
   ctx.fillStyle = PAL.hoodie;
   ctx.fillRect(ox, oy + 10, 16, 14);
 
-  // Jeans
   ctx.fillStyle = PAL.jeans;
   ctx.fillRect(ox + 2, oy + 24, 5, 4);
   ctx.fillRect(ox + 9, oy + 24, 5, 4);
 
-  // Head
   ctx.fillStyle = PAL.skin;
   ctx.fillRect(ox + 3, oy + 2, 10, 8);
 
-  // Hair
   ctx.fillStyle = PAL.hair;
-
   if (facing === 'down' || facing === 'left' || facing === 'right') {
     ctx.fillRect(ox + 3, oy, 10, 4);
   }
@@ -800,13 +873,10 @@ function drawPlayer(ctx, x, y, facing) {
     ctx.fillRect(ox + 3, oy, 10, 6);
   }
 
-  // Face details
   if (facing === 'down') {
-    // Eyes
     ctx.fillStyle = PAL.black;
     ctx.fillRect(ox + 5, oy + 5, 2, 2);
     ctx.fillRect(ox + 9, oy + 5, 2, 2);
-    // Mouth
     ctx.fillRect(ox + 7, oy + 8, 2, 1);
   } else if (facing === 'left') {
     ctx.fillStyle = PAL.black;
@@ -821,59 +891,89 @@ function drawPlayer(ctx, x, y, facing) {
     ctx.fillStyle = PAL.hair;
     ctx.fillRect(ox + 3, oy + 2, 3, 6);
   }
-  // up = back of head, no face details
 
-  // Arms
   ctx.fillStyle = PAL.hoodie;
   ctx.fillRect(ox - 2, oy + 12, 4, 10);
   ctx.fillRect(ox + 14, oy + 12, 4, 10);
 
-  // Hands
   ctx.fillStyle = PAL.skin;
   ctx.fillRect(ox - 1, oy + 22, 3, 2);
   ctx.fillRect(ox + 14, oy + 22, 3, 2);
+}
+
+function drawPlayerPreview(ctx, x, y) {
+  // Draw player sprite at 2x size (32x56) facing down
+  const s = 2;
+  const ox = x;
+  const oy = y;
+
+  // Body (hoodie)
+  ctx.fillStyle = PAL.hoodie;
+  ctx.fillRect(ox, oy + 10 * s, 16 * s, 14 * s);
+
+  // Jeans
+  ctx.fillStyle = PAL.jeans;
+  ctx.fillRect(ox + 2 * s, oy + 24 * s, 5 * s, 4 * s);
+  ctx.fillRect(ox + 9 * s, oy + 24 * s, 5 * s, 4 * s);
+
+  // Head
+  ctx.fillStyle = PAL.skin;
+  ctx.fillRect(ox + 3 * s, oy + 2 * s, 10 * s, 8 * s);
+
+  // Hair
+  ctx.fillStyle = PAL.hair;
+  ctx.fillRect(ox + 3 * s, oy, 10 * s, 4 * s);
+
+  // Eyes
+  ctx.fillStyle = PAL.black;
+  ctx.fillRect(ox + 5 * s, oy + 5 * s, 2 * s, 2 * s);
+  ctx.fillRect(ox + 9 * s, oy + 5 * s, 2 * s, 2 * s);
+  // Mouth
+  ctx.fillRect(ox + 7 * s, oy + 8 * s, 2 * s, 1 * s);
+
+  // Arms
+  ctx.fillStyle = PAL.hoodie;
+  ctx.fillRect(ox - 2 * s, oy + 12 * s, 4 * s, 10 * s);
+  ctx.fillRect(ox + 14 * s, oy + 12 * s, 4 * s, 10 * s);
+
+  // Hands
+  ctx.fillStyle = PAL.skin;
+  ctx.fillRect(ox - 1 * s, oy + 22 * s, 3 * s, 2 * s);
+  ctx.fillRect(ox + 14 * s, oy + 22 * s, 3 * s, 2 * s);
 }
 
 function drawJordan(ctx, x, y) {
   const ox = x + 8;
   const oy = y + 2;
 
-  // Body
   ctx.fillStyle = PAL.jordanHoodie;
   ctx.fillRect(ox, oy + 10, 16, 14);
 
-  // Jeans
   ctx.fillStyle = PAL.jeans;
   ctx.fillRect(ox + 2, oy + 24, 5, 4);
   ctx.fillRect(ox + 9, oy + 24, 5, 4);
 
-  // Head
   ctx.fillStyle = PAL.skin;
   ctx.fillRect(ox + 3, oy + 2, 10, 8);
 
-  // Messy hair
   ctx.fillStyle = PAL.hair;
   ctx.fillRect(ox + 2, oy, 12, 4);
   ctx.fillRect(ox + 1, oy + 1, 2, 3);
   ctx.fillRect(ox + 13, oy + 1, 2, 3);
 
-  // Glasses
   ctx.fillStyle = '#A0A0B0';
   ctx.fillRect(ox + 4, oy + 4, 3, 3);
   ctx.fillRect(ox + 9, oy + 4, 3, 3);
   ctx.fillRect(ox + 7, oy + 5, 2, 1);
 
-  // Eyes behind glasses
   ctx.fillStyle = PAL.black;
   ctx.fillRect(ox + 5, oy + 5, 1, 1);
   ctx.fillRect(ox + 10, oy + 5, 1, 1);
 
-  // Arms
   ctx.fillStyle = PAL.jordanHoodie;
   ctx.fillRect(ox - 2, oy + 12, 4, 10);
   ctx.fillRect(ox + 14, oy + 12, 4, 10);
 
-  // Hands
   ctx.fillStyle = PAL.skin;
   ctx.fillRect(ox - 1, oy + 22, 3, 2);
   ctx.fillRect(ox + 14, oy + 22, 3, 2);
@@ -887,28 +987,20 @@ function formatCash(n) {
 }
 
 function drawHUD(ctx) {
-  // Background bar
   ctx.fillStyle = PAL.hudBg;
   ctx.fillRect(0, 0, 640, 28);
   ctx.fillStyle = '#2A2A3E';
   ctx.fillRect(0, 28, 640, 1);
 
-  // Day
   drawText(ctx, 'DAY ' + gameState.day, 8, 8, PAL.white, 1);
-
-  // Cash
   drawText(ctx, formatCash(gameState.cash), 140, 8, PAL.gold, 1);
-
-  // MRR
   drawText(ctx, 'MRR: ' + formatCash(gameState.mrr), 270, 8, PAL.teal, 1);
 
-  // AP pips
   const apStr = 'AP: ';
   drawText(ctx, apStr, 440, 8, PAL.white, 1);
   const apX = 440 + measureText(apStr, 1).width + 4;
   for (let i = 0; i < gameState.maxAP; i++) {
     ctx.fillStyle = i < gameState.ap ? PAL.gold : '#333344';
-    // Diamond pip
     const dx = apX + i * 12;
     const dy = 11;
     ctx.beginPath();
@@ -927,15 +1019,20 @@ const keysDown = {};
 function handleInput(e) {
   keysDown[e.code] = true;
 
-  // Prevent scrolling
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab'].includes(e.key) ||
       ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab'].includes(e.code)) {
     e.preventDefault();
   }
 
+  // Block input during transitions
+  if (gameState.transition.active) return;
+
   switch (gameState.screen) {
     case 'title':
       handleTitleInput(e.code);
+      break;
+    case 'nameEntry':
+      handleNameEntryInput(e);
       break;
     case 'characterCreation':
       handleCharCreationInput(e.code);
@@ -962,8 +1059,7 @@ window.addEventListener('keyup', handleInputUp);
 // --- Title Screen ---
 function handleTitleInput(key) {
   if (key === 'Space' || key === 'Enter') {
-    gameState.screen = 'characterCreation';
-    gameState.charSelect = 1; // default to middle
+    transitionToScreen('nameEntry');
   }
 }
 
@@ -971,17 +1067,14 @@ function drawTitleScreen(ctx) {
   ctx.fillStyle = PAL.bg;
   ctx.fillRect(0, 0, 640, 360);
 
-  // Title
   const title = 'SAAS QUEST';
   const tw = measureText(title, 5);
   drawText(ctx, title, Math.floor((640 - tw.width) / 2), 80, PAL.gold, 5);
 
-  // Subtitle
   const sub = 'Startup Simulator';
   const sw = measureText(sub, 2);
   drawText(ctx, sub, Math.floor((640 - sw.width) / 2), 140, PAL.teal, 2);
 
-  // Blinking PRESS START
   gameState.titleBlink += 1;
   if (Math.floor(gameState.titleBlink / 30) % 2 === 0) {
     const ps = 'PRESS START';
@@ -989,77 +1082,227 @@ function drawTitleScreen(ctx) {
     drawText(ctx, ps, Math.floor((640 - pw.width) / 2), 260, PAL.white, 2);
   }
 
-  // Credits line
   const cr = 'GTM STUDIO 2026';
   const cw = measureText(cr, 1);
   drawText(ctx, cr, Math.floor((640 - cw.width) / 2), 330, '#555566', 1);
 }
 
-// --- Character Creation ---
-const ROLES = [
-  {
-    name: 'HACKER',
-    stats: ['+2 Dev Speed', '+1 Debug Luck', '-1 Sales'],
-    color: '#40A0A0',
-    icon: 'laptop'
-  },
-  {
-    name: 'DESIGNER',
-    stats: ['+2 Product Quality', '+1 UX', '-1 Dev Speed'],
-    color: '#A060C0',
-    icon: 'brush'
-  },
-  {
-    name: 'HUSTLER',
-    stats: ['+2 Sales', '+1 Networking', '-1 Dev Speed'],
-    color: '#C0A040',
-    icon: 'megaphone'
-  }
-];
+// --- Name Entry Screen ---
+function handleNameEntryInput(e) {
+  const key = e.key;
 
-function handleCharCreationInput(key) {
-  if (key === 'ArrowLeft' || key === 'KeyA') {
-    gameState.charSelect = Math.max(0, gameState.charSelect - 1);
-  } else if (key === 'ArrowRight' || key === 'KeyD') {
-    gameState.charSelect = Math.min(2, gameState.charSelect + 1);
-  } else if (key === 'Space' || key === 'Enter') {
-    gameState.playerRole = ROLES[gameState.charSelect].name.toLowerCase();
-    gameState.screen = 'play';
-    // Reset player position
-    const room = ROOMS[gameState.currentRoom];
-    gameState.player.tileX = room.playerSpawn.x;
-    gameState.player.tileY = room.playerSpawn.y;
-    gameState.player.targetTileX = room.playerSpawn.x;
-    gameState.player.targetTileY = room.playerSpawn.y;
-    gameState.player.drawX = room.playerSpawn.x * TILE;
-    gameState.player.drawY = room.playerSpawn.y * TILE + HUD_H;
-    gameState.player.startDrawX = gameState.player.drawX;
-    gameState.player.startDrawY = gameState.player.drawY;
-    gameState.player.moving = false;
+  if (key === 'Enter') {
+    if (gameState.nameInput.length >= 1) {
+      gameState.player.name = gameState.nameInput;
+      gameState.charSelect = 1;
+      transitionToScreen('characterCreation');
+    }
+    return;
+  }
+
+  if (key === 'Backspace') {
+    if (gameState.nameInput.length > 0) {
+      gameState.nameInput = gameState.nameInput.slice(0, -1);
+    }
+    return;
+  }
+
+  // Only accept letters A-Z
+  if (key.length === 1 && /^[a-zA-Z]$/.test(key)) {
+    if (gameState.nameInput.length < 10) {
+      gameState.nameInput += key.toUpperCase();
+    }
   }
 }
 
-function drawRoleIcon(ctx, type, cx, cy) {
-  if (type === 'laptop') {
-    ctx.fillStyle = PAL.laptop;
-    ctx.fillRect(cx - 16, cy - 8, 32, 20);
-    ctx.fillStyle = '#80C0E0';
-    ctx.fillRect(cx - 13, cy - 5, 26, 14);
-    ctx.fillStyle = '#666';
-    ctx.fillRect(cx - 20, cy + 13, 40, 3);
-  } else if (type === 'brush') {
-    ctx.fillStyle = '#C09060';
-    ctx.fillRect(cx - 2, cy - 14, 4, 22);
-    ctx.fillStyle = '#E06060';
-    ctx.fillRect(cx - 5, cy + 6, 10, 8);
-    ctx.fillStyle = '#A04040';
-    ctx.fillRect(cx - 3, cy + 8, 6, 4);
-  } else if (type === 'megaphone') {
-    ctx.fillStyle = '#D0A040';
+function drawNameEntry(ctx) {
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+
+  // Header
+  const hdr = "WHAT'S YOUR NAME?";
+  const hw = measureText(hdr, 3);
+  drawText(ctx, hdr, Math.floor((640 - hw.width) / 2), 80, PAL.gold, 3);
+
+  // Input box
+  const boxW = 280;
+  const boxH = 50;
+  const boxX = Math.floor((640 - boxW) / 2);
+  const boxY = 150;
+
+  ctx.fillStyle = PAL.panelDark;
+  ctx.fillRect(boxX, boxY, boxW, boxH);
+  ctx.strokeStyle = PAL.uiBorder;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+  // Name text
+  const nameStr = gameState.nameInput;
+  const nameScale = 3;
+  const nameW = measureText(nameStr, nameScale);
+  const nameX = boxX + Math.floor((boxW - nameW.width) / 2);
+  const nameY = boxY + Math.floor((boxH - FONT_H * nameScale) / 2);
+
+  if (nameStr.length > 0) {
+    drawText(ctx, nameStr, nameX, nameY, PAL.gold, nameScale);
+  }
+
+  // Blinking cursor
+  const cursorBlink = Math.floor(Date.now() / 500) % 2 === 0;
+  if (cursorBlink) {
+    let cursorX;
+    if (nameStr.length > 0) {
+      cursorX = nameX + nameW.width + 2 * nameScale;
+    } else {
+      cursorX = boxX + Math.floor(boxW / 2) - 3 * nameScale;
+    }
+    drawText(ctx, '_', cursorX, nameY, PAL.gold, nameScale);
+  }
+
+  // Instructions
+  const inst = 'TYPE YOUR NAME AND PRESS ENTER';
+  const iw = measureText(inst, 1);
+  drawText(ctx, inst, Math.floor((640 - iw.width) / 2), 230, PAL.textDim, 1);
+
+  const inst2 = 'A-Z ONLY  -  10 CHARACTERS MAX';
+  const iw2 = measureText(inst2, 1);
+  drawText(ctx, inst2, Math.floor((640 - iw2.width) / 2), 250, PAL.textDim, 1);
+}
+
+// --- Character Creation ---
+function handleCharCreationInput(key) {
+  if (key === 'ArrowLeft' || key === 'KeyA') {
+    gameState.charSelect--;
+    if (gameState.charSelect < 0) gameState.charSelect = 2;
+  } else if (key === 'ArrowRight' || key === 'KeyD') {
+    gameState.charSelect++;
+    if (gameState.charSelect > 2) gameState.charSelect = 0;
+  } else if (key === 'Space' || key === 'Enter') {
+    const roleId = ROLE_IDS[gameState.charSelect];
+    const roleData = getRoleData(roleId);
+    gameState.player.role = roleId;
+    gameState.player.stats = Object.assign({}, roleData.stats);
+
+    transitionToScreen('play', function() {
+      const room = ROOMS[gameState.currentRoom];
+      gameState.player.tileX = room.playerSpawn.x;
+      gameState.player.tileY = room.playerSpawn.y;
+      gameState.player.targetTileX = room.playerSpawn.x;
+      gameState.player.targetTileY = room.playerSpawn.y;
+      gameState.player.drawX = room.playerSpawn.x * TILE;
+      gameState.player.drawY = room.playerSpawn.y * TILE + HUD_H;
+      gameState.player.startDrawX = gameState.player.drawX;
+      gameState.player.startDrawY = gameState.player.drawY;
+      gameState.player.moving = false;
+    });
+  } else if (key === 'Escape' || key === 'Backspace') {
+    transitionToScreen('nameEntry');
+  }
+}
+
+function drawStatBar(ctx, x, y, label, value, maxValue, color) {
+  drawText(ctx, label, x, y, PAL.textLight, 1);
+  const barX = x + 52;
+  const barW = 60;
+  const barH = 6;
+  const barY = y + 1;
+
+  // Background
+  ctx.fillStyle = PAL.panelDark;
+  ctx.fillRect(barX, barY, barW, barH);
+
+  // Filled portion
+  if (value > 0) {
+    const fillW = Math.floor((value / maxValue) * barW);
+    ctx.fillStyle = color;
+    ctx.fillRect(barX, barY, fillW, barH);
+  }
+}
+
+function drawRoleCard(ctx, x, y, role, isSelected) {
+  const cardW = 170;
+  const cardH = 210;
+
+  const yOff = isSelected ? -4 : 0;
+  const dy = y + yOff;
+
+  // Card background
+  ctx.fillStyle = isSelected ? '#2A2A4E' : PAL.panelDark;
+  ctx.fillRect(x, dy, cardW, cardH);
+
+  // Border
+  ctx.strokeStyle = isSelected ? role.accentColor : PAL.textDim;
+  ctx.lineWidth = isSelected ? 3 : 1;
+  ctx.strokeRect(x, dy, cardW, cardH);
+
+  // Role icon (simple 32x32 pixel art)
+  const iconCx = x + Math.floor(cardW / 2);
+  const iconCy = dy + 40;
+  drawRoleIcon(ctx, role.id, iconCx, iconCy, role.accentColor);
+
+  // Role name
+  const nw = measureText(role.label, 2);
+  drawText(ctx, role.label, x + Math.floor((cardW - nw.width) / 2), dy + 65, role.accentColor, 2);
+
+  // Description (word-wrapped)
+  const descLines = wrapText(role.description, cardW - 20, 1);
+  for (let i = 0; i < descLines.length; i++) {
+    const dw = measureText(descLines[i], 1);
+    drawText(ctx, descLines[i], x + Math.floor((cardW - dw.width) / 2), dy + 90 + i * 12, PAL.textLight, 1);
+  }
+
+  // Stat bars
+  const statsOrder = ['sales', 'dev', 'marketing', 'hustle', 'focus'];
+  const statLabels = { sales: 'SALES', dev: 'DEV', marketing: 'MKT', hustle: 'HSTL', focus: 'FOCUS' };
+  const statStartY = dy + 130;
+  for (let i = 0; i < statsOrder.length; i++) {
+    const stat = statsOrder[i];
+    const val = role.stats[stat];
+    drawStatBar(ctx, x + 14, statStartY + i * 14, statLabels[stat], val, 3, role.accentColor);
+  }
+}
+
+function drawRoleIcon(ctx, type, cx, cy, color) {
+  if (type === 'seller') {
+    // Dollar sign / handshake icon
+    ctx.fillStyle = color;
+    ctx.fillRect(cx - 8, cy - 12, 16, 24);
+    ctx.fillStyle = PAL.panelDark;
+    ctx.fillRect(cx - 5, cy - 9, 10, 18);
+    ctx.fillStyle = color;
+    // $ sign
+    ctx.fillRect(cx - 1, cy - 12, 2, 24);
+    ctx.fillRect(cx - 5, cy - 6, 10, 2);
+    ctx.fillRect(cx - 5, cy + 4, 10, 2);
+    ctx.fillRect(cx - 5, cy - 6, 3, 6);
+    ctx.fillRect(cx + 2, cy, 3, 6);
+  } else if (type === 'dev') {
+    // Code brackets < / >
+    ctx.fillStyle = color;
+    // <
+    ctx.fillRect(cx - 12, cy - 4, 3, 2);
+    ctx.fillRect(cx - 9, cy - 6, 3, 2);
+    ctx.fillRect(cx - 9, cy - 2, 3, 2);
+    ctx.fillRect(cx - 6, cy - 8, 3, 2);
+    ctx.fillRect(cx - 6, cy, 3, 2);
+    // >
+    ctx.fillRect(cx + 9, cy - 4, 3, 2);
+    ctx.fillRect(cx + 6, cy - 6, 3, 2);
+    ctx.fillRect(cx + 6, cy - 2, 3, 2);
+    ctx.fillRect(cx + 3, cy - 8, 3, 2);
+    ctx.fillRect(cx + 3, cy, 3, 2);
+    // /
+    ctx.fillRect(cx - 1, cy - 8, 2, 2);
+    ctx.fillRect(cx, cy - 5, 2, 2);
+    ctx.fillRect(cx - 1, cy - 2, 2, 2);
+    ctx.fillRect(cx, cy + 1, 2, 2);
+  } else if (type === 'marketer') {
+    // Megaphone
+    ctx.fillStyle = color;
     ctx.fillRect(cx - 4, cy - 4, 10, 8);
     ctx.fillRect(cx + 6, cy - 8, 6, 16);
-    ctx.fillRect(cx + 12, cy - 12, 6, 24);
-    ctx.fillStyle = '#B08030';
+    ctx.fillRect(cx + 12, cy - 12, 4, 24);
+    ctx.fillStyle = '#B03080';
     ctx.fillRect(cx - 8, cy - 2, 6, 4);
   }
 }
@@ -1068,51 +1311,36 @@ function drawCharacterCreation(ctx) {
   ctx.fillStyle = PAL.bg;
   ctx.fillRect(0, 0, 640, 360);
 
-  // Header
-  const hdr = 'CHOOSE YOUR ROLE';
+  // Header with player name
+  const name = gameState.player.name || 'PLAYER';
+  const hdr = name + ', CHOOSE YOUR PATH';
   const hw = measureText(hdr, 2);
-  drawText(ctx, hdr, Math.floor((640 - hw.width) / 2), 20, PAL.gold, 2);
+  drawText(ctx, hdr, Math.floor((640 - hw.width) / 2), 12, PAL.gold, 2);
 
+  // Player preview on the left
+  drawPlayerPreview(ctx, 30, 80);
+  // Player name under preview
+  const pnw = measureText(name, 1);
+  drawPlayerPreviewName(ctx, 30, name);
+
+  // Three role cards
   const cardW = 170;
-  const cardH = 220;
-  const gap = 20;
+  const gap = 12;
   const totalW = cardW * 3 + gap * 2;
-  const startX = Math.floor((640 - totalW) / 2);
-  const cardY = 60;
+  const startX = Math.floor((640 - totalW) / 2) + 20;
+  const cardY = 45;
 
   for (let i = 0; i < 3; i++) {
-    const role = ROLES[i];
+    const roleId = ROLE_IDS[i];
+    const role = getRoleData(roleId);
     const cx = startX + i * (cardW + gap);
     const selected = i === gameState.charSelect;
+    drawRoleCard(ctx, cx, cardY, role, selected);
 
-    // Card background
-    ctx.fillStyle = selected ? '#2A2A4E' : '#1A1A2E';
-    ctx.fillRect(cx, cardY, cardW, cardH);
-
-    // Border
-    ctx.strokeStyle = selected ? PAL.gold : '#404060';
-    ctx.lineWidth = selected ? 3 : 1;
-    ctx.strokeRect(cx, cardY, cardW, cardH);
-
-    // Role icon
-    drawRoleIcon(ctx, role.icon, cx + cardW / 2, cardY + 50);
-
-    // Role name
-    const nw = measureText(role.name, 2);
-    drawText(ctx, role.name, cx + Math.floor((cardW - nw.width) / 2), cardY + 90, role.color, 2);
-
-    // Stats
-    for (let s = 0; s < role.stats.length; s++) {
-      const stat = role.stats[s];
-      const col = stat.startsWith('+') ? PAL.success : PAL.danger;
-      const stw = measureText(stat, 1);
-      drawText(ctx, stat, cx + Math.floor((cardW - stw.width) / 2), cardY + 130 + s * 18, col, 1);
-    }
-
-    // Selection arrow
+    // Selection arrow below selected card
     if (selected) {
-      const arrowY = cardY + cardH + 8;
-      ctx.fillStyle = PAL.gold;
+      const arrowY = cardY + 210 + 6;
+      ctx.fillStyle = role.accentColor;
       ctx.beginPath();
       ctx.moveTo(cx + cardW / 2, arrowY + 8);
       ctx.lineTo(cx + cardW / 2 - 6, arrowY);
@@ -1122,14 +1350,21 @@ function drawCharacterCreation(ctx) {
     }
   }
 
-  // Instruction
-  const inst = 'Arrow Keys to Select  -  Enter to Confirm';
+  // Instructions
+  const inst = 'Arrow Keys to Select  -  Enter to Confirm  -  ESC to Go Back';
   const iw = measureText(inst, 1);
-  drawText(ctx, inst, Math.floor((640 - iw.width) / 2), 320, '#888899', 1);
+  drawText(ctx, inst, Math.floor((640 - iw.width) / 2), 340, PAL.textDim, 1);
+}
+
+function drawPlayerPreviewName(ctx, previewX, name) {
+  const pnw = measureText(name, 1);
+  // Center name under the preview sprite (sprite is 36px wide at 2x)
+  const spriteW = 36;
+  drawText(ctx, name, previewX + Math.floor((spriteW - pnw.width) / 2), 145, PAL.textLight, 1);
 }
 
 // --- Tile Movement ---
-const MOVE_SPEED = 150; // ms for one tile move
+const MOVE_SPEED = 150;
 
 function handlePlayInput(key) {
   if (key === 'KeyE' || key === 'Space') {
@@ -1145,7 +1380,6 @@ function updateMovement(dt) {
   if (p.moving) {
     p.moveProgress += dt;
     const t = Math.min(p.moveProgress / MOVE_SPEED, 1);
-    // Ease in-out
     const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     const targetDrawX = p.targetTileX * TILE;
     const targetDrawY = p.targetTileY * TILE + HUD_H;
@@ -1160,10 +1394,9 @@ function updateMovement(dt) {
       p.moving = false;
       p.moveProgress = 0;
     }
-    return; // No new moves while interpolating
+    return;
   }
 
-  // Check for held keys
   let dx = 0, dy = 0, newFacing = null;
   if (keysDown['ArrowUp'] || keysDown['KeyW']) { dy = -1; newFacing = 'up'; }
   else if (keysDown['ArrowDown'] || keysDown['KeyS']) { dy = 1; newFacing = 'down'; }
@@ -1202,7 +1435,6 @@ function checkInteraction() {
   const ft = getFacingTile();
   const room = ROOMS[gameState.currentRoom];
 
-  // Check Jordan
   if (room.jordan && ft.x === room.jordan.x && ft.y === room.jordan.y) {
     showDialogue('Jordan', [
       "Hey. You're finally up.",
@@ -1212,23 +1444,10 @@ function checkInteraction() {
     return;
   }
 
-  // Check laptop
   if (room.laptop && ft.x === room.laptop.x && ft.y === room.laptop.y) {
     showLaptopMenu();
     return;
   }
-}
-
-function isAdjacentTo(targetX, targetY) {
-  const p = gameState.player;
-  const dx = Math.abs(p.tileX - targetX);
-  const dy = Math.abs(p.tileY - targetY);
-  return (dx + dy === 1);
-}
-
-function isFacing(targetX, targetY) {
-  const ft = getFacingTile();
-  return ft.x === targetX && ft.y === targetY;
 }
 
 function drawInteractionPrompt(ctx) {
@@ -1237,7 +1456,6 @@ function drawInteractionPrompt(ctx) {
   const room = ROOMS[gameState.currentRoom];
   const ft = getFacingTile();
 
-  // Jordan prompt
   if (room.jordan && ft.x === room.jordan.x && ft.y === room.jordan.y) {
     const px = room.jordan.x * TILE + TILE / 2;
     const py = room.jordan.y * TILE + HUD_H - 8;
@@ -1246,7 +1464,6 @@ function drawInteractionPrompt(ctx) {
     drawText(ctx, txt, Math.floor(px - tw.width / 2), py, PAL.gold, 1);
   }
 
-  // Laptop prompt
   if (room.laptop && ft.x === room.laptop.x && ft.y === room.laptop.y) {
     const px = room.laptop.x * TILE + TILE / 2;
     const py = room.laptop.y * TILE + HUD_H - 8;
@@ -1306,26 +1523,21 @@ function drawDialogue(ctx) {
   const boxX = 16;
   const boxW = 640 - 32;
 
-  // Background
   ctx.fillStyle = '#1A1A3A';
   ctx.fillRect(boxX, boxY, boxW, boxH);
 
-  // Border
   ctx.strokeStyle = '#4040A0';
   ctx.lineWidth = 2;
   ctx.strokeRect(boxX, boxY, boxW, boxH);
 
-  // Speaker name
   drawText(ctx, gameState.dialogue.speaker, boxX + 10, boxY + 6, PAL.gold, 1);
 
-  // Text
   const line = gameState.dialogue.lines[gameState.dialogue.currentLine];
   const wrapped = wrapText(line, boxW - 24, 1);
   for (let i = 0; i < wrapped.length; i++) {
     drawText(ctx, wrapped[i], boxX + 10, boxY + 22 + i * 14, PAL.text, 1);
   }
 
-  // Continue indicator
   const blink = Math.floor(Date.now() / 400) % 2;
   if (blink === 0) {
     ctx.fillStyle = PAL.text;
@@ -1348,14 +1560,14 @@ function handleLaptopInput(key) {
     gameState.laptopMenu.selected = Math.min(LAPTOP_OPTIONS.length - 1, gameState.laptopMenu.selected + 1);
   } else if (key === 'Enter' || key === 'Space') {
     if (gameState.laptopMenu.selected === 0) {
-      // End Day
       advanceDay();
     } else {
-      // Check Stats — stub: just show dialogue
       gameState.screen = 'play';
+      const playerName = gameState.player.name || 'PLAYER';
+      const role = gameState.player.role ? gameState.player.role.toUpperCase() : 'NONE';
       showDialogue('Laptop', [
         'Day ' + gameState.day + ' | Cash: ' + formatCash(gameState.cash) + ' | MRR: ' + formatCash(gameState.mrr),
-        'Role: ' + (gameState.playerRole ? gameState.playerRole.toUpperCase() : 'NONE'),
+        playerName + ' | Role: ' + role,
         'Keep hustling!'
       ]);
     }
@@ -1365,7 +1577,6 @@ function handleLaptopInput(key) {
 }
 
 function drawLaptopMenu(ctx) {
-  // Overlay
   ctx.fillStyle = 'rgba(0,0,0,0.7)';
   ctx.fillRect(0, 0, 640, 360);
 
@@ -1374,19 +1585,16 @@ function drawLaptopMenu(ctx) {
   const mx = Math.floor((640 - menuW) / 2);
   const my = Math.floor((360 - menuH) / 2);
 
-  // Menu bg
   ctx.fillStyle = '#1A1A3A';
   ctx.fillRect(mx, my, menuW, menuH);
   ctx.strokeStyle = PAL.teal;
   ctx.lineWidth = 2;
   ctx.strokeRect(mx, my, menuW, menuH);
 
-  // Title
   const title = 'LAPTOP';
   const tw = measureText(title, 2);
   drawText(ctx, title, mx + Math.floor((menuW - tw.width) / 2), my + 10, PAL.teal, 2);
 
-  // Options
   for (let i = 0; i < LAPTOP_OPTIONS.length; i++) {
     const opt = LAPTOP_OPTIONS[i];
     const selected = i === gameState.laptopMenu.selected;
@@ -1399,7 +1607,6 @@ function drawLaptopMenu(ctx) {
     drawText(ctx, opt, mx + 28, oy, selected ? PAL.gold : PAL.text, 1);
   }
 
-  // Footer
   drawText(ctx, 'ESC to close', mx + 10, my + menuH - 16, '#555566', 1);
 }
 
@@ -1426,7 +1633,6 @@ function updateDayTransition(dt) {
   t.timer += dt;
 
   if (t.phase === 'fadeOut' && t.timer >= 400) {
-    // Advance the day
     gameState.day++;
     resetAP();
     t.phase = 'splash';
@@ -1443,9 +1649,7 @@ function drawDayTransition(ctx) {
   const t = gameState.dayTransition;
 
   if (t.phase === 'fadeOut') {
-    // Draw current scene underneath
     drawPlayScreen(ctx);
-    // Fade overlay
     const alpha = Math.min(t.timer / 400, 1);
     ctx.fillStyle = 'rgba(0,0,0,' + alpha + ')';
     ctx.fillRect(0, 0, 640, 360);
@@ -1456,7 +1660,6 @@ function drawDayTransition(ctx) {
     const dw = measureText(dayStr, 4);
     drawText(ctx, dayStr, Math.floor((640 - dw.width) / 2), 140, PAL.gold, 4);
 
-    // Week indicator
     const weekStr = 'Week ' + gameState.day;
     const ww = measureText(weekStr, 2);
     drawText(ctx, weekStr, Math.floor((640 - ww.width) / 2), 200, PAL.teal, 2);
@@ -1470,22 +1673,17 @@ function drawDayTransition(ctx) {
 
 // --- Play Screen ---
 function drawPlayScreen(ctx) {
-  // Room
   drawRoom(ctx);
 
-  // Jordan
   const room = ROOMS[gameState.currentRoom];
   if (room.jordan) {
     drawJordan(ctx, room.jordan.x * TILE, room.jordan.y * TILE + HUD_H);
   }
 
-  // Player
   drawPlayer(ctx, gameState.player.drawX, gameState.player.drawY, gameState.player.facing);
 
-  // HUD
   drawHUD(ctx);
 
-  // Interaction prompts
   drawInteractionPrompt(ctx);
 }
 
@@ -1496,7 +1694,7 @@ function gameLoop(timestamp) {
   if (!lastTime) lastTime = timestamp;
   let dt = timestamp - lastTime;
   lastTime = timestamp;
-  if (dt > 50) dt = 50; // cap
+  if (dt > 50) dt = 50;
 
   update(dt);
   draw(ctx);
@@ -1504,6 +1702,9 @@ function gameLoop(timestamp) {
 }
 
 function update(dt) {
+  // Always update transitions
+  updateTransition(dt);
+
   switch (gameState.screen) {
     case 'play':
       updateMovement(dt);
@@ -1515,13 +1716,15 @@ function update(dt) {
 }
 
 function draw(ctx) {
-  // Clear
   ctx.fillStyle = PAL.bg;
   ctx.fillRect(0, 0, 640, 360);
 
   switch (gameState.screen) {
     case 'title':
       drawTitleScreen(ctx);
+      break;
+    case 'nameEntry':
+      drawNameEntry(ctx);
       break;
     case 'characterCreation':
       drawCharacterCreation(ctx);
@@ -1541,6 +1744,9 @@ function draw(ctx) {
       drawDayTransition(ctx);
       break;
   }
+
+  // Draw transition overlay on top of everything
+  drawTransitionOverlay(ctx);
 }
 
 // --- Init ---
