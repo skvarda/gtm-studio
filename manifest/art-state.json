@@ -1,11 +1,26 @@
 {
   "version": 1,
-  "last_updated_round": 0,
+  "last_updated_round": 7,
   "palette": {
-    "primary": { "amber": "#D4A04A", "teal": "#4A8C8C" },
-    "background": { "dark": "#1A1A2E", "medium": "#2D2D44" },
-    "accent": { "gold": "#F0C040", "green": "#58B868", "red": "#E94560" },
-    "skin_tones": ["#F5D6B8", "#D4A574", "#8D5524", "#4A2C17"],
+    "primary": {
+      "amber": "#D4A04A",
+      "teal": "#4A8C8C"
+    },
+    "background": {
+      "dark": "#1A1A2E",
+      "medium": "#2D2D44"
+    },
+    "accent": {
+      "gold": "#F0C040",
+      "green": "#58B868",
+      "red": "#E94560"
+    },
+    "skin_tones": [
+      "#F5D6B8",
+      "#D4A574",
+      "#8D5524",
+      "#4A2C17"
+    ],
     "note": "SNES-era warm. Chrono Trigger interiors. Harvest Moon warmth."
   },
   "assets": {},

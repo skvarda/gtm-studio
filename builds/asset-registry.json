@@ -1,19 +1,19 @@
 {
   "version": 1,
-  "lastUpdated": "round-30",
+  "lastUpdated": "round-7",
   "assets": {
     "npc_jordan_idle": {
-      "file": "npc_jordan_idle_v1.png",
-      "original_file": "npc_jordan_idle_v1_original.png",
-      "version": 1,
+      "file": "npc_jordan_idle_v2.png",
+      "original_file": "npc_jordan_idle_v2_original.png",
+      "version": 2,
       "status": "pending",
-      "prompt": "16-bit pixel art character sprite, SNES Harvest Moon and Chrono Trigger style, young tech founder with messy dark brown hair and round glasses, wearing a muted teal hoodie and blue jeans, neutral friendly expression, facing forward, warm amber skin tone, transparent background, 2px black outline, clean flat shading with 3-tone depth, retro nostalgic feel, SD proportions with large head, inspired by Harvest Moon 64 and Stardew Valley character design",
-      "style_notes": "Warm peach skin (#f5c78e), teal hoodie (#4a7c7e), dark brown hair (#2c1a0e). Harvest Moon SD proportions — head ~40% of height. Light source upper-left. Max 16 colors total.",
+      "prompt": "16-bit pixel art character sprite, SNES Stardew Valley style, mysterious co-founder with glasses and messy brown hair, wearing casual hoodie, crossed arms pose suggesting thoughtful contemplation, warm amber and teal palette with muted colors, transparent background, clean linework, retro nostalgic feel",
+      "style_notes": "Glasses and thoughtful posture must read clearly at target size, mysterious but approachable vibe",
       "revision_notes": "",
       "target_width": 32,
       "target_height": 48,
       "created_round": 28,
-      "last_modified_round": 28
+      "last_modified_round": 7
     },
     "tile_office_floor": {
       "file": "tile_office_floor_v1.png",
@@ -92,6 +92,58 @@
       "target_height": 16,
       "created_round": 30,
       "last_modified_round": 30
+    },
+    "tile_apartment_floor": {
+      "file": "tile_apartment_floor_v1.png",
+      "original_file": "tile_apartment_floor_v1_original.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art floor tile, SNES style, warm wooden apartment flooring with subtle grain texture, amber and brown tones, seamless tiling pattern, cozy indoor lighting, transparent background, retro nostalgic feel",
+      "style_notes": "Must tile seamlessly, warm wood grain visible but not distracting",
+      "revision_notes": "",
+      "target_width": 16,
+      "target_height": 16,
+      "created_round": 7,
+      "last_modified_round": 7
+    },
+    "tile_apartment_wall": {
+      "file": "tile_apartment_wall_v1.png",
+      "original_file": "tile_apartment_wall_v1_original.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art wall tile, SNES style, neutral apartment wall with subtle texture, warm beige and amber tones with teal shadows, indoor lighting, transparent background, clean linework, retro nostalgic feel",
+      "style_notes": "Clean wall surface that won't compete with foreground objects, warm startup apartment vibe",
+      "revision_notes": "",
+      "target_width": 16,
+      "target_height": 16,
+      "created_round": 7,
+      "last_modified_round": 7
+    },
+    "object_laptop": {
+      "file": "object_laptop_v1.png",
+      "original_file": "object_laptop_v1_original.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art laptop object, SNES style, modern silver laptop with glowing amber screen, viewed from 3/4 top-down angle, warm amber accent light from screen, teal shadows, transparent background, clean linework, retro nostalgic feel",
+      "style_notes": "Screen glow must be visible as interactive element, laptop shape clearly readable from top-down view",
+      "revision_notes": "",
+      "target_width": 32,
+      "target_height": 24,
+      "created_round": 7,
+      "last_modified_round": 7
+    },
+    "player_base_idle": {
+      "file": "player_base_idle_v1.png",
+      "original_file": "player_base_idle_v1_original.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art character sprite, SNES Stardew Valley style, tech startup founder wearing dark hoodie with tired but determined expression, messy hair, holding coffee mug, warm amber and teal palette, transparent background, clean linework, retro nostalgic feel",
+      "style_notes": "Coffee mug and hoodie must read clearly, tired eyes but determined posture, relatable startup founder vibe",
+      "revision_notes": "",
+      "target_width": 32,
+      "target_height": 48,
+      "created_round": 7,
+      "last_modified_round": 7
     }
   }
 }
