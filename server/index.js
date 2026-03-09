@@ -381,9 +381,22 @@ function extractHtmlAndReport(rawOutput) {
   let gameHtml = rawOutput;
   let buildReport = '';
 
+  // Layer 0: If output is wrapped in tool_use/tool_call XML, extract the HTML content from the JSON field
+  const toolContentMatch = rawOutput.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (toolContentMatch && toolContentMatch[1].includes('<!DOCTYPE')) {
+    try {
+      gameHtml = JSON.parse('"' + toolContentMatch[1] + '"');
+    } catch(e) {
+      // JSON unescape failed, fall through to normal extraction
+    }
+  }
+
   // Extract build report from raw output first (before fence stripping mangles markers)
-  const reportMatch = rawOutput.match(/<!-- BUILD_REPORT_START -->([\s\S]*?)<!-- BUILD_REPORT_END -->/);
-  if (reportMatch) {
+  const reportMatch = gameHtml.match(/<!-- BUILD_REPORT_START -->([\s\S]*?)<!-- BUILD_REPORT_END -->/);
+  if (!reportMatch) {
+    const rawReportMatch = rawOutput.match(/<!-- BUILD_REPORT_START -->([\s\S]*?)<!-- BUILD_REPORT_END -->/);
+    if (rawReportMatch) buildReport = rawReportMatch[1].trim();
+  } else {
     buildReport = reportMatch[1].trim();
   }
 
