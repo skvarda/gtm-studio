@@ -173,8 +173,8 @@ function validateEngineOutput(html, protectedSystems, previousHtml) {
     }
   }
 
-  // 3. Size sanity — skip ratio check for early builds under 5000 chars
-  if (previousHtml && previousHtml.length >= 5000) {
+  // 3. Size sanity
+  if (previousHtml && previousHtml.length >= 1000) {
     const ratio = html.length / previousHtml.length;
     if (ratio < 0.5) errors.push(`SIZE_SHRUNK: Output is ${Math.round(ratio * 100)}% of previous size — possible truncation`);
     if (ratio > 3.0) errors.push(`SIZE_BLOATED: Output is ${Math.round(ratio * 100)}% of previous size — suspicious`);
@@ -381,47 +381,35 @@ function extractHtmlAndReport(rawOutput) {
   let gameHtml = rawOutput;
   let buildReport = '';
 
-  // Extract build report from raw output first (before fence stripping mangles markers)
-  const reportMatch = rawOutput.match(/<!-- BUILD_REPORT_START -->([\s\S]*?)<!-- BUILD_REPORT_END -->/);
-  if (reportMatch) {
-    buildReport = reportMatch[1].trim();
+  // Layer 1: Strip markdown code fences that Claude sometimes wraps around HTML output
+  // Remove everything up to and including the opening ```html fence
+  if (/```(?:html)?\s*\n/i.test(gameHtml)) {
+    gameHtml = gameHtml.replace(/^[\s\S]*?```(?:html)?\s*\n/i, '');
+    // Remove closing fence and anything after it
+    gameHtml = gameHtml.replace(/\n\s*```\s*[\s\S]*$/, '');
   }
 
-  // Layer 1: Aggressively strip markdown fences (with or without language tag, multiple blocks)
-  gameHtml = gameHtml.replace(/^\s*```(?:html)?\s*\n?/gim, '').replace(/\n?\s*```\s*$/gim, '');
-
-  // Layer 2: Find HTML boundaries — first <!DOCTYPE or <html, last </html>
-  const doctypeIndex = gameHtml.search(/<!DOCTYPE/i);
-  const htmlOpenIndex = gameHtml.search(/<html/i);
-  const startIndex = doctypeIndex !== -1 ? doctypeIndex : htmlOpenIndex;
+  // Layer 2: Strip conversational preamble before <!DOCTYPE or <html
+  const doctypeIndex = gameHtml.indexOf('<!DOCTYPE');
+  const htmlIndex = gameHtml.indexOf('<html');
+  const startIndex = doctypeIndex !== -1 ? doctypeIndex : htmlIndex;
   if (startIndex > 0) {
     gameHtml = gameHtml.substring(startIndex);
   }
 
-  // Trim after last </html>
-  const lastClose = gameHtml.lastIndexOf('</html>');
-  if (lastClose !== -1) {
-    gameHtml = gameHtml.substring(0, lastClose + '</html>'.length);
-  }
-
-  // Layer 3: If still not starting with valid HTML, try regex extraction
+  // Layer 3: If still not starting with valid HTML, try regex extraction as last resort
   if (!gameHtml.trim().startsWith('<!DOCTYPE') && !gameHtml.trim().startsWith('<html')) {
     const htmlMatch = gameHtml.match(/(<!DOCTYPE[\s\S]*<\/html>)/i);
-    if (htmlMatch) {
-      gameHtml = htmlMatch[1];
-    } else {
-      // Layer 4: Check for Build Report or preamble text followed by HTML
-      const preambleThenHtml = rawOutput.match(/(<!DOCTYPE[\s\S]*<\/html>)/i);
-      if (preambleThenHtml) {
-        gameHtml = preambleThenHtml[1];
-      } else {
-        return { gameHtml: null, buildReport: "" };
-      }
-    }
+    if (htmlMatch) gameHtml = htmlMatch[1];
+    else { return { gameHtml: null, buildReport: "" }; }
   }
 
-  // Remove build report markers from the HTML body if present
-  gameHtml = gameHtml.replace(/<!-- BUILD_REPORT_START -->[\s\S]*<!-- BUILD_REPORT_END -->/, '').trim();
+  // Extract build report
+  const reportMatch = rawOutput.match(/<!-- BUILD_REPORT_START -->([\s\S]*?)<!-- BUILD_REPORT_END -->/);
+  if (reportMatch) {
+    buildReport = reportMatch[1].trim();
+    gameHtml = gameHtml.replace(/<!-- BUILD_REPORT_START -->[\s\S]*<!-- BUILD_REPORT_END -->/, '').trim();
+  }
 
   return { gameHtml, buildReport };
 }
@@ -1045,6 +1033,9 @@ async function runIntegrationRound(round, priority, note, broadcast) {
   const currentGame = gameExists ? fs.readFileSync(path.join(BUILDS, 'game.html'), 'utf8') : '';
   const feedback = readFeedback();
 
+  let bibleExcerpt = '';
+  try { bibleExcerpt = fs.readFileSync(path.join(BASE, 'game-design-bible.md'), 'utf8').slice(0, 3000); } catch(e) {}
+
   // Gather all department logs since last integration
   let recentLogs = '';
   const lastIntegration = studioState.roundHistory.filter(r => r.type === 'integration').pop();
@@ -1189,62 +1180,44 @@ Do NOT write any code. Just the plan. Atlas will write the code.`;
   const atlas = AGENTS['atlas-novak'];
   broadcast({ type: 'agent_start', round, agentId: 'atlas-novak', agentName: atlas.name, displayName: atlas.role, emoji: atlas.emoji, model: 'opus' });
 
-  // Build compact context for Atlas — lean prompt to avoid context overload
-  const protectedFnList = (protectedSystems && protectedSystems.protected)
-    ? protectedSystems.protected.flatMap(s => s.signature_functions).join(', ')
-    : 'none';
-
-  const engineSystemsSummary = (engineSpec && engineSpec.systems)
-    ? Object.entries(engineSpec.systems).map(([k, v]) => `  ${k}: ${v.status}`).join('\n')
-    : '(no engine spec)';
-
-  let storyDelta = '(No pending story content)';
-  if (storyState && Object.keys(storyState).length > 0) {
-    const delta = {};
-    if (storyState.pending_content) delta.pending_content = storyState.pending_content;
-    if (storyState.pending_npcs) delta.pending_npcs = storyState.pending_npcs;
-    if (Object.keys(delta).length > 0) {
-      storyDelta = JSON.stringify(delta, null, 2);
-    } else if (storyState.dialogue || storyState.emails) {
-      storyDelta = `Available: ${storyState.dialogue ? Object.keys(storyState.dialogue).length + ' NPCs with dialogue' : '0 NPCs'}, ${storyState.emails ? Object.keys(storyState.emails).length + ' email days' : '0 email days'}`;
-    }
-  }
-
-  let artDelta = '(No pending art assets)';
-  if (artState && artState.assets) {
-    const pending = {};
-    for (const [id, a] of Object.entries(artState.assets)) {
-      if (a.status === 'pending' || a.status === 'needs_revision') {
-        pending[id] = { file: a.file, status: a.status };
-      }
-    }
-    if (Object.keys(pending).length > 0) {
-      artDelta = JSON.stringify(pending, null, 2);
-    }
-  }
-
   const atlasIntPrompt = `You are Atlas Novak, Developer at GTM Studio. This is an INTEGRATION round.
+
+GAME VISION:
+${GAME_VISION}
 
 REN'S SCOPED INTEGRATION PLAN:
 ${renOutput}
 
-PROTECTED FUNCTIONS (do not remove or rename):
-${protectedFnList}
+Marcus Webb (Tech Lead) has provided this Technical Assembly Plan. Follow it precisely:
 
-ENGINE SYSTEMS (current status):
-${engineSystemsSummary}
+${marcusOutput}
 
-NEW STORY CONTENT TO INTEGRATE:
-${storyDelta}
+PROTECTED SYSTEMS — DO NOT MODIFY:
+${JSON.stringify(protectedSystems, null, 2)}
 
-NEW ART ASSETS TO WIRE:
-${artDelta}
+ENGINE SPEC:
+${JSON.stringify(engineSpec, null, 2)}
+
+STORY STATE (dialogue, emails, events to wire in):
+${JSON.stringify(storyState, null, 2)}
+
+ART STATE (available assets):
+${JSON.stringify(artState.assets || {}, null, 2)}
+
+GAME DESIGN BIBLE (excerpt):
+${bibleExcerpt}
 
 CURRENT game.html:
 ${currentGame || '(No game.html yet — create the first version)'}
 
-YOUR TASK:
-Follow Ren's plan above. Modify the current game.html to integrate the scoped changes.
+YOUR TASK — ASSEMBLY SEQUENCE:
+a. Load current game.html as base
+b. Follow Marcus's Technical Assembly Plan for merge order
+c. Apply Engine changes first (structural — from recent engine round logs)
+d. Integrate Story content (dialogue data, email data, NPC definitions from story-state.json)
+e. Wire Art assets (update ASSET_MANIFEST, add sprite references)
+f. Connect systems (new systems call into existing ones)
+g. Verify all protected system functions are still present (Marcus listed them)
 
 CRITICAL RULES:
 - Output MUST start with <!DOCTYPE html> — no preamble, no markdown
@@ -1276,21 +1249,7 @@ CRITICAL RULES:
     // Retry once with explicit instructions to output raw HTML
     console.log(`[DIAG-INT] Atlas extraction failed — retrying with error context`);
     broadcast({ type: 'developer_retry', round, reason: 'extraction_failed' });
-    const renSummaryForRetry = renOutput.slice(0, 200);
-    const extractRetryPrompt = `You are Atlas Novak. Your previous integration output was not valid HTML.
-
-ERROR: Output did not contain valid HTML. Your response must be a complete HTML file.
-
-INTEGRATION GOAL (from Ren's plan):
-${renSummaryForRetry}
-
-PROTECTED FUNCTIONS (do not remove):
-${protectedFnList}
-
-CURRENT game.html:
-${currentGame || '(No game.html)'}
-
-Output ONLY the complete HTML file. Start with <!DOCTYPE html> and end with </html>. No explanation, no markdown, no build report — ONLY the HTML file.`;
+    const extractRetryPrompt = atlasIntPrompt + `\n\nYOUR PREVIOUS OUTPUT FAILED VALIDATION: Developer output is not valid HTML. You MUST output raw HTML starting with <!DOCTYPE html>. No markdown fences. No commentary before or after the HTML. The first character of your response must be '<'.`;
     try {
       atlasOutput = await runAgent('atlas-novak', atlas.model, extractRetryPrompt, 600000);
       fs.writeFileSync(path.join(AGENT_LOGS, `round-${round}-atlas-int-raw-retry.txt`), atlasOutput);
@@ -1316,23 +1275,7 @@ Output ONLY the complete HTML file. Start with <!DOCTYPE html> and end with </ht
   if (validationErrors.length > 0) {
     broadcast({ type: 'validation_failed', round, errors: validationErrors });
     broadcast({ type: 'developer_retry', round });
-    const valErrorText = validationErrors.join('\n').slice(0, 500);
-    const renSummaryForValRetry = renOutput.slice(0, 200);
-    const retryPrompt = `You are Atlas Novak. Your previous integration output failed validation.
-
-ERROR:
-${valErrorText}
-
-INTEGRATION GOAL (from Ren's plan):
-${renSummaryForValRetry}
-
-PROTECTED FUNCTIONS (do not remove):
-${protectedFnList}
-
-CURRENT game.html:
-${currentGame || '(No game.html)'}
-
-Output ONLY the complete HTML file. Start with <!DOCTYPE html> and end with </html>. No explanation, no markdown, no build report — ONLY the HTML file.`;
+    const retryPrompt = atlasIntPrompt + `\n\nVALIDATION FAILED:\n${validationErrors.join('\n')}\n\nFix and output corrected game.html.`;
     try {
       atlasOutput = await runAgent('atlas-novak', atlas.model, retryPrompt, 600000);
       const retry = extractHtmlAndReport(atlasOutput);
@@ -1431,23 +1374,7 @@ Then provide your detailed findings.`;
   } else {
     // REJECT — give Atlas one retry
     broadcast({ type: 'developer_retry', round });
-    const qaErrorText = beaOutput.slice(0, 500);
-    const renSummaryForQARetry = renOutput.slice(0, 200);
-    const retryPrompt = `You are Atlas Novak. QA rejected your integration build.
-
-QA FEEDBACK:
-${qaErrorText}
-
-INTEGRATION GOAL (from Ren's plan):
-${renSummaryForQARetry}
-
-PROTECTED FUNCTIONS (do not remove):
-${protectedFnList}
-
-CURRENT game.html:
-${currentGame || '(No game.html)'}
-
-Output ONLY the complete HTML file. Start with <!DOCTYPE html> and end with </html>. No explanation, no markdown, no build report — ONLY the HTML file.`;
+    const retryPrompt = atlasIntPrompt + `\n\nQA REJECTED THE BUILD:\n${beaOutput}\n\nFix the issues Bea identified. Output corrected game.html.`;
 
     try {
       atlasOutput = await runAgent('atlas-novak', atlas.model, retryPrompt, 600000);
