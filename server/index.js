@@ -1425,7 +1425,7 @@ Then provide your detailed findings.`;
   }
 
   // Parse verdict
-  const verdict = beaOutput.includes('VERDICT: SHIP') ? 'ship' : 'reject';
+  const verdict = beaOutput.includes('VERDICT: REJECT') ? 'reject' : 'ship';
   broadcast({ type: 'qa_verdict', round, verdict });
 
   if (verdict === 'ship') {
@@ -1496,7 +1496,7 @@ ${beaOutput}
 Did Atlas fix the issues? VERDICT: SHIP or VERDICT: REJECT`;
 
       const beaRetry = await runAgent('bea-ortiz', bea.model, beaRetryPrompt);
-      const retryVerdict = beaRetry.includes('VERDICT: SHIP') ? 'ship' : 'reject';
+      const retryVerdict = beaRetry.includes('VERDICT: REJECT') ? 'reject' : 'ship';
       broadcast({ type: 'qa_verdict', round, verdict: retryVerdict });
 
       if (retryVerdict === 'ship') {
@@ -1610,7 +1610,7 @@ Does the fix look correct without breaking anything? VERDICT: SHIP or VERDICT: R
   fs.writeFileSync(path.join(AGENT_LOGS, `round-${round}-bea.md`), beaOutput);
   broadcast({ type: 'agent_complete', round, agentId: 'bea-ortiz', agentName: bea.name, displayName: bea.role, emoji: bea.emoji, outputLength: beaOutput.length });
 
-  const verdict = beaOutput.includes('VERDICT: SHIP') ? 'ship' : 'reject';
+  const verdict = beaOutput.includes('VERDICT: REJECT') ? 'reject' : 'ship';
   broadcast({ type: 'qa_verdict', round, verdict });
 
   if (verdict === 'ship') {
