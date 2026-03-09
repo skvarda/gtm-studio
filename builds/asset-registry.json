@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "round-7",
+  "lastUpdated": "round-16",
   "assets": {
     "npc_jordan_idle": {
       "file": "npc_jordan_idle_v2.png",
@@ -144,6 +144,32 @@
       "target_height": 48,
       "created_round": 7,
       "last_modified_round": 7
+    },
+    "npc_chad_idle": {
+      "file": "npc_chad_idle_v1.png",
+      "original_file": "npc_chad_idle_v1_original.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art character sprite, SNES Stardew Valley style, confident Silicon Valley startup bro rival, slicked back brown hair, expensive polo shirt or blazer, crossed arms or hands on hips power pose, slight smirk, athletic build, warm amber and teal palette with cooler teal bias, transparent background, clean linework, retro nostalgic feel",
+      "style_notes": "Must read as arrogant/competitive at small size. Posture and facial expression should immediately convey 'startup rival' energy. Sharp, clean clothing contrasts with player's casual hoodie aesthetic.",
+      "revision_notes": "",
+      "target_width": 32,
+      "target_height": 48,
+      "created_round": 16,
+      "last_modified_round": 16
+    },
+    "npc_gina_idle": {
+      "file": "npc_gina_idle_v1.png",
+      "original_file": "npc_gina_idle_v1_original.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art character sprite, SNES Stardew Valley style, wise all-knowing coffee shop barista, shoulder-length curly hair with small ponytail or bun, cozy coffee shop apron over casual clothes, warm knowing smile, relaxed friendly posture, hands positioned as if holding coffee cup or wiping counter, warm amber and teal palette with heavy amber bias, transparent background, clean linework, retro nostalgic feel",
+      "style_notes": "Must convey wisdom and approachability at small size. Coffee shop elements should be subtle but clear. Warm, maternal energy that suggests she knows more than she lets on.",
+      "revision_notes": "",
+      "target_width": 32,
+      "target_height": 48,
+      "created_round": 16,
+      "last_modified_round": 16
     }
   }
 }
