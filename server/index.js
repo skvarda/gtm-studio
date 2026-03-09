@@ -1219,15 +1219,15 @@ Do NOT write any code. Just the plan. Atlas will write the code.`;
     ? Object.entries(engineSpec.systems).map(([k, v]) => `  ${k}: ${v.status}`).join('\n')
     : '(no engine spec)';
 
-  let storyDelta = '(No pending story content)';
+  let storyDelta = '(No story content)';
   if (storyState && Object.keys(storyState).length > 0) {
     const delta = {};
-    if (storyState.pending_content) delta.pending_content = storyState.pending_content;
+    if (storyState.dialogue) delta.dialogue = storyState.dialogue;
+    if (storyState.emails) delta.emails = storyState.emails;
     if (storyState.pending_npcs) delta.pending_npcs = storyState.pending_npcs;
+    if (storyState.gazette_headlines) delta.gazette_headlines = storyState.gazette_headlines;
     if (Object.keys(delta).length > 0) {
       storyDelta = JSON.stringify(delta, null, 2);
-    } else if (storyState.dialogue || storyState.emails) {
-      storyDelta = `Available: ${storyState.dialogue ? Object.keys(storyState.dialogue).length + ' NPCs with dialogue' : '0 NPCs'}, ${storyState.emails ? Object.keys(storyState.emails).length + ' email days' : '0 email days'}`;
     }
   }
 
