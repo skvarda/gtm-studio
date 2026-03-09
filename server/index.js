@@ -381,13 +381,21 @@ function extractHtmlAndReport(rawOutput) {
   let gameHtml = rawOutput;
   let buildReport = '';
 
-  // Layer 0: If output is wrapped in tool_use/tool_call XML, extract the HTML content from the JSON field
-  const toolContentMatch = rawOutput.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-  if (toolContentMatch && toolContentMatch[1].includes('<!DOCTYPE')) {
+  // Layer 0: If output is wrapped in tool_use/tool_call XML, extract the HTML content
+  // Format A: JSON "content" field with escaped HTML
+  const toolJsonMatch = rawOutput.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (toolJsonMatch && toolJsonMatch[1].includes('<!DOCTYPE')) {
     try {
-      gameHtml = JSON.parse('"' + toolContentMatch[1] + '"');
+      gameHtml = JSON.parse('"' + toolJsonMatch[1] + '"');
     } catch(e) {
       // JSON unescape failed, fall through to normal extraction
+    }
+  }
+  // Format B: XML <content> tag with raw HTML inside
+  if (gameHtml === rawOutput) {
+    const toolXmlMatch = rawOutput.match(/<content>([\s\S]*?<\/html>)/i);
+    if (toolXmlMatch && toolXmlMatch[1].includes('<!DOCTYPE')) {
+      gameHtml = toolXmlMatch[1];
     }
   }
 
