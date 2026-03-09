@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "round-16",
+  "lastUpdated": "round-17",
   "assets": {
     "npc_jordan_idle": {
       "file": "npc_jordan_idle_v2.png",
@@ -170,6 +170,19 @@
       "target_height": 48,
       "created_round": 16,
       "last_modified_round": 16
+    },
+    "player_sprite_confident": {
+      "file": "player_sprite_confident_v1.png",
+      "original_file": "player_sprite_confident_v1_original.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art character sprite sheet, SNES Stardew Valley style, tech startup founder in deep teal hoodie, warm beige skin, dark brown slightly messy hair, confident but tired eyes (2-3 pixels each), subtle determined smile, approachable nerdy charm, standing tall with good posture, warm amber and teal palette, transparent background, 4 directions (down/up/left/right) with 2 walk frames each, clean SNES-era linework",
+      "style_notes": "Eyes must be clearly visible as hopeful/intelligent at 16px frame size. Avoid small dots - use 2-3 pixel expressive eyes. Maintain startup founder authenticity while showing confidence and charm.",
+      "revision_notes": "",
+      "target_width": 32,
+      "target_height": 192,
+      "created_round": 17,
+      "last_modified_round": 17
     }
   }
 }
