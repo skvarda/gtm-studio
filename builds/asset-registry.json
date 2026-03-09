@@ -1,19 +1,19 @@
 {
   "version": 1,
-  "lastUpdated": "round-17",
+  "lastUpdated": "round-18",
   "assets": {
     "npc_jordan_idle": {
-      "file": "npc_jordan_idle_v2.png",
-      "original_file": "npc_jordan_idle_v2_original.png",
-      "version": 2,
+      "file": "npc_jordan_idle_v3.png",
+      "original_file": "npc_jordan_idle_v3_original.png",
+      "version": 3,
       "status": "pending",
-      "prompt": "16-bit pixel art character sprite, SNES Stardew Valley style, mysterious co-founder with glasses and messy brown hair, wearing casual hoodie, crossed arms pose suggesting thoughtful contemplation, warm amber and teal palette with muted colors, transparent background, clean linework, retro nostalgic feel",
-      "style_notes": "Glasses and thoughtful posture must read clearly at target size, mysterious but approachable vibe",
+      "prompt": "16-bit pixel art character sprite, SNES Stardew Valley style, mysterious co-founder with glasses and messy hair, sitting or standing casually, cryptic knowing expression, warm amber and teal palette with skin tone #F5D6B8, transparent background, clean linework, retro nostalgic feel",
+      "style_notes": "Glasses must be clearly visible at 32px width. Hair should look deliberately messy. Expression should hint at hidden knowledge.",
       "revision_notes": "",
       "target_width": 32,
       "target_height": 48,
       "created_round": 28,
-      "last_modified_round": 7
+      "last_modified_round": 18
     },
     "tile_office_floor": {
       "file": "tile_office_floor_v1.png",
@@ -183,6 +183,19 @@
       "target_height": 192,
       "created_round": 17,
       "last_modified_round": 17
+    },
+    "player_character_revised": {
+      "file": "player_character_revised_v1.png",
+      "original_file": "player_character_revised_v1_original.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art character sprite, SNES Stardew Valley style, tech startup founder in dark hoodie holding coffee cup, alert bright eyes with slight tired bags, confident posture, determined expression, messy but clean hair, warm amber and teal palette with skin tone #D4A574, transparent background, clean linework, intelligent focused look not vacant or drugged, retro nostalgic feel",
+      "style_notes": "Eyes must read as bright and intelligent at 32px width. Posture confident and alert. Slight fatigue from hard work, not substance abuse.",
+      "revision_notes": "",
+      "target_width": 32,
+      "target_height": 48,
+      "created_round": 18,
+      "last_modified_round": 18
     }
   }
 }
