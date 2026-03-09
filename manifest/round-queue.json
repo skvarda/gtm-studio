@@ -1,17 +1,65 @@
 {
   "queue": [
-    { "round": 5, "type": "story", "priority": "day1_content", "note": "Jordan dialogue (3 role variants), Chad intro email, first Gazette issue, apartment interactions" },
-    { "round": 6, "type": "art", "priority": "core_sprites", "note": "Player character (3 role variants), Jordan idle sprite, apartment tileset, desk/laptop/whiteboard objects" },
-    { "round": 7, "type": "integration", "priority": "beats_1_2", "note": "Assemble character creation + apartment Day 1 into playable build. First human checkpoint." },
-    { "round": 8, "type": "engine", "priority": "ap_system_email_inbox", "note": "Action Point system (5 AP/day, activities cost 1-3 AP) and morning email inbox phase" },
-    { "round": 9, "type": "engine", "priority": "economy_tick_day_advance", "note": "Daily revenue/expense calculation, MRR tracking, burn rate, runway counter, day advance trigger" },
-    { "round": 10, "type": "story", "priority": "days_2_3_content", "note": "Jordan day 2-3 dialogue, more Chad emails, burn rate anxiety flavor text, Gazette issue 2" },
-    { "round": 11, "type": "art", "priority": "ui_polish", "note": "Dialogue box frame, HUD panel art, email inbox UI sprites, AP counter visual" },
-    { "round": 12, "type": "integration", "priority": "beat_3_core_loop", "note": "Assemble first days into playable core loop. AP works, email works. Second human checkpoint." },
-    { "round": 13, "type": "engine", "priority": "location_transitions_coffee_shop", "note": "Door tile transitions with fade effect. Coffee shop room definition (new location)." },
-    { "round": 14, "type": "story", "priority": "angel_investor_gina", "note": "Angel investor email + meeting dialogue (3 role variants), Gina barista intro, coffee shop ambiance" },
-    { "round": 15, "type": "art", "priority": "coffee_shop_sprites", "note": "Coffee shop tileset, Gina sprite, counter/booth objects, angel investor sprite" },
-    { "round": 16, "type": "integration", "priority": "beat_4_angel_arrives", "note": "Angel investor meeting, coffee shop explorable. Third human checkpoint." }
+    {
+      "round": 7,
+      "type": "integration",
+      "priority": "beats_1_2",
+      "note": "Assemble character creation + apartment Day 1 into playable build. First human checkpoint."
+    },
+    {
+      "round": 8,
+      "type": "engine",
+      "priority": "ap_system_email_inbox",
+      "note": "Action Point system (5 AP/day, activities cost 1-3 AP) and morning email inbox phase"
+    },
+    {
+      "round": 9,
+      "type": "engine",
+      "priority": "economy_tick_day_advance",
+      "note": "Daily revenue/expense calculation, MRR tracking, burn rate, runway counter, day advance trigger"
+    },
+    {
+      "round": 10,
+      "type": "story",
+      "priority": "days_2_3_content",
+      "note": "Jordan day 2-3 dialogue, more Chad emails, burn rate anxiety flavor text, Gazette issue 2"
+    },
+    {
+      "round": 11,
+      "type": "art",
+      "priority": "ui_polish",
+      "note": "Dialogue box frame, HUD panel art, email inbox UI sprites, AP counter visual"
+    },
+    {
+      "round": 12,
+      "type": "integration",
+      "priority": "beat_3_core_loop",
+      "note": "Assemble first days into playable core loop. AP works, email works. Second human checkpoint."
+    },
+    {
+      "round": 13,
+      "type": "engine",
+      "priority": "location_transitions_coffee_shop",
+      "note": "Door tile transitions with fade effect. Coffee shop room definition (new location)."
+    },
+    {
+      "round": 14,
+      "type": "story",
+      "priority": "angel_investor_gina",
+      "note": "Angel investor email + meeting dialogue (3 role variants), Gina barista intro, coffee shop ambiance"
+    },
+    {
+      "round": 15,
+      "type": "art",
+      "priority": "coffee_shop_sprites",
+      "note": "Coffee shop tileset, Gina sprite, counter/booth objects, angel investor sprite"
+    },
+    {
+      "round": 16,
+      "type": "integration",
+      "priority": "beat_4_angel_arrives",
+      "note": "Angel investor meeting, coffee shop explorable. Third human checkpoint."
+    }
   ],
   "paused": false,
   "auto_advance": false

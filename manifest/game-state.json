@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_updated_round": 0,
+  "last_updated_round": 12,
   "last_updated_timestamp": "2026-03-07T00:00:00Z",
   "resolution": {
     "native_width": 640,
@@ -12,9 +12,17 @@
   "player": {
     "role": null,
     "name": null,
-    "role_options": ["seller", "dev", "marketer"],
+    "role_options": [
+      "seller",
+      "dev",
+      "marketer"
+    ],
     "stats": {},
-    "position": { "x": 0, "y": 0, "location": null },
+    "position": {
+      "x": 0,
+      "y": 0,
+      "location": null
+    },
     "action_points_per_day": 5,
     "action_points_remaining": 5
   },
@@ -25,25 +33,59 @@
     "monthly_burn": 0,
     "runway_months": null,
     "customers": 0,
-    "churn_rate": 0.0
+    "churn_rate": 0
   },
   "time": {
     "current_day": 1,
     "current_era": "garage",
     "era_definitions": {
-      "garage": { "day_range": [1, 60], "office_stage": 1 },
-      "push": { "day_range": [61, 180], "office_stage": 2 },
-      "machine": { "day_range": [181, 360], "office_stage": 3 },
-      "empire": { "day_range": [361, null], "office_stage": 4 }
+      "garage": {
+        "day_range": [
+          1,
+          60
+        ],
+        "office_stage": 1
+      },
+      "push": {
+        "day_range": [
+          61,
+          180
+        ],
+        "office_stage": 2
+      },
+      "machine": {
+        "day_range": [
+          181,
+          360
+        ],
+        "office_stage": 3
+      },
+      "empire": {
+        "day_range": [
+          361,
+          null
+        ],
+        "office_stage": 4
+      }
     }
   },
-  "locations_available": ["apartment"],
+  "locations_available": [
+    "apartment"
+  ],
   "locations_implemented": {
     "apartment": {
       "tilemap_defined": false,
-      "npcs": ["jordan"],
-      "interactables": ["laptop", "whiteboard"],
-      "dimensions": { "width_tiles": 12, "height_tiles": 10 }
+      "npcs": [
+        "jordan"
+      ],
+      "interactables": [
+        "laptop",
+        "whiteboard"
+      ],
+      "dimensions": {
+        "width_tiles": 12,
+        "height_tiles": 10
+      }
     }
   },
   "npcs": {

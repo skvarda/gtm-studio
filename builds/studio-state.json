@@ -1,7 +1,7 @@
 {
-  "lastRound": 5,
-  "lastRoundType": "story",
-  "lastQAVerdict": "complete",
+  "lastRound": 11,
+  "lastRoundType": "integration",
+  "lastQAVerdict": "reject",
   "knownIssues": [],
   "deferredWork": [],
   "roundHistory": [
@@ -35,6 +35,48 @@
       "priority": "day1_content",
       "verdict": "complete",
       "timestamp": "2026-03-08T18:01:01.086Z"
+    },
+    {
+      "round": 6,
+      "type": "story",
+      "priority": "day1_content",
+      "verdict": "complete",
+      "timestamp": "2026-03-08T18:09:32.506Z"
+    },
+    {
+      "round": 7,
+      "type": "art",
+      "priority": "core_sprites",
+      "verdict": "complete",
+      "timestamp": "2026-03-08T18:11:26.515Z"
+    },
+    {
+      "round": 8,
+      "type": "integration",
+      "priority": "beats_1_2",
+      "verdict": "reject",
+      "timestamp": "2026-03-08T19:02:32.648Z"
+    },
+    {
+      "round": 9,
+      "type": "integration",
+      "priority": "beats_1_2",
+      "verdict": "reject",
+      "timestamp": "2026-03-08T21:28:35.108Z"
+    },
+    {
+      "round": 10,
+      "type": "integration",
+      "priority": "beats_1_2",
+      "verdict": "reject",
+      "timestamp": "2026-03-09T15:20:00.161Z"
+    },
+    {
+      "round": 11,
+      "type": "integration",
+      "priority": "assemble-latest",
+      "verdict": "reject",
+      "timestamp": "2026-03-09T16:14:11.687Z"
     }
   ]
 }

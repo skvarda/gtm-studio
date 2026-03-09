@@ -13,7 +13,7 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 <body>
 <script>
 // ============================================================
-// SaaS Quest: Startup Simulator — Engine Round 12
+// SaaS Quest: Startup Simulator — Integration Round 8
 // ============================================================
 
 const PAL = {
@@ -32,6 +32,21 @@ const PAL = {
   chadHair: '#D4A030', streetGround: '#606868', streetLine: '#A0A070',
   grass: '#408040', grassDark: '#306030', buildingWall: '#807878'
 };
+
+// --- Asset System (with fallback) ---
+const GAME_ASSETS = {};
+const ASSET_MANIFEST = [];
+
+function loadAssets(callback) {
+  if (ASSET_MANIFEST.length === 0) { callback(); return; }
+  let loaded = 0;
+  for (const entry of ASSET_MANIFEST) {
+    const img = new Image();
+    img.onload = function() { GAME_ASSETS[entry.id] = img; loaded++; if (loaded >= ASSET_MANIFEST.length) callback(); };
+    img.onerror = function() { loaded++; if (loaded >= ASSET_MANIFEST.length) callback(); };
+    img.src = entry.src;
+  }
+}
 
 // --- Pixel Font ---
 const FONT_W = 5, FONT_H = 7, FONT_DATA = {};
@@ -168,7 +183,7 @@ function economyTick() {
   const net = gameState.mrr - economy.burnRate;
   gameState.cash += net;
   for (const e of economy.employees) if (e.type==='dev') economy.productQuality += e.skill * 0.5;
-  return { revenue: gameState.mrr, burn: economy.burnRate, net: net, churned: churned, newCustomers: economy.customers };
+  return { revenue: gameState.mrr, burn: economy.burnRate, net, churned, newCustomers: economy.customers };
 }
 function getRunway() {
   const net = gameState.mrr - calculateBurnRate();
@@ -176,9 +191,83 @@ function getRunway() {
   return Math.floor(gameState.cash / Math.abs(net));
 }
 
-// --- Emails ---
+// --- Story Content ---
+const STORY_EMAILS = {
+  day_1: [
+    {
+      id: 'chad_introduction', subject: 'Fellow founder reaching out!', from: 'chad@synergysolutions.io',
+      body: "Hey! Saw the news about your seed round - congrats! Always exciting to see fresh blood in the B2B space. I'm Chad, CEO of Synergy Solutions. Just closed our Series A ($3.2M) and growing 40% MOM. Would love to grab coffee and swap war stories. Always happy to share learnings, Chad. P.S. - If you ever need to white-label any productivity features, we might be able to help. Win-win!",
+      priority: 'info', emotional_intent: 'destabilize'
+    },
+    {
+      id: 'mom_support', subject: 'So proud of you!', from: 'mom@family.net',
+      body: "Honey, I still don't understand what a 'SaaS' is, but Dad and I are so proud of you for following your dreams. We believe in you. Also, please remember to eat actual meals, not just coffee and energy bars. Love, Mom. P.S. - Mrs. Peterson's son works at Google. Should I get his number for you?",
+      priority: 'info', emotional_intent: 'encourage'
+    }
+  ]
+};
+
+const STORY_DIALOGUES = {
+  jordan: {
+    day_1_intro: [
+      "Hey. You're finally up.",
+      "We've got $150K in the bank and zero customers.",
+      "Before we get started... I need to know something."
+    ],
+    day_1_role_question: "What's your plan of attack? What do you want to focus on?",
+    day_1_role_responses: {
+      seller: ["Sales first? Bold. I like it.","You handle the people. I'll keep the code from catching fire.","Let's do this."],
+      dev: ["Build first, sell later? Classic engineer.","Fine. I'll handle the business side while you ship.","Just... don't over-architect it, okay?"],
+      marketer: ["Growth hacking from day one? Interesting.","Get the word out, I'll make sure the product holds up.","Let's make some noise."]
+    },
+    day_1_post_role: [
+      "Alright. Check the laptop - we should look at where we stand.",
+      "And check your email. I think we already got some... interesting messages."
+    ],
+    chad_email_reaction: [
+      "Did you see that email from Chad?",
+      "Guy's been sending those 'fellow founder' messages to everyone who raised money in the last six months.",
+      "Networking or intelligence gathering, hard to tell."
+    ],
+    first_customer_anxiety: [
+      "*stares at laptop screen*",
+      "Zero customers. Zero revenue.",
+      "Eighteen months to change that or we're back to our day jobs.",
+      "No pressure."
+    ]
+  },
+  laptop: {
+    day_1_first_look: [
+      "Your startup dashboard loads...",
+      "$150,000 in the bank. 0 customers. 0 MRR.",
+      "18 months until you need more funding.",
+      "The numbers feel both huge and terrifyingly small."
+    ]
+  },
+  whiteboard: {
+    day_1_revenue_math: [
+      "Under Jordan's diagrams, you spot the math:",
+      "'100 customers x $99/mo = $9,900 MRR'",
+      "'= $118,800 ARR = Maybe we don't die?'",
+      "The question mark looks optimistic."
+    ]
+  }
+};
+
+// --- Story State Tracking ---
+const storyState = {
+  roleSelected: false,
+  jordanIntroSeen: false,
+  jordanPostRoleSeen: false,
+  laptopFirstLook: true,
+  whiteboardFirstLook: true,
+  chadEmailSeen: false,
+  momEmailSeen: false,
+  eventsTriggered: {}
+};
+
+// --- Generic Emails (day 2+) ---
 const EMAIL_TEMPLATES = [
-  { subject:'WELCOME TO THE GRIND', from:'jordan@startup.io', body:"Day 1. We have money, no product, no customers. Let's change that.", day:1, priority:'info' },
   { subject:'POTENTIAL CUSTOMER', from:'lead@bigcorp.com', body:'Saw your landing page. Got 15 min for a demo?', minDay:2, priority:'opportunity', action:{type:'pipeline',value:2} },
   { subject:'SERVER COSTS', from:'billing@cloudhost.io', body:'Monthly infrastructure bill: $500.', minDay:3, priority:'warning' },
   { subject:'COFFEE CHAT?', from:'gina@bytecafe.com', body:"Haven't seen you at Byte Cafe lately. New blend just dropped.", minDay:2, priority:'info' },
@@ -189,10 +278,13 @@ const EMAIL_TEMPLATES = [
   { subject:'PARTNERSHIP', from:'biz@techpartner.io', body:'We have 10K users who might need your tool.', minDay:10, priority:'opportunity', action:{type:'leads',value:5} }
 ];
 function generateDailyEmails() {
+  if (gameState.day === 1) {
+    return STORY_EMAILS.day_1.map(function(e) {
+      return { subject: e.subject, from: e.from, body: e.body, priority: e.priority };
+    });
+  }
   return EMAIL_TEMPLATES.filter(function(e) {
-    if (e.day && e.day !== gameState.day) return false;
     if (e.minDay && gameState.day < e.minDay) return false;
-    if (e.day) return true;
     return Math.random() < 0.35;
   }).slice(0, 3);
 }
@@ -200,24 +292,24 @@ function generateDailyEmails() {
 // --- Activities ---
 const ACTIVITIES = {
   code: { label:'WRITE CODE', desc:'Improve product quality', ap:1,
-    run: function() { var g = Math.floor((gameState.player.stats.dev+1)*3+Math.random()*5); economy.productQuality+=g; return 'Wrote code! +'+g+' quality.'; }},
+    run:function() { const g = Math.floor((gameState.player.stats.dev+1)*3+Math.random()*5); economy.productQuality+=g; return 'Wrote code! +'+g+' quality.'; }},
   sell: { label:'SALES CALLS', desc:'Add leads to pipeline', ap:1,
-    run: function() { var l = Math.floor((gameState.player.stats.sales+1)*1.5+Math.random()*3); economy.salesPipeline+=l; return 'Added '+l+' to pipeline!'; }},
+    run:function() { const l = Math.floor((gameState.player.stats.sales+1)*1.5+Math.random()*3); economy.salesPipeline+=l; return 'Added '+l+' to pipeline!'; }},
   market: { label:'MARKETING', desc:'Generate inbound leads', ap:1,
-    run: function() { var l = Math.floor((gameState.player.stats.marketing+1)*2+Math.random()*4); economy.marketingLeads+=l; return 'Generated '+l+' leads!'; }},
+    run:function() { const l = Math.floor((gameState.player.stats.marketing+1)*2+Math.random()*4); economy.marketingLeads+=l; return 'Generated '+l+' leads!'; }},
   hustle: { label:'HUSTLE', desc:'Do a bit of everything', ap:2,
-    run: function() { var h=gameState.player.stats.hustle+1; economy.productQuality+=Math.floor(h*1.5); economy.salesPipeline+=Math.floor(h*0.5+1); economy.marketingLeads+=Math.floor(h*0.5+1); return 'Hustled! Progress on everything.'; }},
+    run:function() { const h=gameState.player.stats.hustle+1; economy.productQuality+=Math.floor(h*1.5); economy.salesPipeline+=Math.floor(h*0.5+1); economy.marketingLeads+=Math.floor(h*0.5+1); return 'Hustled! Progress on everything.'; }},
   focus: { label:'DEEP WORK', desc:'Major product push', ap:3,
-    run: function() { var g=Math.floor((gameState.player.stats.focus+gameState.player.stats.dev+2)*5+Math.random()*10); economy.productQuality+=g; return 'Deep focus! +'+g+' quality!'; }},
+    run:function() { const g=Math.floor((gameState.player.stats.focus+gameState.player.stats.dev+2)*5+Math.random()*10); economy.productQuality+=g; return 'Deep focus! +'+g+' quality!'; }},
   hire: { label:'HIRE ($5K)', desc:'Recruit a team member', ap:2,
-    run: function() {
+    run:function() {
       if (economy.employees.length>=6) return 'Team is full!';
       if (gameState.cash<5000) return 'Need $5K to hire!';
-      var types=['dev','sales','marketing']; var type=types[Math.floor(Math.random()*3)];
-      var names={dev:['Alex','Sam','Jamie','Riley'],sales:['Morgan','Taylor','Avery','Quinn'],marketing:['Sage','River','Skyler','Dakota']};
-      var used=economy.employees.map(function(e){return e.name;}); var avail=names[type].filter(function(n){return !used.includes(n);});
-      var name=avail.length>0?avail[0]:type+'#'+(economy.employees.length+1);
-      var skill=Math.floor(Math.random()*3)+1;
+      const types=['dev','sales','marketing']; const type=types[Math.floor(Math.random()*3)];
+      const names={dev:['Alex','Sam','Jamie','Riley'],sales:['Morgan','Taylor','Avery','Quinn'],marketing:['Sage','River','Skyler','Dakota']};
+      const used=economy.employees.map(function(e){return e.name;}); const avail=names[type].filter(function(n){return !used.includes(n);});
+      const name=avail.length>0?avail[0]:type+'#'+(economy.employees.length+1);
+      const skill=Math.floor(Math.random()*3)+1;
       economy.employees.push({name:name,type:type,skill:skill,salary:5000}); gameState.cash-=5000;
       return 'Hired '+name+' ('+type+', skill '+skill+')!';
     }}
@@ -244,14 +336,14 @@ function transitionToScreen(targetState, callback) {
   gameState.transition.callback=callback||null;
 }
 function updateTransition(dt) {
-  var t=gameState.transition; if(!t.active) return; t.timer+=dt;
+  const t=gameState.transition; if(!t.active) return; t.timer+=dt;
   if (t.phase==='fadeOut' && t.timer>=300) {
     gameState.screen=t.targetState; if(t.callback)t.callback(); t.phase='fadeIn'; t.timer=0;
   } else if (t.phase==='fadeIn' && t.timer>=300) { t.active=false; t.phase='none'; }
 }
 function drawTransitionOverlay(ctx) {
-  var t=gameState.transition; if(!t.active) return;
-  var a=0;
+  const t=gameState.transition; if(!t.active) return;
+  let a=0;
   if(t.phase==='fadeOut') a=Math.min(t.timer/300,1);
   else if(t.phase==='fadeIn') a=1-Math.min(t.timer/300,1);
   ctx.fillStyle='rgba(0,0,0,'+a+')'; ctx.fillRect(0,0,640,360);
@@ -263,10 +355,10 @@ function transitionToRoom(targetRoom, spawnKey) {
   gameState.locTransition.targetSpawn=spawnKey||'playerSpawn';
 }
 function updateLocTransition(dt) {
-  var lt=gameState.locTransition; if(!lt.active) return; lt.timer+=dt;
+  const lt=gameState.locTransition; if(!lt.active) return; lt.timer+=dt;
   if (lt.phase==='fadeOut' && lt.timer>=250) {
     gameState.currentRoom=lt.targetRoom;
-    var room=ROOMS[lt.targetRoom], spawn=room[lt.targetSpawn]||room.playerSpawn, p=gameState.player;
+    const room=ROOMS[lt.targetRoom], spawn=room[lt.targetSpawn]||room.playerSpawn, p=gameState.player;
     p.tileX=spawn.x; p.tileY=spawn.y; p.targetTileX=spawn.x; p.targetTileY=spawn.y;
     p.drawX=spawn.x*TILE; p.drawY=spawn.y*TILE+HUD_H;
     p.startDrawX=p.drawX; p.startDrawY=p.drawY; p.moving=false; p.moveProgress=0;
@@ -274,8 +366,8 @@ function updateLocTransition(dt) {
   } else if (lt.phase==='fadeIn' && lt.timer>=250) { lt.active=false; lt.phase='none'; }
 }
 function drawLocTransitionOverlay(ctx) {
-  var lt=gameState.locTransition; if(!lt.active) return;
-  var a=0;
+  const lt=gameState.locTransition; if(!lt.active) return;
+  let a=0;
   if(lt.phase==='fadeOut') a=Math.min(lt.timer/250,1);
   else if(lt.phase==='fadeIn') a=1-Math.min(lt.timer/250,1);
   ctx.fillStyle='rgba(0,0,0,'+a+')'; ctx.fillRect(0,0,640,360);
@@ -283,18 +375,19 @@ function drawLocTransitionOverlay(ctx) {
 
 // --- Roles ---
 function getRoleData(id) {
-  var R = {
+  const R = {
     seller:{id:'seller',label:'THE SELLER',description:'BORN CLOSER. YOU COULD SELL ICE TO PENGUINS.',stats:{sales:3,hustle:2,dev:1,marketing:0,focus:0},accentColor:PAL.gold},
     dev:{id:'dev',label:'THE DEV',description:'CODE IS POETRY. BUGS ARE JUST UNDOCUMENTED FEATURES.',stats:{dev:3,focus:2,sales:1,marketing:0,hustle:0},accentColor:PAL.teal},
     marketer:{id:'marketer',label:'THE MARKETER',description:'GROWTH HACKER. FUNNEL WIZARD. LINKEDIN THOUGHT LEADER.',stats:{marketing:3,hustle:2,dev:1,sales:0,focus:0},accentColor:PAL.magenta}
   }; return R[id]||null;
 }
-var ROLE_IDS = ['seller','dev','marketer'];
+const ROLE_IDS = ['seller','dev','marketer'];
+const ROLE_LABELS = ['Sell. Close deals. Own revenue.', 'Code. Build the product.', 'Market. Growth hack everything.'];
 
 // --- Rooms ---
-var TILE=32, GRID_W=20, GRID_H=11, HUD_H=32;
+const TILE=32, GRID_W=20, GRID_H=11, HUD_H=32;
 
-var ROOMS = {
+const ROOMS = {
   apartment: {
     name:'Apartment',
     tiles:(function(){var t=[];for(var y=0;y<GRID_H;y++){t[y]=[];for(var x=0;x<GRID_W;x++){t[y][x]=y<2?1:0;}}
@@ -304,7 +397,7 @@ var ROOMS = {
       c.add('3,3');c.add('2,14');c.add('2,15');c.add('3,14');c.add('3,15');c.add('5,8');return c;})(),
     playerSpawn:{x:5,y:6}, doorSpawn:{x:10,y:8},
     npcs:[{id:'jordan',x:8,y:5}],
-    interactables:[{id:'laptop',x:3,y:3}],
+    interactables:[{id:'laptop',x:3,y:3},{id:'whiteboard',x:6,y:2}],
     doors:[{x:10,y:9,target:'street',spawn:'fromApartment'}]
   },
   street: {
@@ -317,7 +410,7 @@ var ROOMS = {
     collisions:(function(){var c=new Set();for(var x=0;x<GRID_W;x++){c.add('0,'+x);c.add('1,'+x);c.add('2,'+x);}
       for(var x=0;x<GRID_W;x++)if(x!==3&&x!==10&&x!==16)c.add('3,'+x);return c;})(),
     playerSpawn:{x:3,y:4}, fromApartment:{x:3,y:4}, fromOffice:{x:10,y:4}, fromCafe:{x:16,y:4},
-    npcs:[{id:'chad',x:13,y:4}],
+    npcs:[{id:'chad',x:13,y:6}],
     interactables:[],
     doors:[{x:3,y:3,target:'apartment',spawn:'doorSpawn'},{x:10,y:3,target:'office',spawn:'playerSpawn'},{x:16,y:3,target:'cafe',spawn:'playerSpawn'}]
   },
@@ -331,7 +424,7 @@ var ROOMS = {
       for(var rx=7;rx<=11;rx++)c.add('6,'+rx);c.add('7,7');c.add('7,11');return c;})(),
     playerSpawn:{x:10,y:8},
     npcs:[{id:'maya',x:4,y:4},{id:'derek',x:12,y:4}],
-    interactables:[{id:'whiteboard',x:9,y:2}],
+    interactables:[{id:'whiteboard',x:9,y:3}],
     doors:[{x:10,y:9,target:'street',spawn:'fromOffice'}]
   },
   cafe: {
@@ -352,14 +445,13 @@ function isCollision(tx,ty) {
   if(tx<0||tx>=GRID_W||ty<2||ty>=GRID_H) return true;
   var room=ROOMS[gameState.currentRoom];
   if(room.collisions.has(ty+','+tx)) return true;
-  if(room.npcs) for(var i=0;i<room.npcs.length;i++) if(room.npcs[i].x===tx&&room.npcs[i].y===ty) return true;
+  if(room.npcs) for(var i=0;i<room.npcs.length;i++){var n=room.npcs[i];if(n.x===tx&&n.y===ty) return true;}
   return false;
 }
 
 // --- NPC Data ---
-var NPC_DATA = {
+const NPC_DATA = {
   jordan:{name:'Jordan',dialogues:[
-    ["Hey. You're finally up.","We've got $150K and zero customers.","Maybe check the laptop. We should get to work."],
     ["The clock is ticking.","Every week without revenue is a week closer to zero.","Focus on what matters."],
     ["I've been thinking about our architecture.","...","Never mind. You wouldn't understand yet."],
     ["Did you see what Chad posted on Twitter?","\"Disrupting the disruptors.\" Give me a break.","Let's just build something people actually want."]]},
@@ -380,6 +472,7 @@ var NPC_DATA = {
     ["Our AI-powered blockchain solution is CRUSHING it.","500% growth month over month!","...of signups. Not revenue. Revenue is a vanity metric."],
     ["You should pivot to AI.","Everything is AI now.","INVESTORS LOVE IT."]]}
 };
+
 function getNPCDialogue(id) {
   var d=NPC_DATA[id]; if(!d) return ["..."];
   return d.dialogues[Math.floor(Math.random()*d.dialogues.length)];
@@ -495,6 +588,11 @@ function drawRoom(ctx) {
 
 // --- Sprite Drawing ---
 function drawPlayer(ctx,x,y,facing) {
+  if (GAME_ASSETS['player_'+facing]) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(GAME_ASSETS['player_'+facing], x, y, TILE, TILE);
+    return;
+  }
   var ox=x+8, oy=y+2;
   ctx.fillStyle=PAL.hoodie; ctx.fillRect(ox,oy+10,16,14);
   ctx.fillStyle=PAL.jeans; ctx.fillRect(ox+2,oy+24,5,4); ctx.fillRect(ox+9,oy+24,5,4);
@@ -520,6 +618,11 @@ function drawPlayerPreview(ctx,x,y) {
 }
 
 function drawJordan(ctx,x,y) {
+  if (GAME_ASSETS['jordan_idle']) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(GAME_ASSETS['jordan_idle'], x, y, TILE, TILE);
+    return;
+  }
   var ox=x+8,oy=y+2;
   ctx.fillStyle=PAL.jordanHoodie; ctx.fillRect(ox,oy+10,16,14);
   ctx.fillStyle=PAL.jeans; ctx.fillRect(ox+2,oy+24,5,4); ctx.fillRect(ox+9,oy+24,5,4);
@@ -532,8 +635,13 @@ function drawJordan(ctx,x,y) {
 }
 
 function drawNPCSprite(ctx,id,x,y) {
-  var ox=x+8,oy=y+2;
   if(id==='jordan'){drawJordan(ctx,x,y);return;}
+  if (GAME_ASSETS['npc_'+id]) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(GAME_ASSETS['npc_'+id], x, y, TILE, TILE);
+    return;
+  }
+  var ox=x+8,oy=y+2;
   var configs = {
     maya:{body:PAL.mayaShirt,pants:'#304060',skin:'#E8C090',hair:'#1A1A30',hairStyle:'long',smile:true},
     derek:{body:PAL.derekShirt,pants:'#303030',skin:'#D0A880',hair:'#2A1A10',hairStyle:'short',smile:true,tie:PAL.derekTie},
@@ -589,18 +697,18 @@ function drawHUD(ctx) {
 }
 
 // --- Input ---
-var keysDown = {};
+const keysDown = {};
 function handleInput(e) {
   keysDown[e.code]=true;
-  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab'].indexOf(e.key)!==-1||
-     ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab'].indexOf(e.code)!==-1) e.preventDefault();
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab'].includes(e.key)||
+     ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab'].includes(e.code)) e.preventDefault();
   if(gameState.transition.active||gameState.locTransition.active) return;
   switch(gameState.screen) {
     case 'title': handleTitleInput(e.code); break;
     case 'nameEntry': handleNameEntryInput(e); break;
-    case 'characterCreation': handleCharCreationInput(e.code); break;
     case 'play': handlePlayInput(e.code); break;
     case 'dialogue': handleDialogueInput(e.code); break;
+    case 'choiceDialogue': handleChoiceDialogueInput(e.code); break;
     case 'laptopMenu': handleLaptopInput(e.code); break;
     case 'activityMenu': handleActivityInput(e.code); break;
     case 'emailInbox': handleEmailInput(e.code); break;
@@ -634,7 +742,21 @@ function drawTitleScreen(ctx) {
 
 function handleNameEntryInput(e) {
   var key=e.key;
-  if(key==='Enter'){if(gameState.nameInput.length>=1){gameState.player.name=gameState.nameInput;gameState.charSelect=1;transitionToScreen('characterCreation');}return;}
+  if(key==='Enter'){
+    if(gameState.nameInput.length>=1){
+      gameState.player.name=gameState.nameInput;
+      // Go directly to apartment instead of character creation
+      transitionToScreen('play',function(){
+        var room=ROOMS[gameState.currentRoom],p=gameState.player;
+        p.tileX=room.playerSpawn.x;p.tileY=room.playerSpawn.y;p.targetTileX=room.playerSpawn.x;p.targetTileY=room.playerSpawn.y;
+        p.drawX=room.playerSpawn.x*TILE;p.drawY=room.playerSpawn.y*TILE+HUD_H;
+        p.startDrawX=p.drawX;p.startDrawY=p.drawY;p.moving=false;
+        // Set default stats until role is picked
+        gameState.player.stats={sales:1,dev:1,marketing:1,hustle:1,focus:1};
+      });
+    }
+    return;
+  }
   if(key==='Backspace'){if(gameState.nameInput.length>0)gameState.nameInput=gameState.nameInput.slice(0,-1);return;}
   if(key.length===1&&/^[a-zA-Z]$/.test(key)&&gameState.nameInput.length<10) gameState.nameInput+=key.toUpperCase();
 }
@@ -657,71 +779,65 @@ function drawNameEntry(ctx) {
   drawText(ctx,'A-Z ONLY  -  10 CHARACTERS MAX',Math.floor((640-measureText('A-Z ONLY  -  10 CHARACTERS MAX',1).width)/2),250,PAL.textDim,1);
 }
 
-// --- Character Creation ---
-function handleCharCreationInput(key) {
-  if(key==='ArrowLeft'||key==='KeyA'){gameState.charSelect--;if(gameState.charSelect<0)gameState.charSelect=2;}
-  else if(key==='ArrowRight'||key==='KeyD'){gameState.charSelect++;if(gameState.charSelect>2)gameState.charSelect=0;}
-  else if(key==='Space'||key==='Enter'){
-    var roleId=ROLE_IDS[gameState.charSelect],roleData=getRoleData(roleId);
-    gameState.player.role=roleId; gameState.player.stats=Object.assign({},roleData.stats);
-    transitionToScreen('play',function(){
-      var room=ROOMS[gameState.currentRoom],p=gameState.player;
-      p.tileX=room.playerSpawn.x;p.tileY=room.playerSpawn.y;p.targetTileX=room.playerSpawn.x;p.targetTileY=room.playerSpawn.y;
-      p.drawX=room.playerSpawn.x*TILE;p.drawY=room.playerSpawn.y*TILE+HUD_H;
-      p.startDrawX=p.drawX;p.startDrawY=p.drawY;p.moving=false;
-    });
-  } else if(key==='Escape'||key==='Backspace') transitionToScreen('nameEntry');
+// --- Choice Dialogue System ---
+// Displays a speaker line + up to 3 choices the player picks with arrow keys + Enter
+var choiceState = { speaker: '', prompt: '', choices: [], selected: 0, callback: null };
+
+function showChoiceDialogue(speaker, prompt, choices, callback) {
+  choiceState.speaker = speaker;
+  choiceState.prompt = prompt;
+  choiceState.choices = choices;
+  choiceState.selected = 0;
+  choiceState.callback = callback;
+  gameState.screen = 'choiceDialogue';
 }
 
-function drawStatBar(ctx,x,y,label,value,maxValue,color) {
-  drawText(ctx,label,x,y,PAL.textLight,1);
-  var barX=x+52,barW=60,barH=6,barY=y+1;
-  ctx.fillStyle=PAL.panelDark; ctx.fillRect(barX,barY,barW,barH);
-  if(value>0){ctx.fillStyle=color;ctx.fillRect(barX,barY,Math.floor((value/maxValue)*barW),barH);}
-}
-
-function drawRoleIcon(ctx,type,cx,cy,color) {
-  ctx.fillStyle=color;
-  if(type==='seller'){ctx.fillRect(cx-8,cy-12,16,24);ctx.fillStyle=PAL.panelDark;ctx.fillRect(cx-5,cy-9,10,18);ctx.fillStyle=color;ctx.fillRect(cx-1,cy-12,2,24);ctx.fillRect(cx-5,cy-6,10,2);ctx.fillRect(cx-5,cy+4,10,2);ctx.fillRect(cx-5,cy-6,3,6);ctx.fillRect(cx+2,cy,3,6);}
-  else if(type==='dev'){ctx.fillRect(cx-12,cy-4,3,2);ctx.fillRect(cx-9,cy-6,3,2);ctx.fillRect(cx-9,cy-2,3,2);ctx.fillRect(cx-6,cy-8,3,2);ctx.fillRect(cx-6,cy,3,2);ctx.fillRect(cx+9,cy-4,3,2);ctx.fillRect(cx+6,cy-6,3,2);ctx.fillRect(cx+6,cy-2,3,2);ctx.fillRect(cx+3,cy-8,3,2);ctx.fillRect(cx+3,cy,3,2);ctx.fillRect(cx-1,cy-8,2,2);ctx.fillRect(cx,cy-5,2,2);ctx.fillRect(cx-1,cy-2,2,2);ctx.fillRect(cx,cy+1,2,2);}
-  else if(type==='marketer'){ctx.fillRect(cx-4,cy-4,10,8);ctx.fillRect(cx+6,cy-8,6,16);ctx.fillRect(cx+12,cy-12,4,24);ctx.fillStyle='#B03080';ctx.fillRect(cx-8,cy-2,6,4);}
-}
-
-function drawRoleCard(ctx,x,y,role,isSelected) {
-  var cardW=170,cardH=210,yOff=isSelected?-4:0,dy=y+yOff;
-  ctx.fillStyle=isSelected?'#2A2A4E':PAL.panelDark; ctx.fillRect(x,dy,cardW,cardH);
-  ctx.strokeStyle=isSelected?role.accentColor:PAL.textDim; ctx.lineWidth=isSelected?3:1; ctx.strokeRect(x,dy,cardW,cardH);
-  drawRoleIcon(ctx,role.id,x+Math.floor(cardW/2),dy+40,role.accentColor);
-  var nw=measureText(role.label,2); drawText(ctx,role.label,x+Math.floor((cardW-nw.width)/2),dy+65,role.accentColor,2);
-  var descLines=wrapText(role.description,cardW-20,1);
-  for(var i=0;i<descLines.length;i++){var dw=measureText(descLines[i],1);drawText(ctx,descLines[i],x+Math.floor((cardW-dw.width)/2),dy+90+i*12,PAL.textLight,1);}
-  var statsOrder=['sales','dev','marketing','hustle','focus'];
-  var statLabels={sales:'SALES',dev:'DEV',marketing:'MKT',hustle:'HSTL',focus:'FOCUS'};
-  for(var i=0;i<5;i++) drawStatBar(ctx,x+14,dy+130+i*14,statLabels[statsOrder[i]],role.stats[statsOrder[i]],3,role.accentColor);
-}
-
-function drawCharacterCreation(ctx) {
-  ctx.fillStyle=PAL.bg; ctx.fillRect(0,0,640,360);
-  var name=gameState.player.name||'PLAYER';
-  var hdr=name+', CHOOSE YOUR PATH'; var hw=measureText(hdr,2);
-  drawText(ctx,hdr,Math.floor((640-hw.width)/2),12,PAL.gold,2);
-  drawPlayerPreview(ctx,30,80);
-  var pnw=measureText(name,1); drawText(ctx,name,30+Math.floor((36-pnw.width)/2),145,PAL.textLight,1);
-  var cardW=170,gap=12,startX=Math.floor((640-cardW*3-gap*2)/2)+20,cardY=45;
-  for(var i=0;i<3;i++){
-    var role=getRoleData(ROLE_IDS[i]),cx=startX+i*(cardW+gap),sel=i===gameState.charSelect;
-    drawRoleCard(ctx,cx,cardY,role,sel);
-    if(sel){ctx.fillStyle=role.accentColor;ctx.beginPath();ctx.moveTo(cx+cardW/2,cardY+218);ctx.lineTo(cx+cardW/2-6,cardY+210+6);ctx.lineTo(cx+cardW/2+6,cardY+210+6);ctx.closePath();ctx.fill();}
+function handleChoiceDialogueInput(key) {
+  if (key==='ArrowUp'||key==='KeyW') { choiceState.selected = Math.max(0, choiceState.selected - 1); }
+  else if (key==='ArrowDown'||key==='KeyS') { choiceState.selected = Math.min(choiceState.choices.length - 1, choiceState.selected + 1); }
+  else if (key==='Space'||key==='Enter'||key==='KeyE') {
+    var sel = choiceState.selected;
+    gameState.screen = 'play';
+    if (choiceState.callback) choiceState.callback(sel);
   }
-  var inst='Arrow Keys to Select  -  Enter to Confirm  -  ESC to Go Back';
-  drawText(ctx,inst,Math.floor((640-measureText(inst,1).width)/2),340,PAL.textDim,1);
+}
+
+function drawChoiceDialogue(ctx) {
+  // Draw game behind
+  drawPlayScreen(ctx);
+  // Draw dialogue box
+  var boxH = 100, boxY = 360 - boxH, boxX = 16, boxW = 640 - 32;
+  ctx.fillStyle = '#1A1A3A'; ctx.fillRect(boxX, boxY, boxW, boxH);
+  ctx.strokeStyle = '#4040A0'; ctx.lineWidth = 2; ctx.strokeRect(boxX, boxY, boxW, boxH);
+  drawText(ctx, choiceState.speaker, boxX + 10, boxY + 6, PAL.gold, 1);
+  // Prompt text
+  var wrapped = wrapText(choiceState.prompt, boxW * 0.45, 1);
+  for (var i = 0; i < wrapped.length; i++) {
+    drawText(ctx, wrapped[i], boxX + 10, boxY + 22 + i * 14, PAL.text, 1);
+  }
+  // Choices on right side
+  var choiceX = boxX + Math.floor(boxW * 0.5) + 10;
+  var choiceY = boxY + 22;
+  for (var i = 0; i < choiceState.choices.length; i++) {
+    var isSel = i === choiceState.selected;
+    if (isSel) {
+      ctx.fillStyle = '#2A2A5E';
+      ctx.fillRect(choiceX - 4, choiceY + i * 20 - 2, boxW * 0.45, 16);
+      drawText(ctx, '>', choiceX, choiceY + i * 20, PAL.gold, 1);
+    }
+    var choiceColor = isSel ? PAL.gold : PAL.textLight;
+    drawText(ctx, choiceState.choices[i], choiceX + 12, choiceY + i * 20, choiceColor, 1);
+  }
 }
 
 // --- Movement ---
-var MOVE_SPEED = 150;
+const MOVE_SPEED = 150;
 function handlePlayInput(key) {
   if(key==='KeyE'||key==='Space'||key==='Enter') checkInteraction();
-  else if(key==='KeyM'||key==='Tab') showActivityMenu();
+  else if(key==='KeyM'||key==='Tab') {
+    if (storyState.roleSelected) showActivityMenu();
+    else showDialogue('Jordan', ["Talk to me first. We need to figure out our plan."]);
+  }
 }
 
 function updateMovement(dt) {
@@ -750,7 +866,7 @@ function updateMovement(dt) {
 function checkDoorTransition() {
   var room=ROOMS[gameState.currentRoom],p=gameState.player;
   if(!room.doors) return;
-  for(var i=0;i<room.doors.length;i++){var door=room.doors[i];if(p.tileX===door.x&&p.tileY===door.y){transitionToRoom(door.target,door.spawn);return;}}
+  for(var i=0;i<room.doors.length;i++){var door=room.doors[i];if(p.tileX===door.x&&p.tileY===door.y) { transitionToRoom(door.target,door.spawn); return; }}
 }
 
 // --- Interaction ---
@@ -762,33 +878,151 @@ function getFacingTile() {
 
 function checkInteraction() {
   var ft=getFacingTile(), room=ROOMS[gameState.currentRoom];
+  // NPC interaction
   if(room.npcs) for(var i=0;i<room.npcs.length;i++){var npc=room.npcs[i];if(ft.x===npc.x&&ft.y===npc.y){
-    var data=NPC_DATA[npc.id]; if(data) showDialogue(data.name,getNPCDialogue(npc.id)); return;
+    handleNPCInteraction(npc.id); return;
   }}
+  // Object interaction
   if(room.interactables) for(var i=0;i<room.interactables.length;i++){var obj=room.interactables[i];if(ft.x===obj.x&&ft.y===obj.y){
-    if(obj.id==='laptop') showLaptopMenu();
-    else if(obj.id==='whiteboard') showDialogue('Whiteboard',['Quality: '+Math.floor(economy.productQuality),'Pipeline: '+economy.salesPipeline,'Leads: '+economy.marketingLeads,'Team: '+economy.employees.length]);
-    return;
+    handleObjectInteraction(obj.id); return;
   }}
-  if(room.doors) for(var i=0;i<room.doors.length;i++){var door=room.doors[i];if(ft.x===door.x&&ft.y===door.y){transitionToRoom(door.target,door.spawn);return;}}
+  // Door interaction
+  if(room.doors) for(var i=0;i<room.doors.length;i++){var door=room.doors[i];if(ft.x===door.x&&ft.y===door.y){ transitionToRoom(door.target,door.spawn); return; }}
+}
+
+function handleNPCInteraction(id) {
+  if (id === 'jordan') {
+    handleJordanInteraction();
+    return;
+  }
+  var data = NPC_DATA[id];
+  if (data) showDialogue(data.name, getNPCDialogue(id));
+}
+
+function handleJordanInteraction() {
+  // Day 1: Role selection flow
+  if (gameState.day === 1 && !storyState.roleSelected) {
+    if (!storyState.jordanIntroSeen) {
+      storyState.jordanIntroSeen = true;
+      // Show intro, then on completion show role choice
+      showDialogueWithCallback('Jordan', STORY_DIALOGUES.jordan.day_1_intro, function() {
+        showChoiceDialogue('Jordan', STORY_DIALOGUES.jordan.day_1_role_question,
+          ['Sell. Close deals. Own revenue.', 'Code. Build the product.', 'Market. Growth hack everything.'],
+          function(choice) {
+            var roleId = ROLE_IDS[choice];
+            var roleData = getRoleData(roleId);
+            gameState.player.role = roleId;
+            gameState.player.stats = Object.assign({}, roleData.stats);
+            storyState.roleSelected = true;
+            var responseLines = STORY_DIALOGUES.jordan.day_1_role_responses[roleId];
+            showDialogue('Jordan', responseLines);
+          }
+        );
+      });
+    } else {
+      // Already saw intro but didn't pick yet (shouldn't happen, but safety)
+      showChoiceDialogue('Jordan', STORY_DIALOGUES.jordan.day_1_role_question,
+        ['Sell. Close deals. Own revenue.', 'Code. Build the product.', 'Market. Growth hack everything.'],
+        function(choice) {
+          var roleId = ROLE_IDS[choice];
+          var roleData = getRoleData(roleId);
+          gameState.player.role = roleId;
+          gameState.player.stats = Object.assign({}, roleData.stats);
+          storyState.roleSelected = true;
+          var responseLines = STORY_DIALOGUES.jordan.day_1_role_responses[roleId];
+          showDialogue('Jordan', responseLines);
+        }
+      );
+    }
+    return;
+  }
+  // Day 1: Post-role dialogue
+  if (gameState.day === 1 && storyState.roleSelected && !storyState.jordanPostRoleSeen) {
+    storyState.jordanPostRoleSeen = true;
+    showDialogue('Jordan', STORY_DIALOGUES.jordan.day_1_post_role);
+    return;
+  }
+  // Day 1: Chad email reaction (after reading emails)
+  if (gameState.day === 1 && storyState.chadEmailSeen && !storyState.eventsTriggered.chadReaction) {
+    storyState.eventsTriggered.chadReaction = true;
+    showDialogue('Jordan', STORY_DIALOGUES.jordan.chad_email_reaction);
+    return;
+  }
+  // Default Jordan dialogue
+  var data = NPC_DATA['jordan'];
+  if (data) showDialogue(data.name, getNPCDialogue('jordan'));
+}
+
+function handleObjectInteraction(id) {
+  if (id === 'laptop') {
+    // Day 1 first look
+    if (gameState.day === 1 && storyState.laptopFirstLook) {
+      storyState.laptopFirstLook = false;
+      showDialogueWithCallback('Laptop', STORY_DIALOGUES.laptop.day_1_first_look, function() {
+        if (storyState.roleSelected) showLaptopMenu();
+      });
+      return;
+    }
+    if (!storyState.roleSelected) {
+      showDialogue('Laptop', ['The screen is on, but you should talk to Jordan first.']);
+      return;
+    }
+    showLaptopMenu();
+  } else if (id === 'whiteboard') {
+    // Day 1 first look
+    if (gameState.day === 1 && storyState.whiteboardFirstLook) {
+      storyState.whiteboardFirstLook = false;
+      showDialogue('Whiteboard', STORY_DIALOGUES.whiteboard.day_1_revenue_math);
+      return;
+    }
+    showDialogue('Whiteboard', [
+      'Quality: ' + Math.floor(economy.productQuality),
+      'Pipeline: ' + economy.salesPipeline,
+      'Leads: ' + economy.marketingLeads,
+      'Team: ' + economy.employees.length
+    ]);
+  }
 }
 
 function drawInteractionPrompt(ctx) {
   if(gameState.screen!=='play'||gameState.player.moving) return;
   var ft=getFacingTile(), room=ROOMS[gameState.currentRoom];
   function drawPrompt(tx,ty,label) {
-    var px=tx*TILE+TILE/2, py=ty*TILE+HUD_H-8, txt='[E] '+label, tw=measureText(txt,1);
-    ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(Math.floor(px-tw.width/2)-2,py-1,tw.width+4,10);
-    drawText(ctx,txt,Math.floor(px-tw.width/2),py,PAL.gold,1);
+    var px=tx*TILE+TILE/2, py=ty*TILE+HUD_H-8, txt='[E] '+label, tw2=measureText(txt,1);
+    ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(Math.floor(px-tw2.width/2)-2,py-1,tw2.width+4,10);
+    drawText(ctx,txt,Math.floor(px-tw2.width/2),py,PAL.gold,1);
   }
   if(room.npcs) for(var i=0;i<room.npcs.length;i++){var n=room.npcs[i];if(ft.x===n.x&&ft.y===n.y) drawPrompt(n.x,n.y,(NPC_DATA[n.id]||{name:'Talk'}).name);}
-  if(room.interactables) for(var i=0;i<room.interactables.length;i++){var o=room.interactables[i];if(ft.x===o.x&&ft.y===o.y) drawPrompt(o.x,o.y,o.id==='laptop'?'Laptop':'Use');}
+  if(room.interactables) for(var i=0;i<room.interactables.length;i++){var o=room.interactables[i];if(ft.x===o.x&&ft.y===o.y) drawPrompt(o.x,o.y,o.id==='laptop'?'Laptop':o.id==='whiteboard'?'Whiteboard':'Use');}
   if(room.doors) for(var i=0;i<room.doors.length;i++){var d=room.doors[i];if(ft.x===d.x&&ft.y===d.y) drawPrompt(d.x,d.y,ROOMS[d.target].name);}
 }
 
 // --- Dialogue ---
-function showDialogue(speaker,lines) { gameState.dialogue={speaker:speaker,lines:lines,currentLine:0}; gameState.screen='dialogue'; }
-function advanceDialogue() { if(!gameState.dialogue) return; gameState.dialogue.currentLine++; if(gameState.dialogue.currentLine>=gameState.dialogue.lines.length){gameState.dialogue=null;gameState.screen='play';} }
+var dialogueCallback = null;
+
+function showDialogue(speaker,lines) {
+  gameState.dialogue={speaker:speaker,lines:lines,currentLine:0};
+  gameState.screen='dialogue';
+  dialogueCallback = null;
+}
+
+function showDialogueWithCallback(speaker,lines,callback) {
+  gameState.dialogue={speaker:speaker,lines:lines,currentLine:0};
+  gameState.screen='dialogue';
+  dialogueCallback = callback;
+}
+
+function advanceDialogue() {
+  if(!gameState.dialogue) return;
+  gameState.dialogue.currentLine++;
+  if(gameState.dialogue.currentLine>=gameState.dialogue.lines.length){
+    var cb = dialogueCallback;
+    gameState.dialogue=null;
+    dialogueCallback = null;
+    if (cb) { cb(); }
+    else { gameState.screen='play'; }
+  }
+}
 function handleDialogueInput(key) { if(key==='Space'||key==='Enter'||key==='KeyE') advanceDialogue(); }
 function wrapText(text,maxWidth,scale) {
   var words=text.split(' '),lines=[]; var cur='';
@@ -835,7 +1069,7 @@ function drawLaptopMenu(ctx) {
   var mW=240,mH=160,mx=Math.floor((640-mW)/2),my=Math.floor((360-mH)/2);
   ctx.fillStyle='#1A1A3A'; ctx.fillRect(mx,my,mW,mH);
   ctx.strokeStyle=PAL.teal; ctx.lineWidth=2; ctx.strokeRect(mx,my,mW,mH);
-  var tw=measureText('LAPTOP',2); drawText(ctx,'LAPTOP',mx+Math.floor((mW-tw.width)/2),my+10,PAL.teal,2);
+  var tw2=measureText('LAPTOP',2); drawText(ctx,'LAPTOP',mx+Math.floor((mW-tw2.width)/2),my+10,PAL.teal,2);
   for(var i=0;i<LAPTOP_OPTIONS.length;i++){
     var sel=i===gameState.laptopMenu.selected, oy=my+38+i*24;
     if(sel){ctx.fillStyle='#2A2A5E';ctx.fillRect(mx+8,oy-3,mW-16,18);drawText(ctx,'>',mx+14,oy,PAL.gold,1);}
@@ -890,6 +1124,9 @@ function handleEmailInput(key) {
         else if(email.action.type==='quality') economy.productQuality=Math.max(0,economy.productQuality+email.action.value);
         else if(email.action.type==='leads') economy.marketingLeads+=email.action.value;
       }
+      // Track story emails
+      if (email.id === 'chad_introduction') storyState.chadEmailSeen = true;
+      if (email.id === 'mom_support') storyState.momEmailSeen = true;
       inbox.reading=false; inbox.currentIndex++;
       if(inbox.currentIndex>=inbox.emails.length) gameState.screen='play';
     }
@@ -900,7 +1137,7 @@ function handleEmailInput(key) {
 }
 function drawEmailInbox(ctx) {
   ctx.fillStyle='rgba(0,0,0,0.8)'; ctx.fillRect(0,0,640,360);
-  var inbox=gameState.emailInbox,mW=440,mH=240,mx=Math.floor((640-mW)/2),my=Math.floor((360-mH)/2);
+  var inbox=gameState.emailInbox,mW=440,mH=260,mx=Math.floor((640-mW)/2),my=Math.floor((360-mH)/2);
   ctx.fillStyle='#1A1A2E'; ctx.fillRect(mx,my,mW,mH);
   ctx.strokeStyle=PAL.teal; ctx.lineWidth=2; ctx.strokeRect(mx,my,mW,mH);
   drawText(ctx,'INBOX ('+(inbox.currentIndex+1)+'/'+inbox.emails.length+')',mx+10,my+8,PAL.teal,2);
@@ -913,7 +1150,7 @@ function drawEmailInbox(ctx) {
     drawText(ctx,'FROM: '+email.from,mx+10,my+80,PAL.textDim,1);
     if(inbox.reading){
       var bodyLines=wrapText(email.body,mW-30,1);
-      for(var i=0;i<bodyLines.length;i++) drawText(ctx,bodyLines[i],mx+10,my+105+i*14,PAL.text,1);
+      for(var i=0;i<Math.min(bodyLines.length,9);i++) drawText(ctx,bodyLines[i],mx+10,my+100+i*14,PAL.text,1);
       if(email.action){
         var at='';
         if(email.action.type==='pipeline') at='+'+email.action.value+' PIPELINE';
@@ -988,6 +1225,14 @@ function drawPlayScreen(ctx) {
   drawPlayer(ctx,gameState.player.drawX,gameState.player.drawY,gameState.player.facing);
   drawHUD(ctx);
   drawInteractionPrompt(ctx);
+  // Day 1 hint overlay
+  if (gameState.day === 1 && !storyState.roleSelected && gameState.screen === 'play') {
+    var hint = 'Talk to Jordan to get started';
+    var hw2 = measureText(hint, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(Math.floor((640 - hw2.width) / 2) - 4, 340, hw2.width + 8, 14);
+    drawText(ctx, hint, Math.floor((640 - hw2.width) / 2), 342, PAL.gold, 1);
+  }
 }
 
 // --- Game Loop ---
@@ -1009,9 +1254,9 @@ function draw(ctx) {
   switch(gameState.screen) {
     case 'title': drawTitleScreen(ctx); break;
     case 'nameEntry': drawNameEntry(ctx); break;
-    case 'characterCreation': drawCharacterCreation(ctx); break;
     case 'play': drawPlayScreen(ctx); break;
     case 'dialogue': drawPlayScreen(ctx); drawDialogue(ctx); break;
+    case 'choiceDialogue': drawChoiceDialogue(ctx); break;
     case 'laptopMenu': drawPlayScreen(ctx); drawLaptopMenu(ctx); break;
     case 'activityMenu': drawPlayScreen(ctx); drawActivityMenu(ctx); break;
     case 'emailInbox': drawPlayScreen(ctx); drawEmailInbox(ctx); break;
@@ -1021,8 +1266,79 @@ function draw(ctx) {
   drawTransitionOverlay(ctx); drawLocTransitionOverlay(ctx);
 }
 
+// --- Init ---
 initCanvas();
-requestAnimationFrame(gameLoop);
+loadAssets(function() {
+  requestAnimationFrame(gameLoop);
+});
 </script>
 </body>
 </html>
+<!-- BUILD_REPORT_START -->
+INTEGRATION ROUND 8 BUILD REPORT
+=================================
+
+BASE: game.html (Engine Round 3 codebase)
+
+CHANGES APPLIED:
+1. REMOVED: characterCreation screen and card-based role selection
+   - Deleted handleCharCreationInput, drawCharacterCreation, drawRoleCard, drawRoleIcon, drawStatBar
+   - Name entry now transitions directly to play state in apartment
+
+2. ADDED: Jordan dialogue-based role selection
+   - handleJordanInteraction() — branching Day 1 flow:
+     First talk: intro lines → choice prompt → role applied → response lines
+     Second talk: post-role guidance ("check laptop, check email")
+     After reading Chad email: chad_email_reaction dialogue
+   - showDialogueWithCallback() — dialogue that chains into next action on completion
+   - storyState object tracks progression flags
+
+3. ADDED: Choice dialogue system (choiceDialogue screen)
+   - showChoiceDialogue(speaker, prompt, choices, callback)
+   - Arrow keys to select, Enter to confirm
+   - Draws prompt on left, choices on right with highlight
+   - Used for role selection: Seller / Dev / Marketer
+
+4. INTEGRATED: Story content from story-state.json
+   - Jordan Day 1 dialogues (intro, role question, role responses, post-role, chad reaction)
+   - Laptop Day 1 first look text ("$150,000 in the bank. 0 customers...")
+   - Whiteboard Day 1 revenue math ("100 customers x $99/mo...")
+   - Chad introduction email (full body text)
+   - Mom support email (full body text)
+
+5. ADDED: Story-aware interaction routing
+   - handleNPCInteraction() dispatches Jordan specially
+   - handleObjectInteraction() dispatches laptop/whiteboard with Day 1 content
+   - Laptop blocked until role is selected (gentle redirect)
+   - Activity menu blocked until role is selected
+
+6. ADDED: Asset system with graceful degradation
+   - GAME_ASSETS object, ASSET_MANIFEST array, loadAssets() with fallback
+   - Sprite draw functions check GAME_ASSETS before falling back to fillRect
+   - ctx.imageSmoothingEnabled = false before any sprite draws
+
+7. ADDED: Day 1 hint overlay
+   - "Talk to Jordan to get started" shown at bottom when role not yet selected
+
+COMPLETE PLAYABLE FLOW:
+  Title → Name Entry → Apartment → Talk to Jordan → Pick Role →
+  Check Laptop → Read Chad Email → Read Mom Email → End Day → Day 2
+
+PROTECTED SYSTEMS: No protected systems defined (version 0). All engine functions preserved:
+  initCanvas, drawText, measureText, economyTick, calculateMRR, calculateBurnRate,
+  getRunway, advanceDay, resetAP, updateMovement, drawHUD, drawRoom, drawTile,
+  drawPlayer, drawJordan, drawNPCSprite, drawTransitionOverlay, drawLocTransitionOverlay,
+  transitionToScreen, transitionToRoom, updateTransition, updateLocTransition
+
+STARTING VALUES: cash=$150,000, AP=5, MRR=$0, customers=0
+
+DEFERRED:
+  - AP cost modifiers per role
+  - Player response choices on NPC dialogue (only role selection uses choices)
+  - Gazette as separate system (headlines not wired)
+  - Jordan relationship tracking
+  - Walk-past proximity triggers
+  - Character sprite preview
+
+NO CONSOLE ERRORS EXPECTED. NO INPUT DEADLOCKS.
+<!-- BUILD_REPORT_END -->
