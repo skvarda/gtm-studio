@@ -13,27 +13,31 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 <body>
 <script>
 // ============================================================
-// SaaS Quest: Startup Simulator — Engine Round 12
+// SaaS Quest: Startup Simulator — Engine Round: AP_SYSTEM_EMAIL_INBOX
+// Systems-only build: Canvas, Font, HUD, Day Cycle, AP, Email, Economy
 // ============================================================
 
+// --- Palette ---
 const PAL = {
-  bg: '#1A1A2E', hudBg: '#0D0D1A', text: '#E8E8E8', gold: '#F0C060',
-  teal: '#60C0B0', amber: '#D4A04A', wood: '#C09060', woodDark: '#A07848',
-  wall: '#506078', wallLight: '#607890', skin: '#F0C8A0', hair: '#3A2820',
-  hoodie: '#408080', jordanHoodie: '#706088', jeans: '#405880',
-  desk: '#6B4830', laptop: '#A0A0B0', bed: '#4060A0', rug: '#A06040',
-  door: '#8B6840', white: '#FFFFFF', black: '#000000', danger: '#E05050',
-  success: '#50C050', magenta: '#E040A0', panelDark: '#12122A',
-  uiBorder: '#404060', textDim: '#555566', textLight: '#C0C0D0',
-  cafeWall: '#5E4030', cafeFloor: '#D4A870', cafeFloorDark: '#C09860',
-  counter: '#8B6840', officeFloor: '#A0A0B0', officeFloorDark: '#909098',
-  officeWall: '#404860', mayaShirt: '#C04060', derekShirt: '#4060C0',
-  derekTie: '#C0A020', ginaHair: '#804020', chadBlazer: '#202020',
-  chadHair: '#D4A030', streetGround: '#606868', streetLine: '#A0A070',
-  grass: '#408040', grassDark: '#306030', buildingWall: '#807878'
+  bg: '#0f0e17',
+  hudBg: '#1a1a2e',
+  hudText: '#e0d9c8',
+  apFull: '#f4a261',
+  apEmpty: '#555555',
+  emailBg: '#16213e',
+  emailSelected: '#0f3460',
+  emailUnread: '#e94560',
+  emailRead: '#888888',
+  textPrimary: '#fffffe',
+  textSecondary: '#a7a9be',
+  textAccent: '#ff8906',
+  positive: '#2cb67d',
+  negative: '#e53170',
+  buttonBg: '#242629',
+  buttonHover: '#3a3d42'
 };
 
-// --- Pixel Font ---
+// --- Pixel Font Renderer ---
 const FONT_W = 5, FONT_H = 7, FONT_DATA = {};
 (function defineFont() {
   const G = {
@@ -114,914 +118,890 @@ const FONT_W = 5, FONT_H = 7, FONT_DATA = {};
 
 function drawText(ctx, text, x, y, color, scale) {
   if (scale === undefined) scale = 1;
-  ctx.fillStyle = color; let cx = x;
+  ctx.fillStyle = color;
+  let cx = x;
   for (let i = 0; i < text.length; i++) {
     const ch = text[i], glyph = FONT_DATA[ch];
-    if (ch === ' ') { cx += 4*scale; continue; }
-    if (!glyph) { cx += (FONT_W+1)*scale; continue; }
-    for (let r = 0; r < FONT_H; r++) for (let c = 0; c < FONT_W; c++)
-      if (glyph[r*FONT_W+c]) ctx.fillRect(cx+c*scale, y+r*scale, scale, scale);
-    cx += (FONT_W+1)*scale;
+    if (ch === ' ') { cx += 4 * scale; continue; }
+    if (!glyph) { cx += (FONT_W + 1) * scale; continue; }
+    for (let r = 0; r < FONT_H; r++)
+      for (let c = 0; c < FONT_W; c++)
+        if (glyph[r * FONT_W + c]) ctx.fillRect(cx + c * scale, y + r * scale, scale, scale);
+    cx += (FONT_W + 1) * scale;
   }
 }
+
 function measureText(text, scale) {
-  if (scale === undefined) scale = 1; let w = 0;
-  for (let i = 0; i < text.length; i++) w += (text[i]===' ') ? 4*scale : (FONT_W+1)*scale;
-  if (text.length > 0) w -= 1*scale;
-  return { width: w, height: FONT_H*scale };
+  if (scale === undefined) scale = 1;
+  let w = 0;
+  for (let i = 0; i < text.length; i++) w += (text[i] === ' ') ? 4 * scale : (FONT_W + 1) * scale;
+  if (text.length > 0) w -= 1 * scale;
+  return { width: w, height: FONT_H * scale };
 }
 
-// --- Canvas ---
+function wrapText(text, maxWidth, scale) {
+  const words = text.split(' '), lines = [];
+  let cur = '';
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    const test = cur ? cur + ' ' + w : w;
+    if (measureText(test, scale).width > maxWidth) {
+      if (cur) lines.push(cur);
+      cur = w;
+    } else cur = test;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+// --- Canvas Rendering ---
 let canvas, ctx;
 function initCanvas() {
   canvas = document.createElement('canvas');
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = 640*dpr; canvas.height = 360*dpr;
-  canvas.style.width = '1280px'; canvas.style.height = '720px';
+  canvas.width = 640 * dpr;
+  canvas.height = 360 * dpr;
+  canvas.style.width = '1280px';
+  canvas.style.height = '720px';
   document.body.appendChild(canvas);
   ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = false; ctx.scale(dpr, dpr);
+  ctx.imageSmoothingEnabled = false;
+  ctx.scale(dpr, dpr);
+  return { canvas, ctx };
 }
 
-// --- Economy ---
-const economy = {
-  customers: 0, avgRevPerCustomer: 99, employees: [], burnRate: 0,
-  churnRate: 0.05, productQuality: 10, salesPipeline: 0, marketingLeads: 0
-};
-function calculateMRR() { return economy.customers * economy.avgRevPerCustomer; }
-function calculateBurnRate() {
-  let s = 0; for (const e of economy.employees) s += e.salary; return s + 2000;
-}
-function economyTick() {
-  const churned = Math.floor(economy.customers * economy.churnRate);
-  economy.customers = Math.max(0, economy.customers - churned);
-  if (economy.salesPipeline > 0) {
-    const c = Math.max(1, Math.floor(economy.salesPipeline * 0.3));
-    economy.customers += c; economy.salesPipeline = Math.max(0, economy.salesPipeline - c);
-  }
-  if (economy.marketingLeads > 0) {
-    const q = Math.max(1, Math.floor(economy.marketingLeads * 0.4));
-    economy.salesPipeline += q; economy.marketingLeads = Math.max(0, economy.marketingLeads - q);
-  }
-  gameState.mrr = calculateMRR();
-  economy.burnRate = calculateBurnRate();
-  const net = gameState.mrr - economy.burnRate;
-  gameState.cash += net;
-  for (const e of economy.employees) if (e.type==='dev') economy.productQuality += e.skill * 0.5;
-  return { revenue: gameState.mrr, burn: economy.burnRate, net: net, churned: churned, newCustomers: economy.customers };
-}
-function getRunway() {
-  const net = gameState.mrr - calculateBurnRate();
-  if (net >= 0) return 999;
-  return Math.floor(gameState.cash / Math.abs(net));
-}
+// --- ENGINE object ---
+const ENGINE = {};
 
-// --- Emails ---
-const EMAIL_TEMPLATES = [
-  { subject:'WELCOME TO THE GRIND', from:'jordan@startup.io', body:"Day 1. We have money, no product, no customers. Let's change that.", day:1, priority:'info' },
-  { subject:'POTENTIAL CUSTOMER', from:'lead@bigcorp.com', body:'Saw your landing page. Got 15 min for a demo?', minDay:2, priority:'opportunity', action:{type:'pipeline',value:2} },
-  { subject:'SERVER COSTS', from:'billing@cloudhost.io', body:'Monthly infrastructure bill: $500.', minDay:3, priority:'warning' },
-  { subject:'COFFEE CHAT?', from:'gina@bytecafe.com', body:"Haven't seen you at Byte Cafe lately. New blend just dropped.", minDay:2, priority:'info' },
-  { subject:'COMPETITOR ALERT', from:'alerts@google.com', body:'ThunderCorp just raised $5M Series A.', minDay:4, priority:'warning' },
-  { subject:'BUG REPORT', from:'support@startup.io', body:'Customer says login shows a 500 error.', minDay:3, priority:'urgent', action:{type:'quality',value:-5} },
-  { subject:'FEATURE REQUEST', from:'user42@gmail.com', body:'Love the product! Can you add CSV export?', minDay:5, priority:'info' },
-  { subject:'INVESTOR INTEREST', from:'vc@acmeventures.com', body:'Interesting space. Would love to learn more.', minDay:8, priority:'opportunity' },
-  { subject:'PARTNERSHIP', from:'biz@techpartner.io', body:'We have 10K users who might need your tool.', minDay:10, priority:'opportunity', action:{type:'leads',value:5} }
-];
-function generateDailyEmails() {
-  return EMAIL_TEMPLATES.filter(function(e) {
-    if (e.day && e.day !== gameState.day) return false;
-    if (e.minDay && gameState.day < e.minDay) return false;
-    if (e.day) return true;
-    return Math.random() < 0.35;
-  }).slice(0, 3);
+// --- Format helpers ---
+function formatCash(n) {
+  if (n < 0) return '-$' + formatCashAbs(-n);
+  return '$' + formatCashAbs(n);
 }
-
-// --- Activities ---
-const ACTIVITIES = {
-  code: { label:'WRITE CODE', desc:'Improve product quality', ap:1,
-    run: function() { var g = Math.floor((gameState.player.stats.dev+1)*3+Math.random()*5); economy.productQuality+=g; return 'Wrote code! +'+g+' quality.'; }},
-  sell: { label:'SALES CALLS', desc:'Add leads to pipeline', ap:1,
-    run: function() { var l = Math.floor((gameState.player.stats.sales+1)*1.5+Math.random()*3); economy.salesPipeline+=l; return 'Added '+l+' to pipeline!'; }},
-  market: { label:'MARKETING', desc:'Generate inbound leads', ap:1,
-    run: function() { var l = Math.floor((gameState.player.stats.marketing+1)*2+Math.random()*4); economy.marketingLeads+=l; return 'Generated '+l+' leads!'; }},
-  hustle: { label:'HUSTLE', desc:'Do a bit of everything', ap:2,
-    run: function() { var h=gameState.player.stats.hustle+1; economy.productQuality+=Math.floor(h*1.5); economy.salesPipeline+=Math.floor(h*0.5+1); economy.marketingLeads+=Math.floor(h*0.5+1); return 'Hustled! Progress on everything.'; }},
-  focus: { label:'DEEP WORK', desc:'Major product push', ap:3,
-    run: function() { var g=Math.floor((gameState.player.stats.focus+gameState.player.stats.dev+2)*5+Math.random()*10); economy.productQuality+=g; return 'Deep focus! +'+g+' quality!'; }},
-  hire: { label:'HIRE ($5K)', desc:'Recruit a team member', ap:2,
-    run: function() {
-      if (economy.employees.length>=6) return 'Team is full!';
-      if (gameState.cash<5000) return 'Need $5K to hire!';
-      var types=['dev','sales','marketing']; var type=types[Math.floor(Math.random()*3)];
-      var names={dev:['Alex','Sam','Jamie','Riley'],sales:['Morgan','Taylor','Avery','Quinn'],marketing:['Sage','River','Skyler','Dakota']};
-      var used=economy.employees.map(function(e){return e.name;}); var avail=names[type].filter(function(n){return !used.includes(n);});
-      var name=avail.length>0?avail[0]:type+'#'+(economy.employees.length+1);
-      var skill=Math.floor(Math.random()*3)+1;
-      economy.employees.push({name:name,type:type,skill:skill,salary:5000}); gameState.cash-=5000;
-      return 'Hired '+name+' ('+type+', skill '+skill+')!';
-    }}
-};
+function formatCashAbs(n) {
+  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
 
 // --- Game State ---
 const gameState = {
-  screen:'title', day:1, cash:150000, mrr:0, ap:5, maxAP:5, currentRoom:'apartment',
-  player: { name:null, role:null, stats:{sales:0,dev:0,marketing:0,hustle:0,focus:0},
-    tileX:5, tileY:6, drawX:0, drawY:0, facing:'down', moving:false, moveProgress:0,
-    targetTileX:5, targetTileY:6, startDrawX:0, startDrawY:0 },
-  charSelect:0, nameInput:'', dialogue:null,
-  laptopMenu:{selected:0}, activityMenu:{selected:0},
-  emailInbox:{emails:[],currentIndex:0,reading:false},
-  dayTransition:{timer:0,phase:'fadeOut'}, dayReport:null, titleBlink:0,
-  transition:{active:false,timer:0,phase:'none',targetState:null,callback:null},
-  locTransition:{active:false,timer:0,phase:'none',targetRoom:null,targetSpawn:null}
+  phase: 'morning',
+  day: 1,
+  era: 'garage',
+  cash: 150000,
+  mrr: 0,
+  customers: 0,
+  monthlyBurn: 8000,
+  ap: 5,
+  maxAP: 5,
+  employees: [],
+  product: 0,
+  bugs: 3,
+  emailsSent: [],
+  inbox: [],
+  uiState: 'inbox',
+  selectedIndex: 0,
+  actionResult: null,
+  eveningSummary: null,
+  gameOver: false
 };
 
-// --- Transitions ---
-function transitionToScreen(targetState, callback) {
-  gameState.transition.active=true; gameState.transition.timer=0;
-  gameState.transition.phase='fadeOut'; gameState.transition.targetState=targetState;
-  gameState.transition.callback=callback||null;
+// --- Action Point System ---
+function getAP(gs) { return gs.ap; }
+function spendAP(gs, cost) {
+  if (gs.ap < cost) return false;
+  gs.ap -= cost;
+  return true;
 }
-function updateTransition(dt) {
-  var t=gameState.transition; if(!t.active) return; t.timer+=dt;
-  if (t.phase==='fadeOut' && t.timer>=300) {
-    gameState.screen=t.targetState; if(t.callback)t.callback(); t.phase='fadeIn'; t.timer=0;
-  } else if (t.phase==='fadeIn' && t.timer>=300) { t.active=false; t.phase='none'; }
-}
-function drawTransitionOverlay(ctx) {
-  var t=gameState.transition; if(!t.active) return;
-  var a=0;
-  if(t.phase==='fadeOut') a=Math.min(t.timer/300,1);
-  else if(t.phase==='fadeIn') a=1-Math.min(t.timer/300,1);
-  ctx.fillStyle='rgba(0,0,0,'+a+')'; ctx.fillRect(0,0,640,360);
-}
+function canAfford(gs, cost) { return gs.ap >= cost; }
+function resetAP(gs) { gs.ap = gs.maxAP; }
 
-function transitionToRoom(targetRoom, spawnKey) {
-  gameState.locTransition.active=true; gameState.locTransition.timer=0;
-  gameState.locTransition.phase='fadeOut'; gameState.locTransition.targetRoom=targetRoom;
-  gameState.locTransition.targetSpawn=spawnKey||'playerSpawn';
-}
-function updateLocTransition(dt) {
-  var lt=gameState.locTransition; if(!lt.active) return; lt.timer+=dt;
-  if (lt.phase==='fadeOut' && lt.timer>=250) {
-    gameState.currentRoom=lt.targetRoom;
-    var room=ROOMS[lt.targetRoom], spawn=room[lt.targetSpawn]||room.playerSpawn, p=gameState.player;
-    p.tileX=spawn.x; p.tileY=spawn.y; p.targetTileX=spawn.x; p.targetTileY=spawn.y;
-    p.drawX=spawn.x*TILE; p.drawY=spawn.y*TILE+HUD_H;
-    p.startDrawX=p.drawX; p.startDrawY=p.drawY; p.moving=false; p.moveProgress=0;
-    lt.phase='fadeIn'; lt.timer=0;
-  } else if (lt.phase==='fadeIn' && lt.timer>=250) { lt.active=false; lt.phase='none'; }
-}
-function drawLocTransitionOverlay(ctx) {
-  var lt=gameState.locTransition; if(!lt.active) return;
-  var a=0;
-  if(lt.phase==='fadeOut') a=Math.min(lt.timer/250,1);
-  else if(lt.phase==='fadeIn') a=1-Math.min(lt.timer/250,1);
-  ctx.fillStyle='rgba(0,0,0,'+a+')'; ctx.fillRect(0,0,640,360);
-}
-
-// --- Roles ---
-function getRoleData(id) {
-  var R = {
-    seller:{id:'seller',label:'THE SELLER',description:'BORN CLOSER. YOU COULD SELL ICE TO PENGUINS.',stats:{sales:3,hustle:2,dev:1,marketing:0,focus:0},accentColor:PAL.gold},
-    dev:{id:'dev',label:'THE DEV',description:'CODE IS POETRY. BUGS ARE JUST UNDOCUMENTED FEATURES.',stats:{dev:3,focus:2,sales:1,marketing:0,hustle:0},accentColor:PAL.teal},
-    marketer:{id:'marketer',label:'THE MARKETER',description:'GROWTH HACKER. FUNNEL WIZARD. LINKEDIN THOUGHT LEADER.',stats:{marketing:3,hustle:2,dev:1,sales:0,focus:0},accentColor:PAL.magenta}
-  }; return R[id]||null;
-}
-var ROLE_IDS = ['seller','dev','marketer'];
-
-// --- Rooms ---
-var TILE=32, GRID_W=20, GRID_H=11, HUD_H=32;
-
-var ROOMS = {
-  apartment: {
-    name:'Apartment',
-    tiles:(function(){var t=[];for(var y=0;y<GRID_H;y++){t[y]=[];for(var x=0;x<GRID_W;x++){t[y][x]=y<2?1:0;}}
-      t[3][3]=2;t[2][14]=3;t[2][15]=3;t[3][14]=3;t[3][15]=3;t[1][6]=5;t[9][10]=6;t[5][8]=7;
-      for(var ry=6;ry<=8;ry++)for(var rx=8;rx<=11;rx++)t[ry][rx]=4;return t;})(),
-    collisions:(function(){var c=new Set();for(var x=0;x<GRID_W;x++){c.add('0,'+x);c.add('1,'+x);}
-      c.add('3,3');c.add('2,14');c.add('2,15');c.add('3,14');c.add('3,15');c.add('5,8');return c;})(),
-    playerSpawn:{x:5,y:6}, doorSpawn:{x:10,y:8},
-    npcs:[{id:'jordan',x:8,y:5}],
-    interactables:[{id:'laptop',x:3,y:3}],
-    doors:[{x:10,y:9,target:'street',spawn:'fromApartment'}]
-  },
-  street: {
-    name:'Main Street',
-    tiles:(function(){var t=[];for(var y=0;y<GRID_H;y++){t[y]=[];for(var x=0;x<GRID_W;x++){
-      if(y<2)t[y][x]=10;else if(y<4)t[y][x]=11;else if(y===4)t[y][x]=12;
-      else if(y>=5&&y<=7)t[y][x]=13;else if(y===8)t[y][x]=12;else t[y][x]=14;
-    }}t[6][2]=15;t[6][5]=15;t[6][8]=15;t[6][11]=15;t[6][14]=15;t[6][17]=15;
-      t[3][3]=16;t[3][10]=17;t[3][16]=18;return t;})(),
-    collisions:(function(){var c=new Set();for(var x=0;x<GRID_W;x++){c.add('0,'+x);c.add('1,'+x);c.add('2,'+x);}
-      for(var x=0;x<GRID_W;x++)if(x!==3&&x!==10&&x!==16)c.add('3,'+x);return c;})(),
-    playerSpawn:{x:3,y:4}, fromApartment:{x:3,y:4}, fromOffice:{x:10,y:4}, fromCafe:{x:16,y:4},
-    npcs:[{id:'chad',x:13,y:4}],
-    interactables:[],
-    doors:[{x:3,y:3,target:'apartment',spawn:'doorSpawn'},{x:10,y:3,target:'office',spawn:'playerSpawn'},{x:16,y:3,target:'cafe',spawn:'playerSpawn'}]
-  },
-  office: {
-    name:'Startup Office',
-    tiles:(function(){var t=[];for(var y=0;y<GRID_H;y++){t[y]=[];for(var x=0;x<GRID_W;x++){t[y][x]=y<2?20:21;}}
-      t[3][4]=22;t[3][5]=22;t[3][12]=22;t[3][13]=22;t[2][8]=23;t[2][9]=23;t[2][10]=23;t[9][10]=6;
-      for(var rx=7;rx<=11;rx++)t[6][rx]=24;t[7][7]=24;t[7][11]=24;return t;})(),
-    collisions:(function(){var c=new Set();for(var x=0;x<GRID_W;x++){c.add('0,'+x);c.add('1,'+x);}
-      c.add('3,4');c.add('3,5');c.add('3,12');c.add('3,13');
-      for(var rx=7;rx<=11;rx++)c.add('6,'+rx);c.add('7,7');c.add('7,11');return c;})(),
-    playerSpawn:{x:10,y:8},
-    npcs:[{id:'maya',x:4,y:4},{id:'derek',x:12,y:4}],
-    interactables:[{id:'whiteboard',x:9,y:2}],
-    doors:[{x:10,y:9,target:'street',spawn:'fromOffice'}]
-  },
-  cafe: {
-    name:'Byte Cafe',
-    tiles:(function(){var t=[];for(var y=0;y<GRID_H;y++){t[y]=[];for(var x=0;x<GRID_W;x++){t[y][x]=y<2?30:31;}}
-      for(var rx=3;rx<=8;rx++)t[3][rx]=32;t[2][5]=33;t[2][6]=33;
-      t[6][4]=34;t[6][5]=34;t[6][12]=34;t[6][13]=34;t[8][8]=34;t[8][9]=34;t[9][14]=6;return t;})(),
-    collisions:(function(){var c=new Set();for(var x=0;x<GRID_W;x++){c.add('0,'+x);c.add('1,'+x);}
-      for(var rx=3;rx<=8;rx++)c.add('3,'+rx);c.add('6,4');c.add('6,5');c.add('6,12');c.add('6,13');c.add('8,8');c.add('8,9');return c;})(),
-    playerSpawn:{x:14,y:8},
-    npcs:[{id:'gina',x:5,y:2}],
-    interactables:[],
-    doors:[{x:14,y:9,target:'street',spawn:'fromCafe'}]
-  }
-};
-
-function isCollision(tx,ty) {
-  if(tx<0||tx>=GRID_W||ty<2||ty>=GRID_H) return true;
-  var room=ROOMS[gameState.currentRoom];
-  if(room.collisions.has(ty+','+tx)) return true;
-  if(room.npcs) for(var i=0;i<room.npcs.length;i++) if(room.npcs[i].x===tx&&room.npcs[i].y===ty) return true;
-  return false;
-}
-
-// --- NPC Data ---
-var NPC_DATA = {
-  jordan:{name:'Jordan',dialogues:[
-    ["Hey. You're finally up.","We've got $150K and zero customers.","Maybe check the laptop. We should get to work."],
-    ["The clock is ticking.","Every week without revenue is a week closer to zero.","Focus on what matters."],
-    ["I've been thinking about our architecture.","...","Never mind. You wouldn't understand yet."],
-    ["Did you see what Chad posted on Twitter?","\"Disrupting the disruptors.\" Give me a break.","Let's just build something people actually want."]]},
-  maya:{name:'Maya Chen',dialogues:[
-    ["Oh hey! I'm Maya.","Just joined as dev #1. Ready to ship!","What should I work on first?"],
-    ["I pushed a fix for that login bug.","Also refactored the API layer.","No offense, but it was rough."],
-    ["We need to talk about technical debt.","I know. Features first.","But someday... someday we refactor."]]},
-  derek:{name:'Derek Williams',dialogues:[
-    ["DEREK WILLIAMS. Sales.","*adjusts tie*","Point me at a prospect and watch me close."],
-    ["Just got off a call with BigCorp.","They want enterprise features.","SSO, audit logs, the works."],
-    ["I brought a gong.","Every time we close a deal, we ring it.","*GONG*"]]},
-  gina:{name:'Gina',dialogues:[
-    ["Welcome to Byte Cafe!","I'm Gina. I know everyone in this town.","Coffee's on the house for founders."],
-    ["You look tired. Startup life, huh?","The founders who survive? They pace themselves."],
-    ["Your co-founder Jordan comes in sometimes.","Always orders black coffee. Never talks.","Stares at a notebook. Writes equations.","Weird kid. But brilliant, I think."]]},
-  chad:{name:'Chad Thunderpitch',dialogues:[
-    ["Well well well.","If it isn't my favorite bootstrapper.","Still playing in the kiddie pool? We just raised $5M."],
-    ["Our AI-powered blockchain solution is CRUSHING it.","500% growth month over month!","...of signups. Not revenue. Revenue is a vanity metric."],
-    ["You should pivot to AI.","Everything is AI now.","INVESTORS LOVE IT."]]}
-};
-function getNPCDialogue(id) {
-  var d=NPC_DATA[id]; if(!d) return ["..."];
-  return d.dialogues[Math.floor(Math.random()*d.dialogues.length)];
-}
-
-// --- Tile Drawing ---
-function drawTile(ctx,tile,px,py,x,y) {
-  switch(tile) {
-    case 0: case 7:
-      ctx.fillStyle=((x+y)%2===0)?PAL.wood:PAL.woodDark; ctx.fillRect(px,py,TILE,TILE); break;
-    case 1:
-      ctx.fillStyle=PAL.wall; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle=PAL.wallLight; ctx.fillRect(px+2,py+2,4,4); break;
-    case 2:
-      ctx.fillStyle=((x+y)%2===0)?PAL.wood:PAL.woodDark; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle=PAL.desk; ctx.fillRect(px+2,py+4,28,24);
-      ctx.fillStyle=PAL.laptop; ctx.fillRect(px+6,py+6,18,14);
-      ctx.fillStyle='#80C0E0'; ctx.fillRect(px+8,py+8,14,10); break;
-    case 3:
-      ctx.fillStyle=((x+y)%2===0)?PAL.wood:PAL.woodDark; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle=PAL.bed; ctx.fillRect(px+1,py+1,TILE-2,TILE-2);
-      ctx.fillStyle='#5070B0'; ctx.fillRect(px+3,py+3,TILE-6,TILE-6); break;
-    case 4:
-      ctx.fillStyle=PAL.rug; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle='#B07050'; ctx.fillRect(px+1,py+1,TILE-2,TILE-2); break;
-    case 5:
-      ctx.fillStyle=PAL.wall; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle=PAL.white; ctx.fillRect(px+4,py+4,24,20);
-      ctx.fillStyle='#E0E0E0'; ctx.fillRect(px+6,py+8,20,2); ctx.fillRect(px+6,py+14,16,2); break;
-    case 6:
-      ctx.fillStyle=((x+y)%2===0)?PAL.wood:PAL.woodDark; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle=PAL.door; ctx.fillRect(px+4,py,24,TILE);
-      ctx.fillStyle=PAL.gold; ctx.fillRect(px+22,py+14,4,4); break;
-    case 10:
-      ctx.fillStyle='#505058'; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle='#606068'; ctx.fillRect(px+2,py+8,12,10); break;
-    case 11:
-      ctx.fillStyle=PAL.buildingWall; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle='#A0D0E0'; ctx.fillRect(px+8,py+6,16,12);
-      ctx.fillStyle='#607080'; ctx.fillRect(px+15,py+6,2,12); ctx.fillRect(px+8,py+11,16,2); break;
-    case 12:
-      ctx.fillStyle='#B0A898'; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle='#A09888'; ctx.fillRect(px,py,TILE,1);
-      if(x%3===0) ctx.fillRect(px+15,py,2,TILE); break;
-    case 13:
-      ctx.fillStyle=PAL.streetGround; ctx.fillRect(px,py,TILE,TILE); break;
-    case 14:
-      ctx.fillStyle=((x+y)%2===0)?PAL.grass:PAL.grassDark; ctx.fillRect(px,py,TILE,TILE);
-      if((x*7+y*13)%5===0){ctx.fillStyle='#50A050';ctx.fillRect(px+10,py+6,2,4);} break;
-    case 15:
-      ctx.fillStyle=PAL.streetGround; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle=PAL.streetLine; ctx.fillRect(px+4,py+14,24,4); break;
-    case 16:
-      ctx.fillStyle=PAL.buildingWall; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle=PAL.door; ctx.fillRect(px+6,py+2,20,TILE-2);
-      ctx.fillStyle=PAL.gold; ctx.fillRect(px+22,py+14,3,3);
-      drawText(ctx,'APT',px+8,py+8,PAL.white,1); break;
-    case 17:
-      ctx.fillStyle=PAL.buildingWall; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle='#5070A0'; ctx.fillRect(px+6,py+2,20,TILE-2);
-      drawText(ctx,'OFC',px+8,py+8,PAL.white,1); break;
-    case 18:
-      ctx.fillStyle=PAL.buildingWall; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle='#A07040'; ctx.fillRect(px+6,py+2,20,TILE-2);
-      drawText(ctx,'CAFE',px+7,py+8,PAL.gold,1); break;
-    case 20:
-      ctx.fillStyle=PAL.officeWall; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle='#506878'; ctx.fillRect(px+4,py+TILE-4,TILE-8,4); break;
-    case 21:
-      ctx.fillStyle=((x+y)%2===0)?PAL.officeFloor:PAL.officeFloorDark; ctx.fillRect(px,py,TILE,TILE); break;
-    case 22:
-      ctx.fillStyle=((x+y)%2===0)?PAL.officeFloor:PAL.officeFloorDark; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle='#806040'; ctx.fillRect(px+2,py+4,28,24);
-      ctx.fillStyle=PAL.laptop; ctx.fillRect(px+6,py+7,16,12);
-      ctx.fillStyle='#70B0D0'; ctx.fillRect(px+8,py+9,12,8); break;
-    case 23:
-      ctx.fillStyle=PAL.officeWall; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle=PAL.white; ctx.fillRect(px+2,py+6,28,22);
-      ctx.fillStyle=PAL.danger; ctx.fillRect(px+6,py+10,10,2);
-      ctx.fillStyle=PAL.teal; ctx.fillRect(px+6,py+16,18,2); break;
-    case 24:
-      ctx.fillStyle=((x+y)%2===0)?PAL.officeFloor:PAL.officeFloorDark; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle='#5A4030'; ctx.fillRect(px+1,py+1,TILE-2,TILE-2);
-      ctx.fillStyle='#6B5040'; ctx.fillRect(px+3,py+3,TILE-6,TILE-6); break;
-    case 30:
-      ctx.fillStyle=PAL.cafeWall; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle='#705838'; ctx.fillRect(px+2,py+TILE-6,TILE-4,3); break;
-    case 31:
-      ctx.fillStyle=((x+y)%2===0)?PAL.cafeFloor:PAL.cafeFloorDark; ctx.fillRect(px,py,TILE,TILE); break;
-    case 32:
-      ctx.fillStyle=((x+y)%2===0)?PAL.cafeFloor:PAL.cafeFloorDark; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle=PAL.counter; ctx.fillRect(px,py+4,TILE,24);
-      ctx.fillStyle='#9B7850'; ctx.fillRect(px+2,py+6,TILE-4,20); break;
-    case 33:
-      ctx.fillStyle=PAL.cafeWall; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle='#606068'; ctx.fillRect(px+4,py+4,24,24);
-      ctx.fillStyle='#808088'; ctx.fillRect(px+8,py+8,16,12);
-      ctx.fillStyle='#C0C0C0'; ctx.fillRect(px+12,py+2,2,4); break;
-    case 34:
-      ctx.fillStyle=((x+y)%2===0)?PAL.cafeFloor:PAL.cafeFloorDark; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle='#8B7050'; ctx.fillRect(px+4,py+4,24,24);
-      ctx.fillStyle=PAL.white; ctx.fillRect(px+12,py+10,8,8);
-      ctx.fillStyle='#704020'; ctx.fillRect(px+14,py+12,4,4); break;
-    default:
-      ctx.fillStyle=PAL.bg; ctx.fillRect(px,py,TILE,TILE);
-  }
-}
-
-function drawRoom(ctx) {
-  var room=ROOMS[gameState.currentRoom];
-  for(var y=0;y<GRID_H;y++) for(var x=0;x<GRID_W;x++) drawTile(ctx,room.tiles[y][x],x*TILE,y*TILE+HUD_H,x,y);
-}
-
-// --- Sprite Drawing ---
-function drawPlayer(ctx,x,y,facing) {
-  var ox=x+8, oy=y+2;
-  ctx.fillStyle=PAL.hoodie; ctx.fillRect(ox,oy+10,16,14);
-  ctx.fillStyle=PAL.jeans; ctx.fillRect(ox+2,oy+24,5,4); ctx.fillRect(ox+9,oy+24,5,4);
-  ctx.fillStyle=PAL.skin; ctx.fillRect(ox+3,oy+2,10,8);
-  ctx.fillStyle=PAL.hair;
-  if(facing!=='up') ctx.fillRect(ox+3,oy,10,4); else ctx.fillRect(ox+3,oy,10,6);
-  if(facing==='down'){ctx.fillStyle=PAL.black;ctx.fillRect(ox+5,oy+5,2,2);ctx.fillRect(ox+9,oy+5,2,2);ctx.fillRect(ox+7,oy+8,2,1);}
-  else if(facing==='left'){ctx.fillStyle=PAL.black;ctx.fillRect(ox+4,oy+5,2,2);ctx.fillRect(ox+6,oy+8,2,1);ctx.fillStyle=PAL.hair;ctx.fillRect(ox+10,oy+2,3,6);}
-  else if(facing==='right'){ctx.fillStyle=PAL.black;ctx.fillRect(ox+10,oy+5,2,2);ctx.fillRect(ox+8,oy+8,2,1);ctx.fillStyle=PAL.hair;ctx.fillRect(ox+3,oy+2,3,6);}
-  ctx.fillStyle=PAL.hoodie; ctx.fillRect(ox-2,oy+12,4,10); ctx.fillRect(ox+14,oy+12,4,10);
-  ctx.fillStyle=PAL.skin; ctx.fillRect(ox-1,oy+22,3,2); ctx.fillRect(ox+14,oy+22,3,2);
-}
-
-function drawPlayerPreview(ctx,x,y) {
-  var s=2,ox=x,oy=y;
-  ctx.fillStyle=PAL.hoodie; ctx.fillRect(ox,oy+10*s,16*s,14*s);
-  ctx.fillStyle=PAL.jeans; ctx.fillRect(ox+2*s,oy+24*s,5*s,4*s); ctx.fillRect(ox+9*s,oy+24*s,5*s,4*s);
-  ctx.fillStyle=PAL.skin; ctx.fillRect(ox+3*s,oy+2*s,10*s,8*s);
-  ctx.fillStyle=PAL.hair; ctx.fillRect(ox+3*s,oy,10*s,4*s);
-  ctx.fillStyle=PAL.black; ctx.fillRect(ox+5*s,oy+5*s,2*s,2*s); ctx.fillRect(ox+9*s,oy+5*s,2*s,2*s); ctx.fillRect(ox+7*s,oy+8*s,2*s,1*s);
-  ctx.fillStyle=PAL.hoodie; ctx.fillRect(ox-2*s,oy+12*s,4*s,10*s); ctx.fillRect(ox+14*s,oy+12*s,4*s,10*s);
-  ctx.fillStyle=PAL.skin; ctx.fillRect(ox-1*s,oy+22*s,3*s,2*s); ctx.fillRect(ox+14*s,oy+22*s,3*s,2*s);
-}
-
-function drawJordan(ctx,x,y) {
-  var ox=x+8,oy=y+2;
-  ctx.fillStyle=PAL.jordanHoodie; ctx.fillRect(ox,oy+10,16,14);
-  ctx.fillStyle=PAL.jeans; ctx.fillRect(ox+2,oy+24,5,4); ctx.fillRect(ox+9,oy+24,5,4);
-  ctx.fillStyle=PAL.skin; ctx.fillRect(ox+3,oy+2,10,8);
-  ctx.fillStyle=PAL.hair; ctx.fillRect(ox+2,oy,12,4); ctx.fillRect(ox+1,oy+1,2,3); ctx.fillRect(ox+13,oy+1,2,3);
-  ctx.fillStyle='#A0A0B0'; ctx.fillRect(ox+4,oy+4,3,3); ctx.fillRect(ox+9,oy+4,3,3); ctx.fillRect(ox+7,oy+5,2,1);
-  ctx.fillStyle=PAL.black; ctx.fillRect(ox+5,oy+5,1,1); ctx.fillRect(ox+10,oy+5,1,1);
-  ctx.fillStyle=PAL.jordanHoodie; ctx.fillRect(ox-2,oy+12,4,10); ctx.fillRect(ox+14,oy+12,4,10);
-  ctx.fillStyle=PAL.skin; ctx.fillRect(ox-1,oy+22,3,2); ctx.fillRect(ox+14,oy+22,3,2);
-}
-
-function drawNPCSprite(ctx,id,x,y) {
-  var ox=x+8,oy=y+2;
-  if(id==='jordan'){drawJordan(ctx,x,y);return;}
-  var configs = {
-    maya:{body:PAL.mayaShirt,pants:'#304060',skin:'#E8C090',hair:'#1A1A30',hairStyle:'long',smile:true},
-    derek:{body:PAL.derekShirt,pants:'#303030',skin:'#D0A880',hair:'#2A1A10',hairStyle:'short',smile:true,tie:PAL.derekTie},
-    gina:{body:'#608060',pants:'#505868',skin:'#E8C0A0',hair:PAL.ginaHair,hairStyle:'curly',smile:true,apron:true},
-    chad:{body:PAL.chadBlazer,pants:'#282828',skin:'#F0D0A0',hair:PAL.chadHair,hairStyle:'slick',shades:true}
-  };
-  var c=configs[id]; if(!c){drawJordan(ctx,x,y);return;}
-  ctx.fillStyle=c.body; ctx.fillRect(ox,oy+10,16,14);
-  if(c.tie){ctx.fillStyle=c.tie;ctx.fillRect(ox+7,oy+10,2,10);}
-  if(c.apron){ctx.fillStyle='#E0D0B0';ctx.fillRect(ox+1,oy+16,14,8);}
-  ctx.fillStyle=c.pants; ctx.fillRect(ox+2,oy+24,5,4); ctx.fillRect(ox+9,oy+24,5,4);
-  ctx.fillStyle=c.skin; ctx.fillRect(ox+3,oy+2,10,8);
-  ctx.fillStyle=c.hair;
-  if(c.hairStyle==='long'){ctx.fillRect(ox+2,oy,12,5);ctx.fillRect(ox+1,oy+2,2,8);ctx.fillRect(ox+13,oy+2,2,8);}
-  else if(c.hairStyle==='short'){ctx.fillRect(ox+3,oy,10,3);}
-  else if(c.hairStyle==='curly'){ctx.fillRect(ox+2,oy-1,12,5);ctx.fillRect(ox+1,oy+1,2,5);ctx.fillRect(ox+13,oy+1,2,5);}
-  else if(c.hairStyle==='slick'){ctx.fillRect(ox+3,oy,10,3);ctx.fillRect(ox+12,oy+1,2,3);}
-  if(c.shades){ctx.fillStyle='#101010';ctx.fillRect(ox+4,oy+4,3,3);ctx.fillRect(ox+9,oy+4,3,3);ctx.fillRect(ox+7,oy+5,2,1);ctx.fillStyle=PAL.black;ctx.fillRect(ox+8,oy+8,4,1);}
-  else{ctx.fillStyle=PAL.black;ctx.fillRect(ox+5,oy+5,2,2);ctx.fillRect(ox+9,oy+5,2,2);if(c.smile)ctx.fillRect(ox+6,oy+8,4,1);}
-  ctx.fillStyle=c.body; ctx.fillRect(ox-2,oy+12,4,10); ctx.fillRect(ox+14,oy+12,4,10);
-  ctx.fillStyle=c.skin; ctx.fillRect(ox-1,oy+22,3,2); ctx.fillRect(ox+14,oy+22,3,2);
-}
-
-// --- HUD ---
-function formatCash(n) {
-  if(n>=1000000) return '$'+(n/1000000).toFixed(1)+'M';
-  if(n>=1000) return '$'+Math.floor(n/1000)+'K';
-  return '$'+n;
-}
-
-function drawHUD(ctx) {
-  ctx.fillStyle=PAL.hudBg; ctx.fillRect(0,0,640,28);
-  ctx.fillStyle='#2A2A3E'; ctx.fillRect(0,28,640,1);
-  drawText(ctx,'DAY '+gameState.day,8,4,PAL.white,1);
-  var room=ROOMS[gameState.currentRoom];
-  drawText(ctx,room.name,8,16,PAL.textDim,1);
-  drawText(ctx,formatCash(gameState.cash),130,4,PAL.gold,1);
-  var runway=getRunway();
-  var rStr=runway>=999?'PROFIT':runway+'wk';
-  drawText(ctx,'RWY:'+rStr,130,16,runway>=999?PAL.success:(runway<12?PAL.danger:PAL.textLight),1);
-  drawText(ctx,'MRR:'+formatCash(gameState.mrr),260,4,PAL.teal,1);
-  drawText(ctx,economy.customers+' CUST',260,16,PAL.textLight,1);
-  drawText(ctx,'AP:',420,4,PAL.white,1);
-  var apX=420+measureText('AP:',1).width+4;
-  for(var i=0;i<gameState.maxAP;i++){
-    ctx.fillStyle=i<gameState.ap?PAL.gold:'#333344';
-    var dx=apX+i*12,dy=8;
-    ctx.beginPath();ctx.moveTo(dx,dy-4);ctx.lineTo(dx+4,dy);ctx.lineTo(dx,dy+4);ctx.lineTo(dx-4,dy);ctx.closePath();ctx.fill();
-  }
-  drawText(ctx,'Q:'+Math.floor(economy.productQuality),420,16,PAL.teal,1);
-  if(economy.salesPipeline>0) drawText(ctx,'PIPE:'+economy.salesPipeline,530,4,PAL.amber,1);
-  if(economy.marketingLeads>0) drawText(ctx,'LEAD:'+economy.marketingLeads,530,16,PAL.magenta,1);
-}
-
-// --- Input ---
-var keysDown = {};
-function handleInput(e) {
-  keysDown[e.code]=true;
-  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab'].indexOf(e.key)!==-1||
-     ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab'].indexOf(e.code)!==-1) e.preventDefault();
-  if(gameState.transition.active||gameState.locTransition.active) return;
-  switch(gameState.screen) {
-    case 'title': handleTitleInput(e.code); break;
-    case 'nameEntry': handleNameEntryInput(e); break;
-    case 'characterCreation': handleCharCreationInput(e.code); break;
-    case 'play': handlePlayInput(e.code); break;
-    case 'dialogue': handleDialogueInput(e.code); break;
-    case 'laptopMenu': handleLaptopInput(e.code); break;
-    case 'activityMenu': handleActivityInput(e.code); break;
-    case 'emailInbox': handleEmailInput(e.code); break;
-    case 'dayReport': handleDayReportInput(e.code); break;
-  }
-}
-function handleInputUp(e) { delete keysDown[e.code]; }
-window.addEventListener('keydown', handleInput);
-window.addEventListener('keyup', handleInputUp);
-
-// --- Screens ---
-function handleTitleInput(key) { if(key==='Space'||key==='Enter') transitionToScreen('nameEntry'); }
-
-function drawTitleScreen(ctx) {
-  ctx.fillStyle=PAL.bg; ctx.fillRect(0,0,640,360);
-  ctx.fillStyle='#2A2A4E';
-  for(var i=0;i<640;i+=8){ctx.fillRect(i,0,4,4);ctx.fillRect(i,356,4,4);}
-  for(var i=0;i<360;i+=8){ctx.fillRect(0,i,4,4);ctx.fillRect(636,i,4,4);}
-  var title='SAAS QUEST'; var tw=measureText(title,5);
-  drawText(ctx,title,Math.floor((640-tw.width)/2)+2,62,'#3A2A10',5);
-  drawText(ctx,title,Math.floor((640-tw.width)/2),60,PAL.gold,5);
-  var sub='STARTUP SIMULATOR'; var sw=measureText(sub,2);
-  drawText(ctx,sub,Math.floor((640-sw.width)/2),120,PAL.teal,2);
-  drawPlayer(ctx,290,160,'down'); drawJordan(ctx,320,160);
-  var tag='Build. Ship. Fundraise. Survive.'; var tagW=measureText(tag,1);
-  drawText(ctx,tag,Math.floor((640-tagW.width)/2),210,PAL.textLight,1);
-  gameState.titleBlink+=1;
-  if(Math.floor(gameState.titleBlink/30)%2===0){var ps='PRESS START';var pw=measureText(ps,2);drawText(ctx,ps,Math.floor((640-pw.width)/2),260,PAL.white,2);}
-  drawText(ctx,'GTM STUDIO 2026',Math.floor((640-measureText('GTM STUDIO 2026',1).width)/2),330,'#555566',1);
-}
-
-function handleNameEntryInput(e) {
-  var key=e.key;
-  if(key==='Enter'){if(gameState.nameInput.length>=1){gameState.player.name=gameState.nameInput;gameState.charSelect=1;transitionToScreen('characterCreation');}return;}
-  if(key==='Backspace'){if(gameState.nameInput.length>0)gameState.nameInput=gameState.nameInput.slice(0,-1);return;}
-  if(key.length===1&&/^[a-zA-Z]$/.test(key)&&gameState.nameInput.length<10) gameState.nameInput+=key.toUpperCase();
-}
-
-function drawNameEntry(ctx) {
-  ctx.fillStyle=PAL.bg; ctx.fillRect(0,0,640,360);
-  var hdr="WHAT'S YOUR NAME?"; var hw=measureText(hdr,3);
-  drawText(ctx,hdr,Math.floor((640-hw.width)/2),80,PAL.gold,3);
-  var boxW=280,boxH=50,boxX=Math.floor((640-boxW)/2),boxY=150;
-  ctx.fillStyle=PAL.panelDark; ctx.fillRect(boxX,boxY,boxW,boxH);
-  ctx.strokeStyle=PAL.uiBorder; ctx.lineWidth=2; ctx.strokeRect(boxX,boxY,boxW,boxH);
-  var nameStr=gameState.nameInput,nameScale=3,nameW=measureText(nameStr,nameScale);
-  var nameX=boxX+Math.floor((boxW-nameW.width)/2),nameY=boxY+Math.floor((boxH-FONT_H*nameScale)/2);
-  if(nameStr.length>0) drawText(ctx,nameStr,nameX,nameY,PAL.gold,nameScale);
-  if(Math.floor(Date.now()/500)%2===0){
-    var cx=nameStr.length>0?nameX+nameW.width+2*nameScale:boxX+Math.floor(boxW/2)-3*nameScale;
-    drawText(ctx,'_',cx,nameY,PAL.gold,nameScale);
-  }
-  drawText(ctx,'TYPE YOUR NAME AND PRESS ENTER',Math.floor((640-measureText('TYPE YOUR NAME AND PRESS ENTER',1).width)/2),230,PAL.textDim,1);
-  drawText(ctx,'A-Z ONLY  -  10 CHARACTERS MAX',Math.floor((640-measureText('A-Z ONLY  -  10 CHARACTERS MAX',1).width)/2),250,PAL.textDim,1);
-}
-
-// --- Character Creation ---
-function handleCharCreationInput(key) {
-  if(key==='ArrowLeft'||key==='KeyA'){gameState.charSelect--;if(gameState.charSelect<0)gameState.charSelect=2;}
-  else if(key==='ArrowRight'||key==='KeyD'){gameState.charSelect++;if(gameState.charSelect>2)gameState.charSelect=0;}
-  else if(key==='Space'||key==='Enter'){
-    var roleId=ROLE_IDS[gameState.charSelect],roleData=getRoleData(roleId);
-    gameState.player.role=roleId; gameState.player.stats=Object.assign({},roleData.stats);
-    transitionToScreen('play',function(){
-      var room=ROOMS[gameState.currentRoom],p=gameState.player;
-      p.tileX=room.playerSpawn.x;p.tileY=room.playerSpawn.y;p.targetTileX=room.playerSpawn.x;p.targetTileY=room.playerSpawn.y;
-      p.drawX=room.playerSpawn.x*TILE;p.drawY=room.playerSpawn.y*TILE+HUD_H;
-      p.startDrawX=p.drawX;p.startDrawY=p.drawY;p.moving=false;
-    });
-  } else if(key==='Escape'||key==='Backspace') transitionToScreen('nameEntry');
-}
-
-function drawStatBar(ctx,x,y,label,value,maxValue,color) {
-  drawText(ctx,label,x,y,PAL.textLight,1);
-  var barX=x+52,barW=60,barH=6,barY=y+1;
-  ctx.fillStyle=PAL.panelDark; ctx.fillRect(barX,barY,barW,barH);
-  if(value>0){ctx.fillStyle=color;ctx.fillRect(barX,barY,Math.floor((value/maxValue)*barW),barH);}
-}
-
-function drawRoleIcon(ctx,type,cx,cy,color) {
-  ctx.fillStyle=color;
-  if(type==='seller'){ctx.fillRect(cx-8,cy-12,16,24);ctx.fillStyle=PAL.panelDark;ctx.fillRect(cx-5,cy-9,10,18);ctx.fillStyle=color;ctx.fillRect(cx-1,cy-12,2,24);ctx.fillRect(cx-5,cy-6,10,2);ctx.fillRect(cx-5,cy+4,10,2);ctx.fillRect(cx-5,cy-6,3,6);ctx.fillRect(cx+2,cy,3,6);}
-  else if(type==='dev'){ctx.fillRect(cx-12,cy-4,3,2);ctx.fillRect(cx-9,cy-6,3,2);ctx.fillRect(cx-9,cy-2,3,2);ctx.fillRect(cx-6,cy-8,3,2);ctx.fillRect(cx-6,cy,3,2);ctx.fillRect(cx+9,cy-4,3,2);ctx.fillRect(cx+6,cy-6,3,2);ctx.fillRect(cx+6,cy-2,3,2);ctx.fillRect(cx+3,cy-8,3,2);ctx.fillRect(cx+3,cy,3,2);ctx.fillRect(cx-1,cy-8,2,2);ctx.fillRect(cx,cy-5,2,2);ctx.fillRect(cx-1,cy-2,2,2);ctx.fillRect(cx,cy+1,2,2);}
-  else if(type==='marketer'){ctx.fillRect(cx-4,cy-4,10,8);ctx.fillRect(cx+6,cy-8,6,16);ctx.fillRect(cx+12,cy-12,4,24);ctx.fillStyle='#B03080';ctx.fillRect(cx-8,cy-2,6,4);}
-}
-
-function drawRoleCard(ctx,x,y,role,isSelected) {
-  var cardW=170,cardH=210,yOff=isSelected?-4:0,dy=y+yOff;
-  ctx.fillStyle=isSelected?'#2A2A4E':PAL.panelDark; ctx.fillRect(x,dy,cardW,cardH);
-  ctx.strokeStyle=isSelected?role.accentColor:PAL.textDim; ctx.lineWidth=isSelected?3:1; ctx.strokeRect(x,dy,cardW,cardH);
-  drawRoleIcon(ctx,role.id,x+Math.floor(cardW/2),dy+40,role.accentColor);
-  var nw=measureText(role.label,2); drawText(ctx,role.label,x+Math.floor((cardW-nw.width)/2),dy+65,role.accentColor,2);
-  var descLines=wrapText(role.description,cardW-20,1);
-  for(var i=0;i<descLines.length;i++){var dw=measureText(descLines[i],1);drawText(ctx,descLines[i],x+Math.floor((cardW-dw.width)/2),dy+90+i*12,PAL.textLight,1);}
-  var statsOrder=['sales','dev','marketing','hustle','focus'];
-  var statLabels={sales:'SALES',dev:'DEV',marketing:'MKT',hustle:'HSTL',focus:'FOCUS'};
-  for(var i=0;i<5;i++) drawStatBar(ctx,x+14,dy+130+i*14,statLabels[statsOrder[i]],role.stats[statsOrder[i]],3,role.accentColor);
-}
-
-function drawCharacterCreation(ctx) {
-  ctx.fillStyle=PAL.bg; ctx.fillRect(0,0,640,360);
-  var name=gameState.player.name||'PLAYER';
-  var hdr=name+', CHOOSE YOUR PATH'; var hw=measureText(hdr,2);
-  drawText(ctx,hdr,Math.floor((640-hw.width)/2),12,PAL.gold,2);
-  drawPlayerPreview(ctx,30,80);
-  var pnw=measureText(name,1); drawText(ctx,name,30+Math.floor((36-pnw.width)/2),145,PAL.textLight,1);
-  var cardW=170,gap=12,startX=Math.floor((640-cardW*3-gap*2)/2)+20,cardY=45;
-  for(var i=0;i<3;i++){
-    var role=getRoleData(ROLE_IDS[i]),cx=startX+i*(cardW+gap),sel=i===gameState.charSelect;
-    drawRoleCard(ctx,cx,cardY,role,sel);
-    if(sel){ctx.fillStyle=role.accentColor;ctx.beginPath();ctx.moveTo(cx+cardW/2,cardY+218);ctx.lineTo(cx+cardW/2-6,cardY+210+6);ctx.lineTo(cx+cardW/2+6,cardY+210+6);ctx.closePath();ctx.fill();}
-  }
-  var inst='Arrow Keys to Select  -  Enter to Confirm  -  ESC to Go Back';
-  drawText(ctx,inst,Math.floor((640-measureText(inst,1).width)/2),340,PAL.textDim,1);
-}
-
-// --- Movement ---
-var MOVE_SPEED = 150;
-function handlePlayInput(key) {
-  if(key==='KeyE'||key==='Space'||key==='Enter') checkInteraction();
-  else if(key==='KeyM'||key==='Tab') showActivityMenu();
-}
-
-function updateMovement(dt) {
-  if(gameState.screen!=='play') return;
-  var p=gameState.player;
-  if(p.moving){
-    p.moveProgress+=dt;
-    var t=Math.min(p.moveProgress/MOVE_SPEED,1);
-    var ease=t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
-    var tdx=p.targetTileX*TILE, tdy=p.targetTileY*TILE+HUD_H;
-    p.drawX=p.startDrawX+(tdx-p.startDrawX)*ease; p.drawY=p.startDrawY+(tdy-p.startDrawY)*ease;
-    if(t>=1){p.tileX=p.targetTileX;p.tileY=p.targetTileY;p.drawX=tdx;p.drawY=tdy;p.moving=false;p.moveProgress=0;checkDoorTransition();}
-    return;
-  }
-  var dx=0,dy=0,nf=null;
-  if(keysDown['ArrowUp']||keysDown['KeyW']){dy=-1;nf='up';}
-  else if(keysDown['ArrowDown']||keysDown['KeyS']){dy=1;nf='down';}
-  else if(keysDown['ArrowLeft']||keysDown['KeyA']){dx=-1;nf='left';}
-  else if(keysDown['ArrowRight']||keysDown['KeyD']){dx=1;nf='right';}
-  if(nf){
-    p.facing=nf; var nx=p.tileX+dx,ny=p.tileY+dy;
-    if(!isCollision(nx,ny)){p.targetTileX=nx;p.targetTileY=ny;p.startDrawX=p.drawX;p.startDrawY=p.drawY;p.moving=true;p.moveProgress=0;}
-  }
-}
-
-function checkDoorTransition() {
-  var room=ROOMS[gameState.currentRoom],p=gameState.player;
-  if(!room.doors) return;
-  for(var i=0;i<room.doors.length;i++){var door=room.doors[i];if(p.tileX===door.x&&p.tileY===door.y){transitionToRoom(door.target,door.spawn);return;}}
-}
-
-// --- Interaction ---
-function getFacingTile() {
-  var p=gameState.player; var tx=p.tileX,ty=p.tileY;
-  if(p.facing==='up')ty--;else if(p.facing==='down')ty++;else if(p.facing==='left')tx--;else if(p.facing==='right')tx++;
-  return {x:tx,y:ty};
-}
-
-function checkInteraction() {
-  var ft=getFacingTile(), room=ROOMS[gameState.currentRoom];
-  if(room.npcs) for(var i=0;i<room.npcs.length;i++){var npc=room.npcs[i];if(ft.x===npc.x&&ft.y===npc.y){
-    var data=NPC_DATA[npc.id]; if(data) showDialogue(data.name,getNPCDialogue(npc.id)); return;
-  }}
-  if(room.interactables) for(var i=0;i<room.interactables.length;i++){var obj=room.interactables[i];if(ft.x===obj.x&&ft.y===obj.y){
-    if(obj.id==='laptop') showLaptopMenu();
-    else if(obj.id==='whiteboard') showDialogue('Whiteboard',['Quality: '+Math.floor(economy.productQuality),'Pipeline: '+economy.salesPipeline,'Leads: '+economy.marketingLeads,'Team: '+economy.employees.length]);
-    return;
-  }}
-  if(room.doors) for(var i=0;i<room.doors.length;i++){var door=room.doors[i];if(ft.x===door.x&&ft.y===door.y){transitionToRoom(door.target,door.spawn);return;}}
-}
-
-function drawInteractionPrompt(ctx) {
-  if(gameState.screen!=='play'||gameState.player.moving) return;
-  var ft=getFacingTile(), room=ROOMS[gameState.currentRoom];
-  function drawPrompt(tx,ty,label) {
-    var px=tx*TILE+TILE/2, py=ty*TILE+HUD_H-8, txt='[E] '+label, tw=measureText(txt,1);
-    ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(Math.floor(px-tw.width/2)-2,py-1,tw.width+4,10);
-    drawText(ctx,txt,Math.floor(px-tw.width/2),py,PAL.gold,1);
-  }
-  if(room.npcs) for(var i=0;i<room.npcs.length;i++){var n=room.npcs[i];if(ft.x===n.x&&ft.y===n.y) drawPrompt(n.x,n.y,(NPC_DATA[n.id]||{name:'Talk'}).name);}
-  if(room.interactables) for(var i=0;i<room.interactables.length;i++){var o=room.interactables[i];if(ft.x===o.x&&ft.y===o.y) drawPrompt(o.x,o.y,o.id==='laptop'?'Laptop':'Use');}
-  if(room.doors) for(var i=0;i<room.doors.length;i++){var d=room.doors[i];if(ft.x===d.x&&ft.y===d.y) drawPrompt(d.x,d.y,ROOMS[d.target].name);}
-}
-
-// --- Dialogue ---
-function showDialogue(speaker,lines) { gameState.dialogue={speaker:speaker,lines:lines,currentLine:0}; gameState.screen='dialogue'; }
-function advanceDialogue() { if(!gameState.dialogue) return; gameState.dialogue.currentLine++; if(gameState.dialogue.currentLine>=gameState.dialogue.lines.length){gameState.dialogue=null;gameState.screen='play';} }
-function handleDialogueInput(key) { if(key==='Space'||key==='Enter'||key==='KeyE') advanceDialogue(); }
-function wrapText(text,maxWidth,scale) {
-  var words=text.split(' '),lines=[]; var cur='';
-  for(var i=0;i<words.length;i++){var w=words[i];var test=cur?cur+' '+w:w;if(measureText(test,scale).width>maxWidth){if(cur)lines.push(cur);cur=w;}else cur=test;}
-  if(cur) lines.push(cur); return lines;
-}
-function drawDialogue(ctx) {
-  if(!gameState.dialogue) return;
-  var boxH=80,boxY=360-boxH,boxX=16,boxW=640-32;
-  ctx.fillStyle='#1A1A3A'; ctx.fillRect(boxX,boxY,boxW,boxH);
-  ctx.strokeStyle='#4040A0'; ctx.lineWidth=2; ctx.strokeRect(boxX,boxY,boxW,boxH);
-  drawText(ctx,gameState.dialogue.speaker,boxX+10,boxY+6,PAL.gold,1);
-  var counter=(gameState.dialogue.currentLine+1)+'/'+gameState.dialogue.lines.length;
-  drawText(ctx,counter,boxX+boxW-measureText(counter,1).width-10,boxY+6,PAL.textDim,1);
-  var line=gameState.dialogue.lines[gameState.dialogue.currentLine];
-  var wrapped=wrapText(line,boxW-24,1);
-  for(var i=0;i<wrapped.length;i++) drawText(ctx,wrapped[i],boxX+10,boxY+22+i*14,PAL.text,1);
-  if(Math.floor(Date.now()/400)%2===0){ctx.fillStyle=PAL.text;ctx.fillRect(boxX+boxW-20,boxY+boxH-14,6,6);}
-}
-
-// --- Laptop Menu ---
-var LAPTOP_OPTIONS = ['CHECK EMAIL','ACTIVITIES','TEAM STATUS','END DAY'];
-function showLaptopMenu() { gameState.laptopMenu.selected=0; gameState.screen='laptopMenu'; }
-function handleLaptopInput(key) {
-  if(key==='ArrowUp'||key==='KeyW') gameState.laptopMenu.selected=Math.max(0,gameState.laptopMenu.selected-1);
-  else if(key==='ArrowDown'||key==='KeyS') gameState.laptopMenu.selected=Math.min(LAPTOP_OPTIONS.length-1,gameState.laptopMenu.selected+1);
-  else if(key==='Enter'||key==='Space'){
-    var s=gameState.laptopMenu.selected;
-    if(s===0) openEmailInbox();
-    else if(s===1) showActivityMenu();
-    else if(s===2){
-      gameState.screen='play';
-      var lines=['Day '+gameState.day+' | Cash: '+formatCash(gameState.cash)+' | MRR: '+formatCash(gameState.mrr),
-        'Customers: '+economy.customers+' | Quality: '+Math.floor(economy.productQuality),
-        'Pipeline: '+economy.salesPipeline+' | Leads: '+economy.marketingLeads,
-        economy.employees.length>0?'TEAM: '+economy.employees.map(function(e){return e.name+'('+e.type+')';}).join(', '):'No employees yet.',
-        'Burn: '+formatCash(calculateBurnRate())+'/wk'];
-      showDialogue('Dashboard',lines);
-    } else if(s===3) advanceDay();
-  } else if(key==='Escape'||key==='KeyX') gameState.screen='play';
-}
-function drawLaptopMenu(ctx) {
-  ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,640,360);
-  var mW=240,mH=160,mx=Math.floor((640-mW)/2),my=Math.floor((360-mH)/2);
-  ctx.fillStyle='#1A1A3A'; ctx.fillRect(mx,my,mW,mH);
-  ctx.strokeStyle=PAL.teal; ctx.lineWidth=2; ctx.strokeRect(mx,my,mW,mH);
-  var tw=measureText('LAPTOP',2); drawText(ctx,'LAPTOP',mx+Math.floor((mW-tw.width)/2),my+10,PAL.teal,2);
-  for(var i=0;i<LAPTOP_OPTIONS.length;i++){
-    var sel=i===gameState.laptopMenu.selected, oy=my+38+i*24;
-    if(sel){ctx.fillStyle='#2A2A5E';ctx.fillRect(mx+8,oy-3,mW-16,18);drawText(ctx,'>',mx+14,oy,PAL.gold,1);}
-    drawText(ctx,LAPTOP_OPTIONS[i],mx+28,oy,sel?PAL.gold:PAL.text,1);
-  }
-  drawText(ctx,'ESC to close',mx+10,my+mH-16,'#555566',1);
-}
-
-// --- Activity Menu ---
-function showActivityMenu() { gameState.activityMenu.selected=0; gameState.screen='activityMenu'; }
-function handleActivityInput(key) {
-  var keys=Object.keys(ACTIVITIES);
-  if(key==='ArrowUp'||key==='KeyW') gameState.activityMenu.selected=Math.max(0,gameState.activityMenu.selected-1);
-  else if(key==='ArrowDown'||key==='KeyS') gameState.activityMenu.selected=Math.min(keys.length-1,gameState.activityMenu.selected+1);
-  else if(key==='Enter'||key==='Space'){
-    var act=ACTIVITIES[keys[gameState.activityMenu.selected]];
-    if(gameState.ap>=act.ap){gameState.ap-=act.ap;var r=act.run();gameState.screen='play';showDialogue('Activity',[r]);}
-    else{gameState.screen='play';showDialogue('Activity',['Not enough AP! Need '+act.ap+'.']);}
-  } else if(key==='Escape'||key==='KeyX') gameState.screen='play';
-}
-function drawActivityMenu(ctx) {
-  ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,640,360);
-  var keys=Object.keys(ACTIVITIES),mW=320,mH=40+keys.length*28+20,mx=Math.floor((640-mW)/2),my=Math.floor((360-mH)/2);
-  ctx.fillStyle='#1A1A3A'; ctx.fillRect(mx,my,mW,mH);
-  ctx.strokeStyle=PAL.amber; ctx.lineWidth=2; ctx.strokeRect(mx,my,mW,mH);
-  var title='ACTIVITIES (AP:'+gameState.ap+'/'+gameState.maxAP+')';
-  drawText(ctx,title,mx+Math.floor((mW-measureText(title,2).width)/2),my+8,PAL.amber,2);
-  for(var i=0;i<keys.length;i++){
-    var act=ACTIVITIES[keys[i]],sel=i===gameState.activityMenu.selected,oy=my+36+i*28,can=gameState.ap>=act.ap;
-    if(sel){ctx.fillStyle='#2A2A5E';ctx.fillRect(mx+8,oy-3,mW-16,22);drawText(ctx,'>',mx+14,oy,PAL.gold,1);}
-    drawText(ctx,act.label,mx+28,oy,can?(sel?PAL.gold:PAL.text):PAL.textDim,1);
-    drawText(ctx,act.ap+'AP',mx+mW-50,oy,can?PAL.teal:PAL.danger,1);
-    if(sel) drawText(ctx,act.desc,mx+28,oy+11,PAL.textDim,1);
-  }
-  drawText(ctx,'ESC close  [M] quick open',mx+10,my+mH-14,'#555566',1);
-}
-
-// --- Email ---
-function openEmailInbox() {
-  var emails=generateDailyEmails();
-  if(emails.length===0){gameState.screen='play';showDialogue('Inbox',['No new emails today.']);return;}
-  gameState.emailInbox.emails=emails; gameState.emailInbox.currentIndex=0; gameState.emailInbox.reading=false;
-  gameState.screen='emailInbox';
-}
-function handleEmailInput(key) {
-  var inbox=gameState.emailInbox;
-  if(inbox.reading){
-    if(key==='Space'||key==='Enter'||key==='Escape'){
-      var email=inbox.emails[inbox.currentIndex];
-      if(email.action){
-        if(email.action.type==='pipeline') economy.salesPipeline+=email.action.value;
-        else if(email.action.type==='quality') economy.productQuality=Math.max(0,economy.productQuality+email.action.value);
-        else if(email.action.type==='leads') economy.marketingLeads+=email.action.value;
-      }
-      inbox.reading=false; inbox.currentIndex++;
-      if(inbox.currentIndex>=inbox.emails.length) gameState.screen='play';
+// --- Action Definitions ---
+ENGINE.actions = [
+  {
+    id: 'code_feature',
+    label: 'CODE FEATURE',
+    cost: 2,
+    phase: 'afternoon',
+    enabled: function(gs) { return true; },
+    execute: function(gs) {
+      const gain = 8 + Math.floor(Math.random() * 8);
+      gs.product += gain;
+      return { text: 'You wrote ' + gain + ' lines of beautiful code. Product improved!', effects: { product: gain } };
     }
-  } else {
-    if(key==='Space'||key==='Enter') inbox.reading=true;
-    else if(key==='Escape') gameState.screen='play';
-  }
-}
-function drawEmailInbox(ctx) {
-  ctx.fillStyle='rgba(0,0,0,0.8)'; ctx.fillRect(0,0,640,360);
-  var inbox=gameState.emailInbox,mW=440,mH=240,mx=Math.floor((640-mW)/2),my=Math.floor((360-mH)/2);
-  ctx.fillStyle='#1A1A2E'; ctx.fillRect(mx,my,mW,mH);
-  ctx.strokeStyle=PAL.teal; ctx.lineWidth=2; ctx.strokeRect(mx,my,mW,mH);
-  drawText(ctx,'INBOX ('+(inbox.currentIndex+1)+'/'+inbox.emails.length+')',mx+10,my+8,PAL.teal,2);
-  if(inbox.currentIndex<inbox.emails.length){
-    var email=inbox.emails[inbox.currentIndex];
-    var pColor=email.priority==='urgent'?PAL.danger:email.priority==='opportunity'?PAL.gold:email.priority==='warning'?PAL.amber:PAL.textLight;
-    ctx.fillStyle=pColor; ctx.fillRect(mx+10,my+36,8,8);
-    drawText(ctx,email.priority.toUpperCase(),mx+22,my+37,pColor,1);
-    drawText(ctx,email.subject,mx+10,my+55,PAL.gold,2);
-    drawText(ctx,'FROM: '+email.from,mx+10,my+80,PAL.textDim,1);
-    if(inbox.reading){
-      var bodyLines=wrapText(email.body,mW-30,1);
-      for(var i=0;i<bodyLines.length;i++) drawText(ctx,bodyLines[i],mx+10,my+105+i*14,PAL.text,1);
-      if(email.action){
-        var at='';
-        if(email.action.type==='pipeline') at='+'+email.action.value+' PIPELINE';
-        else if(email.action.type==='quality') at=email.action.value+' QUALITY';
-        else if(email.action.type==='leads') at='+'+email.action.value+' LEADS';
-        if(at) drawText(ctx,at,mx+10,my+mH-40,PAL.success,1);
+  },
+  {
+    id: 'fix_bugs',
+    label: 'FIX BUGS',
+    cost: 1,
+    phase: 'afternoon',
+    enabled: function(gs) { return gs.bugs > 0; },
+    execute: function(gs) {
+      const fixed = Math.min(gs.bugs, 1 + Math.floor(Math.random() * 3));
+      gs.bugs -= fixed;
+      return { text: 'Squashed ' + fixed + ' bug' + (fixed > 1 ? 's' : '') + '! ' + gs.bugs + ' remaining.', effects: {} };
+    }
+  },
+  {
+    id: 'sales_call',
+    label: 'SALES CALL',
+    cost: 2,
+    phase: 'afternoon',
+    enabled: function(gs) { return true; },
+    execute: function(gs) {
+      const chance = 0.4 + Math.min(gs.product * 0.005, 0.3);
+      if (Math.random() < chance) {
+        const tier = Math.random();
+        let revenue, label;
+        if (tier < 0.6) { revenue = 49; label = 'Starter'; }
+        else if (tier < 0.9) { revenue = 99; label = 'Pro'; }
+        else { revenue = 249; label = 'Business'; }
+        gs.customers++;
+        return { text: 'Closed a ' + label + ' deal! New customer at $' + revenue + '/mo.', effects: { customers: 1, mrr: revenue } };
       }
-      drawText(ctx,'SPACE TO CONTINUE',mx+10,my+mH-16,PAL.textDim,1);
-    } else drawText(ctx,'SPACE TO READ',mx+10,my+mH-16,PAL.textDim,1);
+      return { text: 'The prospect said "We\'ll circle back." They won\'t.', effects: {} };
+    }
+  },
+  {
+    id: 'cold_email',
+    label: 'COLD EMAIL',
+    cost: 1,
+    phase: 'afternoon',
+    enabled: function(gs) { return true; },
+    execute: function(gs) {
+      if (Math.random() < 0.25) {
+        gs.customers++;
+        return { text: 'Someone actually replied! New customer signed up at $49/mo.', effects: { customers: 1, mrr: 49 } };
+      }
+      return { text: 'Sent 50 cold emails. Got 49 bounces and 1 unsubscribe.', effects: {} };
+    }
+  },
+  {
+    id: 'post_on_hn',
+    label: 'POST ON HN',
+    cost: 1,
+    phase: 'afternoon',
+    enabled: function(gs) { return true; },
+    execute: function(gs) {
+      const roll = Math.random();
+      if (roll < 0.15) {
+        const custs = 2 + Math.floor(Math.random() * 4);
+        gs.customers += custs;
+        return { text: 'FRONT PAGE! ' + custs + ' customers signed up from the traffic!', effects: { customers: custs } };
+      } else if (roll < 0.4) {
+        gs.customers++;
+        return { text: 'Got a few upvotes. One person signed up.', effects: { customers: 1 } };
+      } else if (roll < 0.65) {
+        gs.bugs += 2;
+        return { text: '"Your landing page is broken on Firefox." Great, more bugs.', effects: {} };
+      } else {
+        return { text: 'Post sank without a trace. The HN gods are fickle.', effects: {} };
+      }
+    }
+  },
+  {
+    id: 'nap',
+    label: 'TAKE A NAP',
+    cost: 1,
+    phase: 'afternoon',
+    enabled: function(gs) { return true; },
+    execute: function(gs) {
+      const msgs = [
+        'You napped for 45 minutes. Feel slightly less dead inside.',
+        'Dreamed about product-market fit. Woke up disappointed.',
+        'Power nap complete. Your hoodie now has desk imprints.',
+        'Fell asleep on keyboard. Accidentally shipped a feature.',
+        'Nap interrupted by Slack notification. Worth it anyway.'
+      ];
+      return { text: msgs[Math.floor(Math.random() * msgs.length)], effects: {} };
+    }
+  },
+  {
+    id: 'end_day',
+    label: 'END DAY EARLY',
+    cost: 0,
+    phase: 'afternoon',
+    enabled: function(gs) { return true; },
+    execute: function(gs) {
+      gs.ap = 0;
+      return { text: 'Called it a day. Sometimes rest is productive too.', effects: {} };
+    }
   }
-  drawText(ctx,'ESC skip',mx+mW-80,my+mH-16,PAL.textDim,1);
+];
+
+function getAvailableActions(gs) {
+  return ENGINE.actions.filter(function(a) {
+    return a.phase === gs.phase && a.enabled(gs) && (a.cost === 0 || canAfford(gs, a.cost));
+  });
+}
+
+// --- Economy Tick ---
+function economyTick(gs) {
+  const avgRevenue = 99;
+  const newMRR = gs.customers * avgRevenue;
+  gs.mrr = newMRR;
+
+  let employeeSalaries = 0;
+  for (let i = 0; i < gs.employees.length; i++) employeeSalaries += gs.employees[i].salary;
+  const baseBurn = 2000;
+  gs.monthlyBurn = employeeSalaries + baseBurn * 4;
+  const weeklyBurn = Math.floor(gs.monthlyBurn / 4);
+
+  const revenue = Math.floor(newMRR / 4);
+  gs.cash += revenue;
+  gs.cash -= weeklyBurn;
+
+  let churnedCustomers = 0;
+  let remaining = gs.customers;
+  for (let i = 0; i < remaining; i++) {
+    if (Math.random() < 0.03) churnedCustomers++;
+  }
+  gs.customers = Math.max(0, gs.customers - churnedCustomers);
+  gs.mrr = gs.customers * avgRevenue;
+
+  const newRunway = weeklyBurn > revenue ? Math.floor(gs.cash / (weeklyBurn - revenue)) : 999;
+
+  if (gs.product > 0 && Math.random() < 0.3) {
+    gs.bugs += Math.floor(Math.random() * 2) + 1;
+  }
+
+  return {
+    revenue: revenue,
+    burn: weeklyBurn,
+    churnedCustomers: churnedCustomers,
+    newRunway: newRunway,
+    netChange: revenue - weeklyBurn
+  };
 }
 
 // --- Day Cycle ---
-function resetAP() { gameState.ap=gameState.maxAP; }
-function advanceDay() {
-  var report=economyTick(); gameState.dayReport=report;
-  gameState.screen='dayTransition'; gameState.dayTransition={timer:0,phase:'fadeOut'};
-}
-function updateDayTransition(dt) {
-  var t=gameState.dayTransition; t.timer+=dt;
-  if(t.phase==='fadeOut'&&t.timer>=400){gameState.day++;resetAP();t.phase='splash';t.timer=0;}
-  else if(t.phase==='splash'&&t.timer>=1200){t.phase='fadeIn';t.timer=0;}
-  else if(t.phase==='fadeIn'&&t.timer>=300) gameState.screen='dayReport';
-}
-function drawDayTransition(ctx) {
-  var t=gameState.dayTransition;
-  if(t.phase==='fadeOut'){drawPlayScreen(ctx);ctx.fillStyle='rgba(0,0,0,'+Math.min(t.timer/400,1)+')';ctx.fillRect(0,0,640,360);}
-  else if(t.phase==='splash'){
-    ctx.fillStyle=PAL.black; ctx.fillRect(0,0,640,360);
-    var ds='DAY '+gameState.day; drawText(ctx,ds,Math.floor((640-measureText(ds,4).width)/2),120,PAL.gold,4);
-    var ws='WEEK '+gameState.day; drawText(ctx,ws,Math.floor((640-measureText(ws,2).width)/2),170,PAL.teal,2);
-    drawText(ctx,formatCash(gameState.cash),Math.floor((640-measureText(formatCash(gameState.cash),2).width)/2),210,PAL.gold,2);
-    if(gameState.cash<=0){var go='GAME OVER';drawText(ctx,go,Math.floor((640-measureText(go,3).width)/2),260,PAL.danger,3);}
-  } else if(t.phase==='fadeIn'){drawPlayScreen(ctx);ctx.fillStyle='rgba(0,0,0,'+(1-Math.min(t.timer/300,1))+')';ctx.fillRect(0,0,640,360);}
+function initDay(gs) {
+  gs.phase = 'morning';
+  resetAP(gs);
+  gs.inbox = generateEmails(gs);
+  gs.uiState = 'inbox';
+  gs.selectedIndex = 0;
+  gs.actionResult = null;
+  gs.eveningSummary = null;
 }
 
-// --- Day Report ---
-function handleDayReportInput(key) {
-  if(key==='Space'||key==='Enter'){
-    if(gameState.cash<=0) location.reload();
-    else gameState.screen='play';
+function advancePhase(gs) {
+  if (gs.phase === 'morning') {
+    gs.phase = 'afternoon';
+    gs.uiState = 'action_menu';
+    gs.selectedIndex = 0;
+    return 'afternoon';
+  } else if (gs.phase === 'afternoon') {
+    gs.phase = 'evening';
+    gs.eveningSummary = economyTick(gs);
+    gs.uiState = 'evening_summary';
+    if (gs.cash <= 0) gs.gameOver = true;
+    return 'evening';
+  } else if (gs.phase === 'evening') {
+    advanceDay(gs);
+    return 'morning';
   }
 }
-function drawDayReport(ctx) {
-  ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.fillRect(0,0,640,360);
-  var mW=400,mH=260,mx=Math.floor((640-mW)/2),my=Math.floor((360-mH)/2);
-  ctx.fillStyle='#1A1A2E'; ctx.fillRect(mx,my,mW,mH);
-  ctx.strokeStyle=PAL.gold; ctx.lineWidth=2; ctx.strokeRect(mx,my,mW,mH);
-  drawText(ctx,'WEEKLY REPORT - DAY '+gameState.day,mx+10,my+10,PAL.gold,2);
-  var r=gameState.dayReport||{revenue:0,burn:0,net:0,churned:0,newCustomers:0};
-  var ly=my+40;
-  drawText(ctx,'Revenue:  '+formatCash(r.revenue),mx+20,ly,PAL.teal,1); ly+=16;
-  drawText(ctx,'Burn:     '+formatCash(r.burn),mx+20,ly,PAL.danger,1); ly+=16;
-  drawText(ctx,'Net:      '+formatCash(r.net),mx+20,ly,r.net>=0?PAL.success:PAL.danger,1); ly+=16;
-  drawText(ctx,'Cash:     '+formatCash(gameState.cash),mx+20,ly,PAL.gold,1); ly+=20;
-  drawText(ctx,'Customers: '+economy.customers,mx+20,ly,PAL.text,1); ly+=16;
-  drawText(ctx,'Churned:   '+r.churned,mx+20,ly,r.churned>0?PAL.danger:PAL.textDim,1); ly+=16;
-  drawText(ctx,'Pipeline:  '+economy.salesPipeline,mx+20,ly,PAL.amber,1); ly+=16;
-  drawText(ctx,'Quality:   '+Math.floor(economy.productQuality),mx+20,ly,PAL.teal,1); ly+=16;
-  if(economy.employees.length>0){drawText(ctx,'Team: '+economy.employees.map(function(e){return e.name;}).join(', '),mx+20,ly,PAL.textLight,1);ly+=16;}
-  var runway=getRunway();
-  drawText(ctx,'Runway: '+(runway>=999?'PROFITABLE':runway+' weeks'),mx+20,ly,runway>=999?PAL.success:(runway<12?PAL.danger:PAL.textLight),1);
-  drawText(ctx,'PRESS SPACE TO CONTINUE',mx+Math.floor((mW-measureText('PRESS SPACE TO CONTINUE',1).width)/2),my+mH-18,PAL.textDim,1);
+
+function advanceDay(gs) {
+  gs.day++;
+  if (gs.day <= 10) gs.era = 'garage';
+  else if (gs.day <= 30) gs.era = 'early';
+  else if (gs.day <= 60) gs.era = 'growth';
+  else gs.era = 'scale';
+  initDay(gs);
 }
 
-// --- Play Screen ---
-function drawPlayScreen(ctx) {
-  drawRoom(ctx);
-  var room=ROOMS[gameState.currentRoom];
-  if(room.npcs) for(var i=0;i<room.npcs.length;i++){var npc=room.npcs[i];drawNPCSprite(ctx,npc.id,npc.x*TILE,npc.y*TILE+HUD_H);}
-  drawPlayer(ctx,gameState.player.drawX,gameState.player.drawY,gameState.player.facing);
-  drawHUD(ctx);
-  drawInteractionPrompt(ctx);
+function getCurrentPhase(gs) { return gs.phase; }
+
+// --- Email System ---
+const EMAIL_POOL = [
+  // Day 1 mandatory
+  { id: 'welcome', from: 'Jordan', subject: 'Welcome to the grind', body: "Day 1. We have $150K in the bank, zero customers, and a half-baked MVP. I'll handle the architecture. You handle... everything else. Don't let me down.", day: 1, choices: null, unique: true },
+  { id: 'landlord', from: 'Landlord', subject: 'Garage lease agreement', body: "Confirming your month-to-month lease on the garage unit. $2,000/month. Please don't blow anything up.", day: 1, choices: null, unique: true },
+  // Day 1-10 pool
+  { id: 'mom1', from: 'Mom', subject: 'Are you eating?', body: "Sweetie, your father and I saw your website. What is a SaaS? Are you eating enough? Please call. Love, Mom.", minDay: 2, maxDay: 8, choices: null, unique: true },
+  { id: 'investor_checkin', from: 'Angel Investor', subject: 'Quick check-in', body: "Just checking in on my investment. How's the product coming along? Any early traction? Would love to see some numbers.", minDay: 3, maxDay: 10, choices: null, unique: true },
+  { id: 'aws_bill', from: 'AWS Billing', subject: 'Your bill is ready', body: "Your AWS bill for this month: $847.32. You have 14 unused EC2 instances running. Consider shutting them down.", minDay: 2, maxDay: 15, choices: null, unique: true },
+  { id: 'spam1', from: 'Nigerian Prince', subject: 'URGENT BUSINESS PROPOSAL', body: "Dear Sir/Madam, I am a prince with $10M USD that needs to be transferred. I will give you 30% if you help.", minDay: 1, maxDay: 999, choices: null, unique: false },
+  { id: 'cold_inbound1', from: 'Interested User', subject: 'Found you on Product Hunt', body: "Hey, saw your product listed. Looks interesting! Do you have a free trial? We're a 50-person company looking for exactly this.", minDay: 3, maxDay: 15, choices: null, unique: true },
+  { id: 'recruiter1', from: 'TechRecruit', subject: 'Amazing opportunity at Google', body: "Hi! I found your profile. Google is hiring senior engineers at $400K+. Want to chat? ...Wait, you're a founder? Never mind.", minDay: 2, maxDay: 999, choices: null, unique: false },
+  { id: 'coffee_invite', from: 'Gina (Byte Cafe)', subject: 'New espresso blend!', body: "Hey founder! Just got a new Ethiopian single-origin in. First cup's on the house. Come by whenever.", minDay: 2, maxDay: 10, choices: null, unique: true },
+  { id: 'github_star', from: 'GitHub', subject: 'Someone starred your repo', body: "Your repository got a new star! Total stars: 1. (It was your mom.)", minDay: 2, maxDay: 8, choices: null, unique: true },
+  { id: 'slack_notif', from: 'Slack', subject: 'Workspace activity', body: "You have 0 unread messages in 0 channels. It's just you and Jordan in here. Awkward.", minDay: 1, maxDay: 5, choices: null, unique: true },
+  { id: 'domain_renewal', from: 'GoDaddy', subject: 'Domain expiring soon', body: "Your domain startup.io is expiring in 30 days. Renew now for $12.99/year or $499.99 for our Premium DNS Protection bundle.", minDay: 4, maxDay: 12, choices: null, unique: true },
+  { id: 'competitor_news', from: 'TechCrunch Alert', subject: 'ThunderCorp raises $5M', body: "BREAKING: Chad Thunderpitch's company ThunderCorp just closed a $5M Series A. 'We're disrupting the disruptors,' says Thunderpitch.", minDay: 5, maxDay: 15, choices: null, unique: true },
+  { id: 'hn_comment', from: 'HN Notifications', subject: 'New comment on your post', body: "'Actually, this has been done before. Also your font rendering is wrong. Also you should rewrite it in Rust.' - user pg_wannabe", minDay: 3, maxDay: 999, choices: null, unique: false },
+  { id: 'feature_req1', from: 'Beta User', subject: 'Feature request: CSV export', body: "Love the product! But I really need CSV export. Also PDF export. Also API access. Also can you build a mobile app? Thanks!", minDay: 5, maxDay: 20, choices: null, unique: true },
+  { id: 'mentor_advice', from: 'Startup Mentor', subject: 'Advice from the trenches', body: "Three things: 1) Talk to customers. 2) Ship fast. 3) Don't run out of money. That's it. Everything else is noise.", minDay: 3, maxDay: 12, choices: null, unique: true },
+  { id: 'coworking', from: 'WeWork', subject: 'Upgrade your workspace!', body: "Tired of working from a garage? Our hot desk plan starts at just $500/month. Includes free beer on Fridays!", minDay: 4, maxDay: 999, choices: null, unique: false },
+  { id: 'podcast_invite', from: 'Startup Podcast', subject: 'Be a guest on our show?', body: "We'd love to have you on 'Founders Who Haven't Failed Yet'. Our audience of 12 listeners would love your story.", minDay: 6, maxDay: 20, choices: null, unique: true },
+  { id: 'bug_report1', from: 'Support', subject: 'Bug: Login page broken', body: "Customer reports 500 error on login. They say 'the website is doing a weird thing.' Very helpful description.", minDay: 4, maxDay: 999, choices: null, unique: false },
+  { id: 'jordan_cryptic1', from: 'Jordan', subject: 'Re: Architecture', body: "I've been thinking about the data layer. There's a pattern here that nobody else sees. Will explain later. Or maybe not.", minDay: 5, maxDay: 15, choices: null, unique: true },
+  { id: 'churn_alert', from: 'System', subject: 'Customer churned', body: "A customer just cancelled their subscription. Reason given: 'Found a better solution.' Ouch.", minDay: 8, maxDay: 999, choices: null, unique: false },
+  { id: 'partnership1', from: 'BizDev (TechPartner)', subject: 'Partnership opportunity', body: "We have 10K users who might need your tool. Want to explore an integration? Could be big for both of us.", minDay: 10, maxDay: 30, choices: null, unique: true },
+  { id: 'vc_interest', from: 'VC (Acme Ventures)', subject: 'Interesting space', body: "Your company came up in a partner meeting. We're interested in the space. Would love to get a deck and chat.", minDay: 10, maxDay: 40, choices: null, unique: true },
+  { id: 'hiring_app', from: 'Job Applicant', subject: 'Application: Full Stack Dev', body: "Hi, I'm a 10x developer with 15 years of experience in a framework released 2 years ago. I'd love to join your team.", minDay: 8, maxDay: 999, choices: null, unique: false },
+  { id: 'server_down', from: 'PagerDuty', subject: 'ALERT: Server unresponsive', body: "Your production server has been unresponsive for 5 minutes. All 3 of your users are affected.", minDay: 5, maxDay: 999, choices: null, unique: false },
+  { id: 'stripe_email', from: 'Stripe', subject: 'Payment received!', body: "You received a payment of $99.00. Your Stripe balance is now enough to buy a nice dinner. Celebrate!", minDay: 6, maxDay: 999, choices: null, unique: false },
+  { id: 'jordan_notebook', from: 'Jordan', subject: '...', body: "Found something in the data. Patterns. Can't explain yet. Don't ask.", minDay: 15, maxDay: 40, choices: null, unique: true },
+  { id: 'conference', from: 'SaaSConf', subject: 'Speaker invitation', body: "We'd love you to speak at SaaSConf 2026. Topic: 'How We Almost Died 47 Times.' Travel not included.", minDay: 15, maxDay: 999, choices: null, unique: true },
+  { id: 'acqui_hire', from: 'BigTech Corp', subject: 'Acquisition interest', body: "We've been watching your product. Would you be open to a conversation about joining our team? (We mean buying you.)", minDay: 20, maxDay: 999, choices: null, unique: true },
+  { id: 'tax_reminder', from: 'Accountant', subject: 'Tax deadline approaching', body: "Quarterly taxes are due. I need your financials. Please tell me you've been keeping records. Please.", minDay: 8, maxDay: 999, choices: null, unique: false },
+  { id: 'press_mention', from: 'Google Alerts', subject: 'You were mentioned!', body: "Your startup was mentioned in an article titled '50 Startups Most Likely To Fail In 2026.' Congrats on the press!", minDay: 10, maxDay: 999, choices: null, unique: false },
+  { id: 'maya_intro', from: 'Maya Chen', subject: 'Excited to start!', body: "Hey! Jordan told me about what you're building. I just quit my job at BigCorp. When do I start? (Please say tomorrow.)", minDay: 8, maxDay: 20, choices: null, unique: true },
+  { id: 'derek_intro', from: 'Derek Williams', subject: 'LETS CLOSE SOME DEALS', body: "Heard you need a sales guy. I brought my own gong. Every deal we close, I ring it. Non-negotiable. When do I start?", minDay: 10, maxDay: 25, choices: null, unique: true }
+];
+
+function generateEmails(gs) {
+  const emails = [];
+  const eligible = EMAIL_POOL.filter(function(tmpl) {
+    if (tmpl.day && tmpl.day !== gs.day) return false;
+    if (tmpl.day && tmpl.day === gs.day) return true;
+    if (tmpl.minDay && gs.day < tmpl.minDay) return false;
+    if (tmpl.maxDay && gs.day > tmpl.maxDay) return false;
+    if (tmpl.unique && gs.emailsSent.indexOf(tmpl.id) !== -1) return false;
+    return true;
+  });
+
+  // Mandatory emails (exact day match)
+  const mandatory = eligible.filter(function(e) { return e.day === gs.day; });
+  for (let i = 0; i < mandatory.length; i++) {
+    emails.push(makeEmail(mandatory[i], gs));
+  }
+
+  // Random from pool
+  const pool = eligible.filter(function(e) { return !e.day; });
+  const shuffled = pool.sort(function() { return Math.random() - 0.5; });
+  const needed = Math.max(0, (2 + Math.floor(Math.random() * 3)) - emails.length);
+  for (let i = 0; i < Math.min(needed, shuffled.length); i++) {
+    emails.push(makeEmail(shuffled[i], gs));
+  }
+
+  // Ensure at least 1 email
+  if (emails.length === 0) {
+    emails.push({
+      id: 'fallback_' + gs.day,
+      from: 'Jordan',
+      subject: 'Day ' + gs.day,
+      body: 'Another day, another chance to not go bankrupt. Get to work.',
+      day: gs.day,
+      choices: null,
+      read: false
+    });
+  }
+
+  return emails;
 }
+
+function makeEmail(tmpl, gs) {
+  if (tmpl.unique) gs.emailsSent.push(tmpl.id);
+  return {
+    id: tmpl.id,
+    from: tmpl.from,
+    subject: tmpl.subject,
+    body: tmpl.body,
+    day: gs.day,
+    choices: tmpl.choices || null,
+    read: false
+  };
+}
+
+// --- Drawing Functions ---
+
+function drawHUD(ctx, gs) {
+  // Background bar
+  ctx.fillStyle = PAL.hudBg;
+  ctx.fillRect(0, 0, 640, 24);
+  ctx.fillStyle = '#2a2a3e';
+  ctx.fillRect(0, 24, 640, 1);
+
+  // Day
+  drawText(ctx, 'DAY ' + gs.day, 6, 4, PAL.hudText, 1);
+
+  // Phase indicator
+  const phaseStr = gs.phase.toUpperCase();
+  drawText(ctx, phaseStr, 6, 14, PAL.textSecondary, 1);
+
+  // Cash with commas
+  drawText(ctx, formatCash(gs.cash), 100, 4, PAL.textAccent, 1);
+
+  // MRR
+  drawText(ctx, 'MRR ' + formatCash(gs.mrr), 230, 4, PAL.positive, 1);
+
+  // Runway
+  const weeklyBurn = Math.floor(gs.monthlyBurn / 4);
+  const weeklyRev = Math.floor(gs.mrr / 4);
+  let runwayStr;
+  if (weeklyBurn <= weeklyRev) {
+    runwayStr = 'RWY ~';
+  } else if (gs.cash <= 0) {
+    runwayStr = 'RWY 0mo';
+  } else {
+    const rwWeeks = Math.floor(gs.cash / (weeklyBurn - weeklyRev));
+    const rwMonths = Math.floor(rwWeeks / 4);
+    runwayStr = 'RWY ' + rwMonths + 'mo';
+  }
+  const rwColor = runwayStr === 'RWY ~' ? PAL.positive : (parseInt(runwayStr.replace(/\D/g,'')) < 6 ? PAL.negative : PAL.hudText);
+  drawText(ctx, runwayStr, 370, 4, rwColor, 1);
+
+  // AP pips
+  drawText(ctx, 'AP', 480, 4, PAL.hudText, 1);
+  for (let i = 0; i < gs.maxAP; i++) {
+    const px = 504 + i * 14;
+    const py = 7;
+    const filled = i < gs.ap;
+    ctx.fillStyle = filled ? PAL.apFull : PAL.apEmpty;
+    // Diamond shape
+    ctx.beginPath();
+    ctx.moveTo(px, py - 5);
+    ctx.lineTo(px + 5, py);
+    ctx.lineTo(px, py + 5);
+    ctx.lineTo(px - 5, py);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Era
+  drawText(ctx, gs.era.toUpperCase(), 600, 14, PAL.textSecondary, 1);
+}
+
+function drawInbox(ctx, gs) {
+  const inbox = gs.inbox;
+  const sel = gs.selectedIndex;
+
+  // Full screen overlay
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+
+  // Header
+  ctx.fillStyle = PAL.hudBg;
+  ctx.fillRect(0, 0, 640, 30);
+  drawText(ctx, 'INBOX - DAY ' + gs.day + ' MORNING', 10, 8, PAL.textAccent, 2);
+
+  const unreadCount = inbox.filter(function(e) { return !e.read; }).length;
+  if (unreadCount > 0) {
+    drawText(ctx, unreadCount + ' UNREAD', 520, 12, PAL.emailUnread, 1);
+  } else {
+    drawText(ctx, 'ALL READ', 530, 12, PAL.positive, 1);
+  }
+
+  // Left panel: email list
+  const listW = 220;
+  ctx.fillStyle = PAL.emailBg;
+  ctx.fillRect(0, 30, listW, 330);
+
+  for (let i = 0; i < inbox.length; i++) {
+    const email = inbox[i];
+    const ey = 34 + i * 40;
+
+    if (i === sel) {
+      ctx.fillStyle = PAL.emailSelected;
+      ctx.fillRect(0, ey, listW, 38);
+    }
+
+    // Unread dot
+    if (!email.read) {
+      ctx.fillStyle = PAL.emailUnread;
+      ctx.beginPath();
+      ctx.arc(10, ey + 12, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // From
+    drawText(ctx, email.from, 18, ey + 4, email.read ? PAL.emailRead : PAL.textPrimary, 1);
+    // Subject (truncated)
+    const maxSubjW = listW - 24;
+    let subj = email.subject;
+    while (measureText(subj, 1).width > maxSubjW && subj.length > 3) {
+      subj = subj.slice(0, -1);
+    }
+    drawText(ctx, subj, 18, ey + 16, email.read ? PAL.emailRead : PAL.textSecondary, 1);
+
+    // Separator
+    ctx.fillStyle = '#1a2a4e';
+    ctx.fillRect(10, ey + 38, listW - 20, 1);
+  }
+
+  // Right panel: email detail
+  ctx.fillStyle = '#111122';
+  ctx.fillRect(listW, 30, 640 - listW, 330);
+
+  if (sel >= 0 && sel < inbox.length) {
+    const email = inbox[sel];
+    const rx = listW + 16;
+
+    drawText(ctx, email.subject, rx, 44, PAL.textAccent, 2);
+    drawText(ctx, 'FROM: ' + email.from, rx, 68, PAL.textSecondary, 1);
+
+    ctx.fillStyle = '#222244';
+    ctx.fillRect(rx, 82, 640 - listW - 32, 1);
+
+    const bodyLines = wrapText(email.body, 640 - listW - 40, 1);
+    for (let i = 0; i < bodyLines.length; i++) {
+      drawText(ctx, bodyLines[i], rx, 92 + i * 14, PAL.textPrimary, 1);
+    }
+  }
+
+  // Bottom instructions
+  ctx.fillStyle = PAL.hudBg;
+  ctx.fillRect(0, 336, 640, 24);
+
+  drawText(ctx, 'UP/DOWN: Navigate', 10, 342, PAL.textSecondary, 1);
+  drawText(ctx, 'ENTER: Read', 200, 342, PAL.textSecondary, 1);
+
+  if (unreadCount === 0) {
+    drawText(ctx, 'SPACE: Start Day', 380, 342, PAL.positive, 1);
+  } else {
+    drawText(ctx, 'Read all emails to continue', 380, 342, PAL.emailUnread, 1);
+  }
+}
+
+function drawActionMenu(ctx, gs) {
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+
+  // Header
+  drawHUD(ctx, gs);
+
+  // Title
+  drawText(ctx, 'AFTERNOON - CHOOSE AN ACTION', 10, 32, PAL.textAccent, 2);
+
+  // Action list
+  const actions = ENGINE.actions;
+  const sel = gs.selectedIndex;
+
+  for (let i = 0; i < actions.length; i++) {
+    const action = actions[i];
+    const ay = 58 + i * 38;
+    const isSelected = i === sel;
+    const affordable = action.cost === 0 || canAfford(gs, action.cost);
+    const enabled = action.enabled(gs) && affordable;
+
+    // Selection highlight
+    if (isSelected) {
+      ctx.fillStyle = PAL.buttonHover;
+      ctx.fillRect(10, ay, 620, 36);
+    } else {
+      ctx.fillStyle = PAL.buttonBg;
+      ctx.fillRect(10, ay, 620, 36);
+    }
+
+    // Cursor
+    if (isSelected) {
+      drawText(ctx, '>', 16, ay + 6, PAL.textAccent, 2);
+    }
+
+    // Label
+    const labelColor = enabled ? (isSelected ? PAL.textAccent : PAL.textPrimary) : PAL.apEmpty;
+    drawText(ctx, action.label, 40, ay + 4, labelColor, 2);
+
+    // AP cost
+    if (action.cost > 0) {
+      const costStr = action.cost + ' AP';
+      const costColor = affordable ? PAL.apFull : PAL.negative;
+      drawText(ctx, costStr, 560, ay + 8, costColor, 1);
+    } else {
+      drawText(ctx, 'FREE', 560, ay + 8, PAL.positive, 1);
+    }
+
+    // Description line for selected
+    if (isSelected) {
+      let desc = '';
+      if (action.id === 'code_feature') desc = 'Spend time coding. Improves product quality.';
+      else if (action.id === 'fix_bugs') desc = 'Fix bugs in the codebase. (' + gs.bugs + ' bugs)';
+      else if (action.id === 'sales_call') desc = 'Call a prospect. Good chance to close a deal.';
+      else if (action.id === 'cold_email') desc = 'Blast out cold emails. Low chance, low cost.';
+      else if (action.id === 'post_on_hn') desc = 'Post on Hacker News. Random outcome.';
+      else if (action.id === 'nap') desc = 'Sometimes you just need to rest.';
+      else if (action.id === 'end_day') desc = 'Skip remaining AP and end the day.';
+      drawText(ctx, desc, 40, ay + 22, PAL.textSecondary, 1);
+    }
+
+    if (!enabled && isSelected) {
+      if (!action.enabled(gs)) drawText(ctx, 'Not available', 400, ay + 22, PAL.negative, 1);
+      else drawText(ctx, 'Not enough AP', 400, ay + 22, PAL.negative, 1);
+    }
+  }
+
+  // Bottom bar
+  ctx.fillStyle = PAL.hudBg;
+  ctx.fillRect(0, 336, 640, 24);
+  drawText(ctx, 'UP/DOWN: Navigate   ENTER: Select', 10, 342, PAL.textSecondary, 1);
+  drawText(ctx, 'AP: ' + gs.ap + '/' + gs.maxAP, 540, 342, PAL.apFull, 1);
+}
+
+function drawActionResult(ctx, gs) {
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+  drawHUD(ctx, gs);
+
+  const result = gs.actionResult;
+  if (!result) return;
+
+  // Result box
+  const boxW = 500, boxH = 180;
+  const bx = Math.floor((640 - boxW) / 2);
+  const by = Math.floor((360 - boxH) / 2);
+
+  ctx.fillStyle = PAL.emailBg;
+  ctx.fillRect(bx, by, boxW, boxH);
+  ctx.strokeStyle = PAL.textAccent;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(bx, by, boxW, boxH);
+
+  drawText(ctx, 'RESULT', bx + 10, by + 10, PAL.textAccent, 2);
+
+  const lines = wrapText(result.text, boxW - 30, 1);
+  for (let i = 0; i < lines.length; i++) {
+    drawText(ctx, lines[i], bx + 14, by + 40 + i * 14, PAL.textPrimary, 1);
+  }
+
+  // Show effects
+  let ey = by + 40 + lines.length * 14 + 14;
+  if (result.effects) {
+    if (result.effects.customers) drawText(ctx, '+' + result.effects.customers + ' CUSTOMERS', bx + 14, ey, PAL.positive, 1);
+    if (result.effects.product) drawText(ctx, '+' + result.effects.product + ' PRODUCT', bx + 200, ey, PAL.positive, 1);
+  }
+
+  // Continue prompt
+  const apLeft = gs.ap;
+  if (apLeft > 0) {
+    drawText(ctx, 'SPACE: Continue (' + apLeft + ' AP left)', bx + 10, by + boxH - 20, PAL.textSecondary, 1);
+  } else {
+    drawText(ctx, 'SPACE: End Day (0 AP left)', bx + 10, by + boxH - 20, PAL.textSecondary, 1);
+  }
+}
+
+function drawEveningSummary(ctx, gs) {
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+
+  const summary = gs.eveningSummary;
+  if (!summary) return;
+
+  const boxW = 440, boxH = 280;
+  const bx = Math.floor((640 - boxW) / 2);
+  const by = Math.floor((360 - boxH) / 2);
+
+  ctx.fillStyle = PAL.emailBg;
+  ctx.fillRect(bx, by, boxW, boxH);
+  ctx.strokeStyle = PAL.apFull;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(bx, by, boxW, boxH);
+
+  drawText(ctx, 'EVENING REPORT - DAY ' + gs.day, bx + 10, by + 10, PAL.textAccent, 2);
+
+  let ly = by + 40;
+  const lh = 18;
+
+  drawText(ctx, 'REVENUE THIS WEEK:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, formatCash(summary.revenue), bx + 250, ly, PAL.positive, 1);
+  ly += lh;
+
+  drawText(ctx, 'BURN THIS WEEK:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, formatCash(summary.burn), bx + 250, ly, PAL.negative, 1);
+  ly += lh;
+
+  const net = summary.netChange;
+  drawText(ctx, 'NET CHANGE:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, (net >= 0 ? '+' : '') + formatCash(net), bx + 250, ly, net >= 0 ? PAL.positive : PAL.negative, 1);
+  ly += lh + 6;
+
+  ctx.fillStyle = '#222244';
+  ctx.fillRect(bx + 20, ly, boxW - 40, 1);
+  ly += 10;
+
+  drawText(ctx, 'CUSTOMERS:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, '' + gs.customers, bx + 250, ly, PAL.textPrimary, 1);
+  ly += lh;
+
+  if (summary.churnedCustomers > 0) {
+    drawText(ctx, 'CHURNED:', bx + 20, ly, PAL.textSecondary, 1);
+    drawText(ctx, '-' + summary.churnedCustomers, bx + 250, ly, PAL.negative, 1);
+    ly += lh;
+  }
+
+  drawText(ctx, 'MRR:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, formatCash(gs.mrr), bx + 250, ly, PAL.positive, 1);
+  ly += lh;
+
+  drawText(ctx, 'CASH:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, formatCash(gs.cash), bx + 250, ly, gs.cash > 0 ? PAL.textAccent : PAL.negative, 1);
+  ly += lh;
+
+  drawText(ctx, 'PRODUCT QUALITY:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, '' + gs.product, bx + 250, ly, PAL.positive, 1);
+  ly += lh;
+
+  drawText(ctx, 'BUGS:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, '' + gs.bugs, bx + 250, ly, gs.bugs > 0 ? PAL.negative : PAL.positive, 1);
+  ly += lh;
+
+  if (gs.gameOver) {
+    ly += 10;
+    const goStr = 'RUNWAY EXHAUSTED';
+    const goW = measureText(goStr, 2);
+    drawText(ctx, goStr, bx + Math.floor((boxW - goW.width) / 2), ly, PAL.negative, 2);
+    ly += 24;
+    const restartStr = 'PRESS ENTER TO RESTART';
+    const rw = measureText(restartStr, 1);
+    drawText(ctx, restartStr, bx + Math.floor((boxW - rw.width) / 2), ly, PAL.textSecondary, 1);
+  } else {
+    const contStr = 'PRESS ENTER/SPACE FOR NEXT DAY';
+    const cw = measureText(contStr, 1);
+    drawText(ctx, contStr, bx + Math.floor((boxW - cw.width) / 2), by + boxH - 20, PAL.textSecondary, 1);
+  }
+}
+
+function drawGameOver(ctx, gs) {
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+
+  const title = 'GAME OVER';
+  const tw = measureText(title, 4);
+  drawText(ctx, title, Math.floor((640 - tw.width) / 2), 80, PAL.negative, 4);
+
+  const sub = 'RUNWAY EXHAUSTED';
+  const sw = measureText(sub, 2);
+  drawText(ctx, sub, Math.floor((640 - sw.width) / 2), 130, PAL.textAccent, 2);
+
+  const stats = [
+    'Survived ' + gs.day + ' days',
+    'Peak MRR: ' + formatCash(gs.mrr),
+    'Final customers: ' + gs.customers,
+    'Product quality: ' + gs.product
+  ];
+
+  for (let i = 0; i < stats.length; i++) {
+    const sW = measureText(stats[i], 1);
+    drawText(ctx, stats[i], Math.floor((640 - sW.width) / 2), 180 + i * 18, PAL.textSecondary, 1);
+  }
+
+  if (Math.floor(Date.now() / 500) % 2 === 0) {
+    const restart = 'PRESS ENTER TO TRY AGAIN';
+    const rw = measureText(restart, 2);
+    drawText(ctx, restart, Math.floor((640 - rw.width) / 2), 280, PAL.textPrimary, 2);
+  }
+}
+
+// --- Input Handling ---
+function handleInput(e) {
+  const key = e.code;
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab','Enter'].indexOf(key) !== -1) e.preventDefault();
+
+  if (gs.gameOver && gs.uiState === 'game_over') {
+    if (key === 'Enter' || key === 'Space') location.reload();
+    return;
+  }
+
+  switch (gs.uiState) {
+    case 'inbox': handleInboxInput(key); break;
+    case 'action_menu': handleActionMenuInput(key); break;
+    case 'action_result': handleActionResultInput(key); break;
+    case 'evening_summary': handleEveningSummaryInput(key); break;
+  }
+}
+
+function handleInboxInput(key) {
+  const inbox = gs.inbox;
+  if (key === 'ArrowUp' || key === 'KeyW') {
+    gs.selectedIndex = Math.max(0, gs.selectedIndex - 1);
+  } else if (key === 'ArrowDown' || key === 'KeyS') {
+    gs.selectedIndex = Math.min(inbox.length - 1, gs.selectedIndex + 1);
+  } else if (key === 'Enter') {
+    if (gs.selectedIndex >= 0 && gs.selectedIndex < inbox.length) {
+      inbox[gs.selectedIndex].read = true;
+    }
+  } else if (key === 'Space') {
+    const unread = inbox.filter(function(e) { return !e.read; }).length;
+    if (unread === 0) {
+      advancePhase(gs);
+    }
+  }
+}
+
+function handleActionMenuInput(key) {
+  const actions = ENGINE.actions;
+  if (key === 'ArrowUp' || key === 'KeyW') {
+    gs.selectedIndex = Math.max(0, gs.selectedIndex - 1);
+  } else if (key === 'ArrowDown' || key === 'KeyS') {
+    gs.selectedIndex = Math.min(actions.length - 1, gs.selectedIndex + 1);
+  } else if (key === 'Enter' || key === 'Space') {
+    const action = actions[gs.selectedIndex];
+    if (!action) return;
+
+    const affordable = action.cost === 0 || canAfford(gs, action.cost);
+    const enabled = action.enabled(gs) && affordable;
+    if (!enabled) return;
+
+    if (action.cost > 0) spendAP(gs, action.cost);
+    const result = action.execute(gs);
+    gs.actionResult = result;
+    gs.uiState = 'action_result';
+  }
+}
+
+function handleActionResultInput(key) {
+  if (key === 'Space' || key === 'Enter') {
+    gs.actionResult = null;
+    if (gs.ap <= 0) {
+      advancePhase(gs);
+    } else {
+      gs.uiState = 'action_menu';
+      gs.selectedIndex = 0;
+    }
+  }
+}
+
+function handleEveningSummaryInput(key) {
+  if (key === 'Enter' || key === 'Space') {
+    if (gs.gameOver) {
+      gs.uiState = 'game_over';
+    } else {
+      advancePhase(gs);
+    }
+  }
+}
+
+window.addEventListener('keydown', handleInput);
 
 // --- Game Loop ---
-var lastTime = 0;
+const gs = gameState;
+let lastTime = 0;
+
 function gameLoop(timestamp) {
-  if(!lastTime) lastTime=timestamp;
-  var dt=timestamp-lastTime; lastTime=timestamp;
-  if(dt>50) dt=50;
-  update(dt); draw(ctx);
+  if (!lastTime) lastTime = timestamp;
+  lastTime = timestamp;
+
+  // Clear
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+
+  // Draw based on UI state
+  switch (gs.uiState) {
+    case 'inbox':
+      drawInbox(ctx, gs);
+      break;
+    case 'action_menu':
+      drawActionMenu(ctx, gs);
+      break;
+    case 'action_result':
+      drawActionResult(ctx, gs);
+      break;
+    case 'evening_summary':
+      drawEveningSummary(ctx, gs);
+      break;
+    case 'game_over':
+      drawGameOver(ctx, gs);
+      break;
+  }
+
   requestAnimationFrame(gameLoop);
 }
-function update(dt) {
-  updateTransition(dt); updateLocTransition(dt);
-  if(gameState.screen==='play') updateMovement(dt);
-  else if(gameState.screen==='dayTransition') updateDayTransition(dt);
-}
-function draw(ctx) {
-  ctx.fillStyle=PAL.bg; ctx.fillRect(0,0,640,360);
-  switch(gameState.screen) {
-    case 'title': drawTitleScreen(ctx); break;
-    case 'nameEntry': drawNameEntry(ctx); break;
-    case 'characterCreation': drawCharacterCreation(ctx); break;
-    case 'play': drawPlayScreen(ctx); break;
-    case 'dialogue': drawPlayScreen(ctx); drawDialogue(ctx); break;
-    case 'laptopMenu': drawPlayScreen(ctx); drawLaptopMenu(ctx); break;
-    case 'activityMenu': drawPlayScreen(ctx); drawActivityMenu(ctx); break;
-    case 'emailInbox': drawPlayScreen(ctx); drawEmailInbox(ctx); break;
-    case 'dayTransition': drawDayTransition(ctx); break;
-    case 'dayReport': drawPlayScreen(ctx); drawDayReport(ctx); break;
-  }
-  drawTransitionOverlay(ctx); drawLocTransitionOverlay(ctx);
-}
 
+// --- Boot ---
 initCanvas();
+initDay(gs);
 requestAnimationFrame(gameLoop);
 </script>
 </body>

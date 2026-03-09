@@ -1,5 +1,5 @@
 {
-  "lastRound": 11,
+  "lastRound": 13,
   "lastRoundType": "integration",
   "lastQAVerdict": "reject",
   "knownIssues": [],
@@ -77,6 +77,20 @@
       "priority": "assemble-latest",
       "verdict": "reject",
       "timestamp": "2026-03-09T16:14:11.687Z"
+    },
+    {
+      "round": 12,
+      "type": "integration",
+      "priority": "beats_1_2",
+      "verdict": "ship",
+      "timestamp": "2026-03-09T16:30:20.562Z"
+    },
+    {
+      "round": 13,
+      "type": "integration",
+      "priority": "beats_1_2",
+      "verdict": "reject",
+      "timestamp": "2026-03-09T16:51:12.276Z"
     }
   ]
 }

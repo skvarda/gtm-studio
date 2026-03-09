@@ -1,12 +1,6 @@
 {
   "queue": [
     {
-      "round": 7,
-      "type": "integration",
-      "priority": "beats_1_2",
-      "note": "Assemble character creation + apartment Day 1 into playable build. First human checkpoint."
-    },
-    {
       "round": 8,
       "type": "engine",
       "priority": "ap_system_email_inbox",
