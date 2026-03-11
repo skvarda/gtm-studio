@@ -1,7 +1,7 @@
 {
-  "lastRound": 19,
-  "lastRoundType": "engine",
-  "lastQAVerdict": "ship",
+  "lastRound": 22,
+  "lastRoundType": "art",
+  "lastQAVerdict": "complete",
   "knownIssues": [],
   "deferredWork": [],
   "roundHistory": [
@@ -133,6 +133,27 @@
       "priority": "ap_system_email_inbox",
       "verdict": "ship",
       "timestamp": "2026-03-11T20:42:43.500Z"
+    },
+    {
+      "round": 20,
+      "type": "engine",
+      "priority": "economy_tick_day_advance",
+      "verdict": "ship",
+      "timestamp": "2026-03-11T20:58:50.185Z"
+    },
+    {
+      "round": 21,
+      "type": "story",
+      "priority": "days_2_3_content",
+      "verdict": "complete",
+      "timestamp": "2026-03-11T21:02:12.008Z"
+    },
+    {
+      "round": 22,
+      "type": "art",
+      "priority": "ui_polish",
+      "verdict": "complete",
+      "timestamp": "2026-03-11T21:04:06.278Z"
     }
   ]
 }

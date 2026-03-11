@@ -1,18 +1,6 @@
 {
   "queue": [
     {
-      "round": 10,
-      "type": "story",
-      "priority": "days_2_3_content",
-      "note": "Jordan day 2-3 dialogue, more Chad emails, burn rate anxiety flavor text, Gazette issue 2"
-    },
-    {
-      "round": 11,
-      "type": "art",
-      "priority": "ui_polish",
-      "note": "Dialogue box frame, HUD panel art, email inbox UI sprites, AP counter visual"
-    },
-    {
       "round": 12,
       "type": "integration",
       "priority": "beat_3_core_loop",
