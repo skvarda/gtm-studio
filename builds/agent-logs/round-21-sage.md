@@ -1,53 +1,11 @@
+Looking at Luna's brief for Days 2-3... "The Honeymoon Ends" - I like that. Time to make reality bite a little.
+
+Let me craft content that builds tension while Jordan starts showing their mysterious side. Chad needs to escalate from friendly networking to something more unsettling.
+
+```json
 {
-  "version": 1,
-  "last_updated_round": 21,
   "dialogue": {
     "jordan": {
-      "day_1": [
-        {
-          "id": "jordan_chad_email_reaction",
-          "trigger": "event",
-          "text": "Did you see that email from Chad? Guy's been sending those 'fellow founder' messages to everyone who raised money in the last six months. Networking or intelligence gathering, hard to tell.",
-          "player_responses": [
-            {
-              "id": "a",
-              "text": "Probably both. Should we be worried?",
-              "effect": null
-            },
-            {
-              "id": "b",
-              "text": "Competition keeps us sharp.",
-              "effect": null
-            },
-            {
-              "id": "c",
-              "text": "Let's focus on our own thing.",
-              "effect": {
-                "jordan_relationship": 1
-              }
-            }
-          ]
-        },
-        {
-          "id": "jordan_first_customer_anxiety",
-          "trigger": "walk_past",
-          "text": "*Jordan stares at the laptop screen* Zero customers. Zero revenue. Eighteen months to change that or we're back to our day jobs. No pressure.",
-          "player_responses": [
-            {
-              "id": "a",
-              "text": "We've got this. One step at a time.",
-              "effect": {
-                "jordan_relationship": 1
-              }
-            },
-            {
-              "id": "b",
-              "text": "The pressure's what makes it fun.",
-              "effect": null
-            }
-          ]
-        }
-      ],
       "day_2": [
         {
           "id": "jordan_morning_burn_rate",
@@ -60,7 +18,7 @@
               "effect": null
             },
             {
-              "id": "b",
+              "id": "b", 
               "text": "We'll figure it out as we go.",
               "effect": {
                 "jordan_relationship": -1
@@ -146,7 +104,7 @@
         },
         {
           "id": "jordan_mysterious_past",
-          "trigger": "interact",
+          "trigger": "interact", 
           "text": "You ever wonder why I was available for this? I mean, really available. Most people with my background are locked into golden handcuffs or equity vesting schedules. But here I am.",
           "player_responses": [
             {
@@ -197,25 +155,6 @@
       ]
     },
     "laptop": {
-      "day_1": [
-        {
-          "id": "laptop_dashboard_first_look",
-          "trigger": "interact",
-          "text": "Your startup dashboard loads: $150,000 in the bank. 0 customers. 0 monthly recurring revenue. 18 months until you need more funding. The numbers feel both huge and terrifyingly small.",
-          "player_responses": [
-            {
-              "id": "a",
-              "text": "Time to change those zeros.",
-              "effect": null
-            },
-            {
-              "id": "b",
-              "text": "Check emails instead.",
-              "effect": null
-            }
-          ]
-        }
-      ],
       "day_2": [
         {
           "id": "laptop_burn_rate_calculator",
@@ -228,7 +167,7 @@
               "effect": null
             },
             {
-              "id": "b",
+              "id": "b", 
               "text": "Add hiring cost scenarios",
               "effect": null
             }
@@ -256,30 +195,6 @@
       ]
     },
     "whiteboard": {
-      "day_1": [
-        {
-          "id": "whiteboard_revenue_math",
-          "trigger": "interact",
-          "text": "Under Jordan's diagrams, you spot the math: '100 customers × $99/mo = $9,900 MRR = $118,800 ARR = Maybe we don't die?' The question mark looks optimistic.",
-          "player_responses": [
-            {
-              "id": "a",
-              "text": "Add your own calculations below",
-              "effect": null
-            },
-            {
-              "id": "b",
-              "text": "100 customers seems doable",
-              "effect": null
-            },
-            {
-              "id": "c",
-              "text": "That question mark is doing a lot of work",
-              "effect": null
-            }
-          ]
-        }
-      ],
       "day_3": [
         {
           "id": "whiteboard_new_calculations",
@@ -300,32 +215,17 @@
         }
       ]
     }
-  },
+  }
+}
+```
+
+```json
+{
   "emails": {
-    "day_1": [
-      {
-        "id": "chad_introduction",
-        "sender": "Chad Thunderpitch",
-        "sender_company": "Synergy Solutions Inc.",
-        "subject": "Fellow founder reaching out! 🚀",
-        "body": "Hey!\n\nSaw the news about your seed round - congrats! Always exciting to see fresh blood in the B2B space.\n\nI'm Chad, CEO of Synergy Solutions. We're building the next-gen productivity platform for modern teams. Just closed our Series A ($3.2M) and growing 40% MOM.\n\nWould love to grab coffee and swap war stories. The startup scene is small - we should stick together!\n\nAlways happy to share learnings,\nChad\n\nP.S. - If you ever need to white-label any productivity features, we might be able to help. Win-win! 😉",
-        "requires_response": false,
-        "emotional_intent": "destabilize"
-      },
-      {
-        "id": "mom_support",
-        "sender": "Mom",
-        "sender_company": "",
-        "subject": "So proud of you!",
-        "body": "Honey,\n\nI still don't understand what a 'SaaS' is, but Dad and I are so proud of you for following your dreams. \n\nWe believe in you. Also, please remember to eat actual meals, not just coffee and energy bars.\n\nLove,\nMom\n\nP.S. - Mrs. Peterson's son works at Google. Should I get his number for you?",
-        "requires_response": false,
-        "emotional_intent": "encourage"
-      }
-    ],
     "day_2": [
       {
         "id": "chad_followup_aggressive",
-        "sender": "Chad Thunderpitch",
+        "sender": "Chad Thunderpitch", 
         "sender_company": "Synergy Solutions Inc.",
         "subject": "Re: Fellow founder reaching out! 🚀",
         "body": "Hey again!\n\nHaven't heard back yet - figured you're probably heads-down building (know that feeling!).\n\nJust wanted to follow up because I'm actually putting together a little founder dinner next week. Very informal, just 4-5 early-stage B2B companies sharing learnings over good food.\n\nWould be great to have you there. Always useful to hear how other teams are approaching customer acquisition, pricing strategy, that sort of thing. \n\nI find the best insights come from companies at similar stages. What's your current MRR looking like? Just curious where you're at in the journey.\n\nLet me know!\nChad\n\nP.S. - Saw some interesting hiring activity in your space lately. Market's getting competitive! 😅",
@@ -337,43 +237,24 @@
       {
         "id": "chad_intelligence_gathering",
         "sender": "Chad Thunderpitch",
-        "sender_company": "Synergy Solutions Inc.",
+        "sender_company": "Synergy Solutions Inc.", 
         "subject": "Quick favor? 🤝",
         "body": "Hope you're crushing it over there!\n\nRandom ask - I'm putting together some market research on B2B SaaS pricing models and would love to get your take. Nothing formal, just curious:\n\n- What price point are you targeting for your core offering?\n- How are you thinking about freemium vs. paid-only?\n- Any interesting insights from customer discovery so far?\n\nHappy to share what we've learned on our end too. I think there's real value in founder-to-founder knowledge sharing, especially in adjacent markets.\n\nActually, our head of sales mentioned seeing some overlap in our target customer profiles. Might be worth a quick call to make sure we're not stepping on each other's toes (in a good way!).\n\nAlways here to help,\nChad\n\nP.S. - If you're looking for any contractors/consultants, I have some great contacts. This market moves fast - happy to make intros! 🚀",
         "requires_response": false,
         "emotional_intent": "destabilize"
       }
     ]
-  },
-  "events": [],
+  }
+}
+```
+
+```json
+{
   "gazette_headlines": {
-    "day_1": {
-      "digest_format": true,
-      "title": "The Startup Gazette - Daily Brief",
-      "date": "Week 1",
-      "stories": [
-        {
-          "headline": "TechHub Announces $50M Early-Stage Fund",
-          "summary": "Local incubator targets pre-Series A startups. Average check size: $250K. Applications open next month."
-        },
-        {
-          "headline": "Remote Work Survey: 73% of Developers Won't Return to Office Full-Time",
-          "summary": "Bay Area talent increasingly prioritizing flexibility. Implications for startup hiring strategies."
-        },
-        {
-          "headline": "'Bean There' Coffee Chain Raises $12M Series A",
-          "summary": "Plans 200 new locations by 2027. CEO cites 'remote work boom' as key growth driver."
-        },
-        {
-          "headline": "VC Funding Down 23% This Quarter",
-          "summary": "Investors increasingly cautious. 'Focus on fundamentals,' says Andreessen Horowitz partner."
-        }
-      ]
-    },
     "day_2": {
       "digest_format": true,
       "title": "The Startup Gazette - Daily Brief",
-      "date": "Week 2",
+      "date": "Week 2", 
       "stories": [
         {
           "headline": "B2B Productivity Startup 'FlowState' Shuts Down After 14 Months",
@@ -388,14 +269,14 @@
           "summary": "Average B2B deal now takes 8.3 months to close, up 23% from last year. CFOs increasingly cautious about new software spend."
         },
         {
-          "headline": "YC Demo Day Sees Record Low Investment Volume",
+          "headline": "YC Demo Day Sees Record Low Investment Volume", 
           "summary": "Only 67% of presenting companies receive follow-on funding. 'Bar is higher than ever,' notes partner at Sequoia Capital."
         }
       ]
     },
     "day_3": {
       "digest_format": true,
-      "title": "The Startup Gazette - Daily Brief",
+      "title": "The Startup Gazette - Daily Brief", 
       "date": "Week 3",
       "stories": [
         {
@@ -416,18 +297,10 @@
         }
       ]
     }
-  },
-  "npc_schedules": {
-    "jordan": {
-      "apartment": {
-        "position": {
-          "x": 8,
-          "y": 3
-        },
-        "facing": "down",
-        "idle_behavior": "typing_with_occasional_pause"
-      }
-    }
-  },
-  "pending_npcs": []
+  }
 }
+```
+
+This content package escalates the tension exactly as Luna requested. Jordan becomes more mysterious and less obviously supportive, dropping hints about their background and competitive intelligence gathering. Chad's emails shift from friendly networking to what feels like intelligence gathering with plausible deniability. The burn rate anxiety builds through precise financial details, and the Gazette stories create a broader context where startups are failing and money is tight.
+
+The apartment should start feeling smaller and more constraining as the financial pressure mounts and Jordan's mysterious behavior raises questions about who can really be trusted.
