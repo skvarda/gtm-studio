@@ -1,7 +1,7 @@
 {
-  "lastRound": 14,
-  "lastRoundType": "engine",
-  "lastQAVerdict": "ship",
+  "lastRound": 18,
+  "lastRoundType": "art",
+  "lastQAVerdict": "complete",
   "knownIssues": [],
   "deferredWork": [],
   "roundHistory": [
@@ -98,6 +98,34 @@
       "priority": "ap_system_email_inbox",
       "verdict": "ship",
       "timestamp": "2026-03-09T17:09:20.522Z"
+    },
+    {
+      "round": 15,
+      "type": "engine",
+      "priority": "ap_system_email_inbox",
+      "verdict": "ship",
+      "timestamp": "2026-03-09T17:25:08.527Z"
+    },
+    {
+      "round": 16,
+      "type": "art",
+      "priority": "create pixel art",
+      "verdict": "complete",
+      "timestamp": "2026-03-09T17:37:03.917Z"
+    },
+    {
+      "round": 17,
+      "type": "art",
+      "priority": "improve player sprites",
+      "verdict": "complete",
+      "timestamp": "2026-03-09T17:41:45.650Z"
+    },
+    {
+      "round": 18,
+      "type": "art",
+      "priority": "improve the most recently created sprite",
+      "verdict": "complete",
+      "timestamp": "2026-03-09T17:50:01.040Z"
     }
   ]
 }

@@ -1,12 +1,6 @@
 {
   "queue": [
     {
-      "round": 8,
-      "type": "engine",
-      "priority": "ap_system_email_inbox",
-      "note": "Action Point system (5 AP/day, activities cost 1-3 AP) and morning email inbox phase"
-    },
-    {
       "round": 9,
       "type": "engine",
       "priority": "economy_tick_day_advance",
