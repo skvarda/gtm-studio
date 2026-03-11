@@ -1,12 +1,6 @@
 {
   "queue": [
     {
-      "round": 9,
-      "type": "engine",
-      "priority": "economy_tick_day_advance",
-      "note": "Daily revenue/expense calculation, MRR tracking, burn rate, runway counter, day advance trigger"
-    },
-    {
       "round": 10,
       "type": "story",
       "priority": "days_2_3_content",
