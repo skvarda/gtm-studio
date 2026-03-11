@@ -1,12 +1,6 @@
 {
   "queue": [
     {
-      "round": 13,
-      "type": "engine",
-      "priority": "location_transitions_coffee_shop",
-      "note": "Door tile transitions with fade effect. Coffee shop room definition (new location)."
-    },
-    {
       "round": 14,
       "type": "story",
       "priority": "angel_investor_gina",
