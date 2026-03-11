@@ -1,19 +1,19 @@
 {
   "version": 1,
-  "lastUpdated": "round-18",
+  "lastUpdated": "round-22",
   "assets": {
     "npc_jordan_idle": {
-      "file": "npc_jordan_idle_v3.png",
-      "original_file": "npc_jordan_idle_v3_original.png",
-      "version": 3,
+      "file": "npc_jordan_idle_v4.png",
+      "original_file": "npc_jordan_idle_v4_original.png",
+      "version": 4,
       "status": "pending",
-      "prompt": "16-bit pixel art character sprite, SNES Stardew Valley style, mysterious co-founder with glasses and messy hair, sitting or standing casually, cryptic knowing expression, warm amber and teal palette with skin tone #F5D6B8, transparent background, clean linework, retro nostalgic feel",
-      "style_notes": "Glasses must be clearly visible at 32px width. Hair should look deliberately messy. Expression should hint at hidden knowledge.",
+      "prompt": "16-bit pixel art character sprite, SNES Stardew Valley style, co-founder tech genius, glasses, slightly messy brown hair, casual hoodie or sweater, thoughtful mysterious expression, warm amber and teal palette, transparent background, clean linework, retro nostalgic feel",
+      "style_notes": "Mysterious but approachable genius archetype, glasses must read clearly at small size, slightly disheveled but thoughtful appearance",
       "revision_notes": "",
       "target_width": 32,
       "target_height": 48,
       "created_round": 28,
-      "last_modified_round": 18
+      "last_modified_round": 22
     },
     "tile_office_floor": {
       "file": "tile_office_floor_v1.png",
@@ -29,17 +29,17 @@
       "last_modified_round": 28
     },
     "ui_hud_panel": {
-      "file": "ui_hud_panel_v1.png",
-      "original_file": "ui_hud_panel_v1_original.png",
-      "version": 1,
+      "file": "ui_hud_panel_v2.png",
+      "original_file": "ui_hud_panel_v2_original.png",
+      "version": 2,
       "status": "pending",
-      "prompt": "16-bit pixel art UI HUD panel, SNES RPG style, dark slate background with teal border trim, small amber rivet dots in corners, clean retro interface aesthetic, inspired by Final Fantasy VI and Chrono Trigger menu panels, game UI element, no text",
-      "style_notes": "BG #1c2b3a, border #4e8098 (2px inset), outer border #1a1a2e (1px), corner rivets #f4a836 at 3x3px. Sharp pixel corners, no antialiasing.",
+      "prompt": "16-bit pixel art HUD panel background, SNES interface style, dark blue-grey panel with subtle warm amber border, top or side screen placement, clean rectangular frame with soft edges, retro game UI aesthetic",
+      "style_notes": "Background panel for displaying game stats, consistent with dialogue box frame styling, space for text overlays",
       "revision_notes": "",
-      "target_width": 128,
-      "target_height": 32,
+      "target_width": 200,
+      "target_height": 60,
       "created_round": 28,
-      "last_modified_round": 28
+      "last_modified_round": 22
     },
     "ui_nameentry_panel": {
       "file": "ui_nameentry_panel_v1.png",
@@ -196,6 +196,45 @@
       "target_height": 48,
       "created_round": 18,
       "last_modified_round": 18
+    },
+    "ui_dialogue_box": {
+      "file": "ui_dialogue_box_v1.png",
+      "original_file": "ui_dialogue_box_v1_original.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art dialogue box frame, SNES RPG style, dark blue-grey panel with warm amber border glow, bottom screen placement, retro computer terminal aesthetic but warmer, transparent background, clean pixelated edges",
+      "style_notes": "Must be readable at 2x scale, warm glow effect around border, dark interior for text contrast",
+      "revision_notes": "",
+      "target_width": 320,
+      "target_height": 80,
+      "created_round": 22,
+      "last_modified_round": 22
+    },
+    "ui_action_points_full": {
+      "file": "ui_action_points_full_v1.png",
+      "original_file": "ui_action_points_full_v1_original.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art Action Points counter, SNES style, 3 glowing amber energy crystals or dots in a row, warm golden glow, dark background panel, energy meter aesthetic",
+      "style_notes": "Three distinct energy indicators, must read clearly as 'full' state",
+      "revision_notes": "",
+      "target_width": 96,
+      "target_height": 24,
+      "created_round": 22,
+      "last_modified_round": 22
+    },
+    "ui_email_inbox_panel": {
+      "file": "ui_email_inbox_panel_v1.png",
+      "original_file": "ui_email_inbox_panel_v1_original.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art email inbox UI panel, SNES computer interface style, dark blue-grey background with amber highlights, retro terminal aesthetic, list-style layout with line separators, warm amber accent colors",
+      "style_notes": "Clean lines for text readability, warm tech aesthetic, consistent with dialogue box styling",
+      "revision_notes": "",
+      "target_width": 240,
+      "target_height": 160,
+      "created_round": 22,
+      "last_modified_round": 22
     }
   }
 }
