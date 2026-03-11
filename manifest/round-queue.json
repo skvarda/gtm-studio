@@ -1,12 +1,6 @@
 {
   "queue": [
     {
-      "round": 12,
-      "type": "integration",
-      "priority": "beat_3_core_loop",
-      "note": "Assemble first days into playable core loop. AP works, email works. Second human checkpoint."
-    },
-    {
       "round": 13,
       "type": "engine",
       "priority": "location_transitions_coffee_shop",

@@ -1,7 +1,7 @@
 {
-  "lastRound": 22,
-  "lastRoundType": "art",
-  "lastQAVerdict": "complete",
+  "lastRound": 23,
+  "lastRoundType": "integration",
+  "lastQAVerdict": "ship",
   "knownIssues": [],
   "deferredWork": [],
   "roundHistory": [
@@ -154,6 +154,13 @@
       "priority": "ui_polish",
       "verdict": "complete",
       "timestamp": "2026-03-11T21:04:06.278Z"
+    },
+    {
+      "round": 23,
+      "type": "integration",
+      "priority": "beat_3_core_loop",
+      "verdict": "ship",
+      "timestamp": "2026-03-11T21:30:08.602Z"
     }
   ]
 }

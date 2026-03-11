@@ -13,7 +13,7 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 <body>
 <script>
 // ============================================================
-// SaaS Quest: Startup Simulator — Engine Round
+// SaaS Quest: Startup Simulator — Round 24 Integration Build
 // Systems: Canvas, Font, HUD, Day Cycle, AP, Email, Economy,
 //          Title, CharSelect, TileMap, Movement, NPC, Dialogue
 // ============================================================
@@ -77,7 +77,7 @@ function formatCashAbs(n){if(n>=1000000)return(n/1000000).toFixed(1)+'M';if(n>=1
 function formatRunway(w){if(w>=999)return'~';if(w<=0)return'0w';return w+'w';}
 
 // ============================================================
-// MAP
+// MAP — Apartment / Garage
 // ============================================================
 var MAP_W=20,MAP_H=10,TILE=32,MAP_Y=32;
 // 0=floor 1=wall 2=desk 3=door 4=computer 5=whiteboard 6=coffee 7=phone 8=couch 9=rug 10=plant
@@ -97,7 +97,7 @@ var GARAGE=[
 function isTileWalkable(x,y){if(x<0||x>=MAP_W||y<0||y>=MAP_H)return false;var t=GARAGE[y][x];return t===0||t===9;}
 function getTileAt(x,y){if(x<0||x>=MAP_W||y<0||y>=MAP_H)return 1;return GARAGE[y][x];}
 
-var TILE_ACTIONS={4:'code',5:'plan',6:'network',7:'sell',8:'nap',3:'door'};
+var TILE_ACTIONS={4:'computer',5:'whiteboard',6:'network',7:'sell',8:'nap',3:'door'};
 
 function drawTile(ctx,type,px,py){
   switch(type){
@@ -195,41 +195,251 @@ function getHint(){
   var npc=getNPCAt(fx,fy);if(npc)return'E: Talk to '+npc.name;
   var tile=getTileAt(fx,fy),act=TILE_ACTIONS[tile];if(!act)return'';
   if(act==='door')return'E: Actions / End Day';
+  if(act==='computer')return'E: Use Laptop';
+  if(act==='whiteboard')return'E: Check Whiteboard';
   for(var i=0;i<ENGINE_ACTIONS.length;i++)if(ENGINE_ACTIONS[i].id===act){var c=AP.costs[ENGINE_ACTIONS[i].apKey]||0;return'E: '+ENGINE_ACTIONS[i].label+(c?' ('+c+' AP)':'');}
   return'';
 }
 
 // ============================================================
-// DIALOGUE
+// STORY DIALOGUE CONTENT
 // ============================================================
-var dlg={active:false,lines:[],cur:0,speaker:'',color:PAL.textPrimary};
+var STORY_DIALOGUES = {
+  jordan: {
+    day_1: [
+      {
+        id: 'jordan_first_customer_anxiety',
+        trigger: 'interact',
+        speaker: 'Jordan',
+        text: '*Jordan stares at the laptop screen* Zero customers. Zero revenue. Eighteen months to change that or we are back to our day jobs. No pressure.',
+        choices: [
+          {text: 'We have got this. One step at a time.', effect: {jordan_relationship: 1}},
+          {text: 'The pressure is what makes it fun.', effect: null}
+        ]
+      },
+      {
+        id: 'jordan_chad_email_reaction',
+        trigger: 'interact',
+        speaker: 'Jordan',
+        text: 'Did you see that email from Chad? He has been sending those fellow founder messages to everyone who raised money in the last six months. Networking or intelligence gathering, hard to tell.',
+        choices: [
+          {text: 'Probably both. Should we be worried?', effect: null},
+          {text: 'Competition keeps us sharp.', effect: null},
+          {text: 'Let us focus on our own thing.', effect: {jordan_relationship: 1}}
+        ]
+      }
+    ],
+    day_2: [
+      {
+        id: 'jordan_morning_burn_rate',
+        trigger: 'interact',
+        speaker: 'Jordan',
+        text: '*Jordan scrolls through a spreadsheet* Eighteen months of runway assumes we keep spending like we are now. But we will not. Either we spend more because we are growing, or less because we are dying.',
+        choices: [
+          {text: 'Optimistic way to look at it.', effect: null},
+          {text: 'We will figure it out as we go.', effect: {jordan_relationship: -1}},
+          {text: 'What is your real timeline estimate?', effect: {jordan_relationship: 1}}
+        ]
+      }
+    ],
+    day_3: [
+      {
+        id: 'jordan_money_reality',
+        trigger: 'interact',
+        speaker: 'Jordan',
+        text: '*Jordan stares at bank balance* $150K sounds like a lot until you do the math. Two people, minimum living expenses, basic tools... we are burning $8,300 a month just existing. That is $274 a day.',
+        choices: [
+          {text: 'We need to move faster.', effect: {jordan_relationship: 1}},
+          {text: 'That is not sustainable.', effect: null},
+          {text: 'Why are you tracking it so precisely?', effect: null}
+        ]
+      },
+      {
+        id: 'jordan_mysterious_past',
+        trigger: 'interact',
+        speaker: 'Jordan',
+        text: 'You ever wonder why I was available for this? Most people with my background are locked into golden handcuffs or equity vesting schedules. But here I am.',
+        choices: [
+          {text: 'I never questioned it.', effect: {jordan_relationship: -1}},
+          {text: 'What is your story?', effect: {jordan_relationship: 1}},
+          {text: 'Should I be worried?', effect: null}
+        ]
+      }
+    ]
+  },
+  laptop: {
+    day_1: [
+      {
+        id: 'laptop_dashboard_first_look',
+        trigger: 'interact',
+        speaker: 'Laptop',
+        text: 'Your startup dashboard loads: $150,000 in the bank. 0 customers. 0 monthly recurring revenue. 18 months until you need more funding. The numbers feel both huge and terrifyingly small.',
+        choices: [
+          {text: 'Time to change those zeros.', effect: null},
+          {text: 'Check emails instead.', effect: null}
+        ]
+      }
+    ],
+    day_2: [
+      {
+        id: 'laptop_burn_rate_calculator',
+        trigger: 'interact',
+        speaker: 'Laptop',
+        text: 'Your financial dashboard now includes a burn rate calculator. Current monthly expenses: $8,347. Runway: 17.9 months. The decimal precision makes it feel more real and more terrifying.',
+        choices: [
+          {text: 'Focus on revenue projections instead', effect: null},
+          {text: 'Add hiring cost scenarios', effect: null}
+        ]
+      }
+    ],
+    day_3: [
+      {
+        id: 'laptop_competitive_research',
+        trigger: 'interact',
+        speaker: 'Laptop',
+        text: 'You find Jordan\'s browser history still open: searches for Chad\'s company, funding databases, employee LinkedIn profiles. The tabs are organized like someone building a competitive intelligence file.',
+        choices: [
+          {text: 'Close the browser quietly', effect: null},
+          {text: 'Ask Jordan about this later', effect: null}
+        ]
+      }
+    ]
+  },
+  whiteboard: {
+    day_1: [
+      {
+        id: 'whiteboard_revenue_math',
+        trigger: 'interact',
+        speaker: 'Whiteboard',
+        text: 'Under Jordan\'s diagrams, you spot the math: 100 customers x $99/mo = $9,900 MRR = $118,800 ARR = Maybe we don\'t die? The question mark looks optimistic.',
+        choices: [
+          {text: 'Add your own calculations below', effect: null},
+          {text: '100 customers seems doable', effect: null},
+          {text: 'That question mark is doing a lot of work', effect: null}
+        ]
+      }
+    ],
+    day_3: [
+      {
+        id: 'whiteboard_new_calculations',
+        trigger: 'interact',
+        speaker: 'Whiteboard',
+        text: 'Someone added new math: $274/day burn rate = $1,918/week = We need $2,000 MRR just to break even. Before salaries. Before growth. The handwriting looks stressed.',
+        choices: [
+          {text: 'Add your own revenue scenarios', effect: null},
+          {text: 'Erase the stress math', effect: null}
+        ]
+      }
+    ]
+  }
+};
 
-function startDialogue(speaker,lines,color){
-  dlg.active=true;dlg.speaker=speaker;dlg.lines=lines;dlg.cur=0;dlg.color=color||PAL.textPrimary;
+// Get the next unseen story dialogue for a source on the current day
+function getStoryDialogue(source){
+  var d = gameState.day;
+  var key = 'day_' + d;
+  var pool = STORY_DIALOGUES[source] && STORY_DIALOGUES[source][key];
+  if(!pool || pool.length === 0) return null;
+  // Find first unseen dialogue
+  for(var i = 0; i < pool.length; i++){
+    if(!gameState.flags['seen_' + pool[i].id]){
+      return pool[i];
+    }
+  }
+  // All seen for today, return last one as repeatable
+  return pool[pool.length - 1];
+}
+
+function markStoryDialogueSeen(id){
+  gameState.flags['seen_' + id] = true;
+}
+
+// ============================================================
+// DIALOGUE SYSTEM (with choices)
+// ============================================================
+var dlg = {active:false, lines:[], cur:0, speaker:'', color:PAL.textPrimary,
+           choices:null, choiceIndex:0, storyId:null, onChoice:null};
+
+function startDialogue(speaker, lines, color){
+  dlg.active=true; dlg.speaker=speaker; dlg.lines=lines; dlg.cur=0;
+  dlg.color=color||PAL.textPrimary; dlg.choices=null; dlg.choiceIndex=0;
+  dlg.storyId=null; dlg.onChoice=null;
   gameState.uiState='dialogue';
 }
-function advanceDialogue(){
-  dlg.cur++;if(dlg.cur>=dlg.lines.length){dlg.active=false;gameState.uiState='play';}
+
+function startStoryDialogue(sd){
+  dlg.active=true; dlg.speaker=sd.speaker; dlg.lines=[sd.text]; dlg.cur=0;
+  dlg.color=PAL.textAccent; dlg.choices=sd.choices||null; dlg.choiceIndex=0;
+  dlg.storyId=sd.id; dlg.onChoice=function(ci){
+    if(sd.choices && sd.choices[ci] && sd.choices[ci].effect){
+      var ef = sd.choices[ci].effect;
+      if(ef.jordan_relationship){
+        if(!gameState.flags.jordan_relationship) gameState.flags.jordan_relationship = 0;
+        gameState.flags.jordan_relationship += ef.jordan_relationship;
+      }
+    }
+    markStoryDialogueSeen(sd.id);
+  };
+  gameState.uiState='dialogue';
 }
 
-function getJordanLines(){
-  var d=gameState.day;
-  if(d<=2)return["Day "+d+". $150K and a dream.","I handle architecture. You handle everything else.","Let's build something people want."];
-  if(d<=5)return["I'm deep in the codebase.","Found some interesting patterns.","Don't disturb me unless it's important."];
-  if(d<=10)return["The data model is coming together.","There's an elegance here most people miss.","Trust the process."];
-  if(d<=20)return["Something's not right about the data.","Users are behaving... unexpectedly.","I need to investigate."];
-  if(d<=35)return["*Jordan stares at the screen*","The patterns... I see them now.","Not yet. I'll tell you when I'm sure."];
-  if(d<=50)return["I think I understand.","Our users aren't using it how we designed.","They're doing something... better."];
-  return["*Jordan types furiously*","Almost there...","When this is over, we need to talk."];
+function advanceDialogue(){
+  // If we're showing choices, don't advance with space — need selection
+  if(dlg.choices && dlg.cur >= dlg.lines.length - 1){
+    return; // must use choice selection
+  }
+  dlg.cur++;
+  if(dlg.cur>=dlg.lines.length){
+    if(dlg.choices){
+      // Show choices after last line — already showing
+      return;
+    }
+    dlg.active=false; gameState.uiState='play';
+    if(dlg.storyId) markStoryDialogueSeen(dlg.storyId);
+  }
+}
+
+function selectDialogueChoice(ci){
+  if(dlg.onChoice) dlg.onChoice(ci);
+  dlg.active=false; dlg.choices=null; gameState.uiState='play';
 }
 
 function drawDialogueBox(ctx){
-  if(!dlg.active)return;var bh=80,by=280;
-  ctx.fillStyle=PAL.emailBg;ctx.fillRect(0,by,640,bh);
-  ctx.fillStyle=PAL.uiBorder;ctx.fillRect(0,by,640,2);
+  if(!dlg.active) return;
+  var bh, by;
+  var atEnd = dlg.cur >= dlg.lines.length - 1;
+  var showingChoices = atEnd && dlg.choices && dlg.choices.length > 0;
+
+  if(showingChoices){
+    bh = 80 + dlg.choices.length * 20 + 8;
+    by = 360 - bh;
+  } else {
+    bh = 80; by = 280;
+  }
+
+  ctx.fillStyle=PAL.emailBg; ctx.fillRect(0,by,640,bh);
+  ctx.fillStyle=PAL.uiBorder; ctx.fillRect(0,by,640,2);
   drawText(ctx,dlg.speaker,16,by+8,dlg.color,2);
-  if(dlg.cur<dlg.lines.length){var tl=wrapText(dlg.lines[dlg.cur],600,1);for(var i=0;i<tl.length;i++)drawText(ctx,tl[i],16,by+32+i*14,PAL.textPrimary,1);}
-  if(Math.floor(Date.now()/400)%2===0)drawText(ctx,'SPACE',580,by+bh-16,PAL.textDim,1);
+
+  if(dlg.cur<dlg.lines.length){
+    var tl=wrapText(dlg.lines[dlg.cur],600,1);
+    for(var i=0;i<tl.length;i++) drawText(ctx,tl[i],16,by+32+i*14,PAL.textPrimary,1);
+
+    if(showingChoices){
+      var cy = by + 32 + tl.length * 14 + 8;
+      for(var c=0; c<dlg.choices.length; c++){
+        var isA = c === dlg.choiceIndex;
+        if(isA){
+          ctx.fillStyle=PAL.choiceActive; ctx.fillRect(14,cy-2,612,18);
+          drawText(ctx,'>',16,cy,PAL.textAccent,1);
+        }
+        drawText(ctx, dlg.choices[c].text, 28, cy, isA?PAL.textPrimary:PAL.textSecondary, 1);
+        cy += 20;
+      }
+    } else {
+      if(Math.floor(Date.now()/400)%2===0) drawText(ctx,'SPACE',580,by+bh-16,PAL.textDim,1);
+    }
+  }
 }
 
 // ============================================================
@@ -241,7 +451,7 @@ var gameState={
   emailsRead:[],inbox:[],
   uiState:'title',selectedIndex:0,choiceIndex:0,
   actionResult:null,eveningSummary:null,gameOver:false,
-  flags:{},role:null
+  flags:{jordan_relationship:0},role:null
 };
 
 // ============================================================
@@ -323,7 +533,7 @@ function economyTick(){
 }
 
 // ============================================================
-// DAY CYCLE
+// DAY CYCLE — Player-controlled, NO auto-timers
 // ============================================================
 function getEra(d){if(d<=10)return'garage';if(d<=30)return'push';if(d<=60)return'machine';return'empire';}
 function startDay(d){gameState.day=d;gameState.era=getEra(d);gameState.phase='morning';initEmailPhase();}
@@ -332,8 +542,46 @@ function startEvening(){gameState.phase='evening';gameState.eveningSummary=econo
 function advanceDay(){startDay(gameState.day+1);}
 
 // ============================================================
-// EMAIL SYSTEM
+// EMAIL SYSTEM — Day 1: Chad intro + Mom support
 // ============================================================
+var STORY_EMAILS = {
+  day_1: [
+    {
+      id:'chad_introduction', from:'Chad Thunderpitch', subject:'Fellow founder reaching out!',
+      body:'Hey! Saw the news about your seed round - congrats! Always exciting to see fresh blood in the B2B space. I\'m Chad, CEO of Synergy Solutions. We\'re building the next-gen productivity platform for modern teams. Just closed our Series A ($3.2M) and growing 40% MOM. Would love to grab coffee and swap war stories. The startup scene is small - we should stick together! Always happy to share learnings, Chad. P.S. - If you ever need to white-label any productivity features, we might be able to help. Win-win!',
+      read:false, choices:[
+        {text:'Interesting... file this away.',effect:{flag:'chad_aware'}},
+        {text:'Delete immediately.',effect:{morale:1}}
+      ], category:'story'
+    },
+    {
+      id:'mom_support', from:'Mom', subject:'So proud of you!',
+      body:'Honey, I still don\'t understand what a SaaS is, but Dad and I are so proud of you for following your dreams. We believe in you. Also, please remember to eat actual meals, not just coffee and energy bars. Love, Mom. P.S. - Mrs. Peterson\'s son works at Google. Should I get his number for you?',
+      read:false, choices:[
+        {text:'Call Mom back later.',effect:{morale:2}},
+        {text:'Reply: I\'m fine Mom.',effect:{morale:1}}
+      ], category:'story'
+    }
+  ],
+  day_2: [
+    {
+      id:'chad_followup_aggressive', from:'Chad Thunderpitch', subject:'Re: Fellow founder reaching out!',
+      body:'Hey again! Haven\'t heard back yet - figured you\'re probably heads-down building. Just wanted to follow up because I\'m putting together a little founder dinner next week. Very informal, just 4-5 early-stage B2B companies sharing learnings over good food. Would be great to have you there. What\'s your current MRR looking like? Just curious where you\'re at in the journey. Let me know! Chad. P.S. - Saw some interesting hiring activity in your space lately. Market\'s getting competitive!',
+      read:false, choices:null, category:'story'
+    }
+  ],
+  day_3: [
+    {
+      id:'chad_intelligence_gathering', from:'Chad Thunderpitch', subject:'Quick favor?',
+      body:'Hope you\'re crushing it over there! Random ask - I\'m putting together some market research on B2B SaaS pricing models and would love to get your take. What price point are you targeting? How are you thinking about freemium vs. paid-only? Happy to share what we\'ve learned on our end too. Our head of sales mentioned seeing some overlap in our target customer profiles. Always here to help, Chad.',
+      read:false, choices:[
+        {text:'Ignore this completely.',effect:{morale:1}},
+        {text:'Send vague pleasantries.',effect:{flag:'chad_responded'}}
+      ], category:'story'
+    }
+  ]
+};
+
 var EMAIL_TEMPLATES=[
   {id:'jordan_day1',from:'Jordan',subject:"we're doing this",body:"Day 1. We have $150K in the bank, zero customers, and a half-baked MVP. I'll handle the architecture. You handle everything else. Let's make something people want.",day_range:[1,1],unique:true,category:'story',choices:[{text:"Let's do this.",effect:{morale:1}},{text:"I need more coffee first.",effect:{morale:0}}]},
   {id:'jordan_vision',from:'Jordan',subject:'Re: Product direction',body:"Been thinking about our data model. There's an elegance to it that most people miss. We're not just building another SaaS tool. Trust me on this.",day_range:[3,8],unique:true,category:'story',choices:[{text:"I trust you. Go deep.",effect:{flag:'jordan_trusted'}},{text:"Stay focused on shipping.",effect:{product:1}}]},
@@ -388,7 +636,23 @@ var EMAIL_TEMPLATES=[
 ];
 
 function generateDailyEmails(day){
-  var gs=gameState,emails=[],mandatory=[],storyPool=[],regularPool=[];
+  var gs=gameState, emails=[];
+  var dayKey = 'day_' + day;
+
+  // Check for story emails first (new curated content)
+  if(STORY_EMAILS[dayKey]){
+    var storyEmails = STORY_EMAILS[dayKey];
+    for(var i = 0; i < storyEmails.length; i++){
+      if(gs.emailsRead.indexOf(storyEmails[i].id) === -1){
+        var se = storyEmails[i];
+        gs.emailsRead.push(se.id);
+        emails.push({id:se.id, from:se.from, subject:se.subject, body:se.body, read:false, choices:se.choices ? se.choices.slice() : null});
+      }
+    }
+  }
+
+  // Then add template-based emails
+  var mandatory=[],storyPool=[],regularPool=[];
   for(var i=0;i<EMAIL_TEMPLATES.length;i++){var t=EMAIL_TEMPLATES[i];
     if(day<t.day_range[0]||day>t.day_range[1])continue;if(t.unique&&gs.emailsRead.indexOf(t.id)!==-1)continue;
     if(t.day_range[0]===t.day_range[1]&&t.day_range[0]===day)mandatory.push(t);
@@ -396,8 +660,8 @@ function generateDailyEmails(day){
   }
   for(var i=0;i<mandatory.length;i++)emails.push(makeEmail(mandatory[i]));
   storyPool.sort(function(){return Math.random()-0.5;});
-  for(var i=0;i<storyPool.length&&emails.length<2;i++)emails.push(makeEmail(storyPool[i]));
-  var target=2+Math.floor(Math.random()*3);
+  for(var i=0;i<storyPool.length&&emails.length<3;i++)emails.push(makeEmail(storyPool[i]));
+  var target=3+Math.floor(Math.random()*2);
   regularPool.sort(function(){return Math.random()-0.5;});
   for(var i=0;i<regularPool.length&&emails.length<target;i++)emails.push(makeEmail(regularPool[i]));
   if(emails.length===0)emails.push({id:'fallback_'+day,from:'Jordan',subject:'Day '+day,body:'Another day. Get to work.',read:false,choices:null});
@@ -415,6 +679,24 @@ function selectEmailChoice(email,ci){
 function allEmailsRead(){for(var i=0;i<gameState.inbox.length;i++)if(!gameState.inbox[i].read)return false;return true;}
 
 // ============================================================
+// Jordan Dialogue - fallback for days without story content
+// ============================================================
+function getJordanLines(){
+  var d=gameState.day;
+  // Check for story dialogue first
+  var sd = getStoryDialogue('jordan');
+  if(sd && !gameState.flags['seen_' + sd.id]) return null; // signal to use story dialogue
+  // Fallback generic lines
+  if(d<=2)return["Day "+d+". $150K and a dream.","I handle architecture. You handle everything else.","Let's build something people want."];
+  if(d<=5)return["I'm deep in the codebase.","Found some interesting patterns.","Don't disturb me unless it's important."];
+  if(d<=10)return["The data model is coming together.","There's an elegance here most people miss.","Trust the process."];
+  if(d<=20)return["Something's not right about the data.","Users are behaving... unexpectedly.","I need to investigate."];
+  if(d<=35)return["*Jordan stares at the screen*","The patterns... I see them now.","Not yet. I'll tell you when I'm sure."];
+  if(d<=50)return["I think I understand.","Our users aren't using it how we designed.","They're doing something... better."];
+  return["*Jordan types furiously*","Almost there...","When this is over, we need to talk."];
+}
+
+// ============================================================
 // HUD
 // ============================================================
 function drawHUD(ctx){
@@ -429,6 +711,7 @@ function drawHUD(ctx){
   var wb=2000,wr=gs.customers*23;for(var i=0;i<gs.employees.length;i++)wb+=Math.floor((gs.employees[i].salary||0)/4);
   var rw;if(wb<=wr)rw=999;else if(gs.cash<=0)rw=0;else rw=Math.floor(gs.cash/(wb-wr));
   drawText(ctx,'RW '+formatRunway(rw),360,4,rw>=999?PAL.positive:(rw<24?PAL.negative:PAL.hudText),1);
+  drawText(ctx,'CUST '+gs.customers,360,16,PAL.textSecondary,1);
   drawText(ctx,'AP',470,8,PAL.hudText,1);drawAPPips(ctx,499,11);
   drawText(ctx,gs.era.toUpperCase(),590,16,PAL.textDim,1);
 }
@@ -438,16 +721,13 @@ function drawHUD(ctx){
 // ============================================================
 function drawTitle(ctx){
   ctx.fillStyle=PAL.bg;ctx.fillRect(0,0,640,360);
-  // Ambient glow
   ctx.fillStyle='rgba(74,106,154,0.05)';ctx.fillRect(180,60,280,80);
   var t1='SAAS QUEST';var tw=measureText(t1,4);drawText(ctx,t1,Math.floor((640-tw.width)/2),70,PAL.textAccent,4);
   var t2='STARTUP SIMULATOR';var tw2=measureText(t2,2);drawText(ctx,t2,Math.floor((640-tw2.width)/2),110,PAL.textPrimary,2);
-  // Laptop pixel art
   var lx=290,ly=160;
   ctx.fillStyle='#555566';ctx.fillRect(lx,ly,60,40);
   ctx.fillStyle='#5a8aba';ctx.fillRect(lx+4,ly+4,52,32);
   ctx.fillStyle='#444455';ctx.fillRect(lx-10,ly+40,80,4);
-  // Screen content
   ctx.fillStyle='#3a7a4a';ctx.fillRect(lx+8,ly+8,20,2);
   ctx.fillStyle='#7a5a3a';ctx.fillRect(lx+8,ly+14,30,2);
   ctx.fillStyle='#3a5a8a';ctx.fillRect(lx+8,ly+20,15,2);
@@ -469,12 +749,10 @@ function drawCharSelect(ctx){
     var isSel=i===sel;
     ctx.fillStyle=isSel?PAL.choiceActive:PAL.buttonBg;ctx.fillRect(bx,by,bw,bh);
     if(isSel){ctx.strokeStyle=PAL.choiceBorder;ctx.lineWidth=2;ctx.strokeRect(bx,by,bw,bh);}
-    // Character preview
     var cpx=bx+bw/2-8,cpy=by+16;
     drawSprite(ctx,cpx,cpy,DIR_DN,r.color,PAL.hair,false);
     drawText(ctx,r.name,bx+10,by+60,isSel?PAL.textAccent:PAL.textPrimary,2);
     var dl=wrapText(r.desc,bw-20,1);for(var j=0;j<dl.length;j++)drawText(ctx,dl[j],bx+10,by+85+j*12,PAL.textSecondary,1);
-    drawText(ctx,r.bonus,bx+10,by+130,PAL.positive,1);
     var bl=wrapText(r.bonus,bw-20,1);for(var j=0;j<bl.length;j++)drawText(ctx,bl[j],bx+10,by+130+j*12,PAL.positive,1);
   }
   ctx.fillStyle=PAL.hudBg;ctx.fillRect(0,336,640,24);
@@ -487,7 +765,6 @@ function drawCharSelect(ctx){
 function drawPlay(ctx){
   drawMap(ctx);
   drawEntities(ctx);
-  // Interaction highlight
   if(!player.moving){
     var fx=player.gx+DX[player.dir],fy=player.gy+DY[player.dir];
     var tile=getTileAt(fx,fy);var npc=getNPCAt(fx,fy);
@@ -497,7 +774,6 @@ function drawPlay(ctx){
     }
   }
   drawHUD(ctx);
-  // Status bar
   ctx.fillStyle='rgba(26,26,46,0.9)';ctx.fillRect(0,352,640,8);
   var hint=getHint();
   if(flashTimer>0){drawText(ctx,flashMsg,4,353,PAL.textAccent,1);}
@@ -584,9 +860,7 @@ function drawActivityMenu(ctx){
 // ============================================================
 function drawActionResult(ctx){
   var gs=gameState;
-  // Draw play scene behind
   drawMap(ctx);drawEntities(ctx);drawHUD(ctx);
-  // Overlay
   ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,0,640,360);
   var result=gs.actionResult;if(!result)return;
   var bw=500,bh=180,bx=70,by=90;
@@ -696,24 +970,57 @@ function handleEmailChoiceInput(key){
 
 function handlePlayInput(key){
   var gs=gameState;
-  // Menu
   if(key==='KeyM'||key==='Tab'){gs.uiState='action_menu';gs.selectedIndex=0;return;}
-  // Interact
   if(key==='KeyE'||key==='Space'||key==='Enter'){
     if(player.moving)return;
     var fx=player.gx+DX[player.dir],fy=player.gy+DY[player.dir];
     var npc=getNPCAt(fx,fy);
     if(npc){
-      var lines;
-      if(npc.id==='jordan')lines=getJordanLines();
-      else if(npc.id==='maya')lines=['Working on the new feature!','Jordan\'s architecture is wild.','But I\'m getting the hang of it.'];
-      else if(npc.id==='derek')lines=['LET\'S CLOSE SOME DEALS!','*polishes sales gong*','I smell a commission.'];
-      else lines=['...'];
-      startDialogue(npc.name,lines,PAL.textAccent);
+      if(npc.id==='jordan'){
+        // Try story dialogue first
+        var sd = getStoryDialogue('jordan');
+        if(sd && !gameState.flags['seen_' + sd.id]){
+          startStoryDialogue(sd);
+          return;
+        }
+        // Fallback to generic lines
+        var lines = getJordanLines();
+        if(lines) startDialogue(npc.name, lines, PAL.textAccent);
+      }
+      else if(npc.id==='maya'){startDialogue(npc.name,['Working on the new feature!','Jordan\'s architecture is wild.','But I\'m getting the hang of it.'],PAL.textAccent);}
+      else if(npc.id==='derek'){startDialogue(npc.name,['LET\'S CLOSE SOME DEALS!','*polishes sales gong*','I smell a commission.'],PAL.textAccent);}
+      else startDialogue(npc.name,['...'],PAL.textAccent);
       return;
     }
     var tile=getTileAt(fx,fy);var actKey=TILE_ACTIONS[tile];
     if(actKey==='door'){gs.uiState='action_menu';gs.selectedIndex=0;return;}
+
+    // Story interactions for laptop and whiteboard
+    if(actKey==='computer'){
+      var sd = getStoryDialogue('laptop');
+      if(sd && !gameState.flags['seen_' + sd.id]){
+        startStoryDialogue(sd);
+        return;
+      }
+      // Fallback: code action from tile
+      var result = performAction('code');
+      if(result.success){gs.actionResult=result;gs.uiState='action_result';}
+      else showFlash(result.message);
+      return;
+    }
+    if(actKey==='whiteboard'){
+      var sd = getStoryDialogue('whiteboard');
+      if(sd && !gameState.flags['seen_' + sd.id]){
+        startStoryDialogue(sd);
+        return;
+      }
+      // Fallback: plan action from tile
+      var result = performAction('plan');
+      if(result.success){gs.actionResult=result;gs.uiState='action_result';}
+      else showFlash(result.message);
+      return;
+    }
+
     if(actKey){
       var result=performAction(actKey);
       if(result.success){gs.actionResult=result;gs.uiState='action_result';}
@@ -724,7 +1031,16 @@ function handlePlayInput(key){
 }
 
 function handleDialogueInput(key){
-  if(key==='Space'||key==='Enter'||key==='KeyE')advanceDialogue();
+  var atEnd = dlg.cur >= dlg.lines.length - 1;
+  var showingChoices = atEnd && dlg.choices && dlg.choices.length > 0;
+
+  if(showingChoices){
+    if(key==='ArrowUp'||key==='KeyW') dlg.choiceIndex = Math.max(0, dlg.choiceIndex - 1);
+    else if(key==='ArrowDown'||key==='KeyS') dlg.choiceIndex = Math.min(dlg.choices.length - 1, dlg.choiceIndex + 1);
+    else if(key==='Enter'||key==='Space'||key==='KeyE') selectDialogueChoice(dlg.choiceIndex);
+  } else {
+    if(key==='Space'||key==='Enter'||key==='KeyE') advanceDialogue();
+  }
 }
 
 function handleActionMenuInput(key){
@@ -760,7 +1076,7 @@ window.addEventListener('keydown',function(e){keysDown[e.code]=true;handleInput(
 window.addEventListener('keyup',function(e){keysDown[e.code]=false;});
 
 // ============================================================
-// GAME LOOP
+// GAME LOOP — No auto-timers, player controls all transitions
 // ============================================================
 var lastTime=0;
 
@@ -769,7 +1085,6 @@ function gameLoop(ts){
   var dt=ts-lastTime;lastTime=ts;
   if(dt>100)dt=100;
 
-  // Update
   if(gameState.uiState==='play'&&!dlg.active){
     updatePlayer(dt);
     if(!player.moving){
@@ -781,7 +1096,6 @@ function gameLoop(ts){
   }
   if(flashTimer>0)flashTimer-=dt;
 
-  // Draw
   ctx.fillStyle=PAL.bg;ctx.fillRect(0,0,640,360);
   switch(gameState.uiState){
     case 'title':drawTitle(ctx);break;
