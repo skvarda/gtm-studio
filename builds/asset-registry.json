@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "round-22",
+  "lastUpdated": "round-26",
   "assets": {
     "npc_jordan_idle": {
       "file": "npc_jordan_idle_v4.png",
@@ -159,17 +159,17 @@
       "last_modified_round": 16
     },
     "npc_gina_idle": {
-      "file": "npc_gina_idle_v1.png",
-      "original_file": "npc_gina_idle_v1_original.png",
-      "version": 1,
+      "file": "npc_gina_idle_v2.png",
+      "original_file": "npc_gina_idle_v2.png",
+      "version": 2,
       "status": "pending",
-      "prompt": "16-bit pixel art character sprite, SNES Stardew Valley style, wise all-knowing coffee shop barista, shoulder-length curly hair with small ponytail or bun, cozy coffee shop apron over casual clothes, warm knowing smile, relaxed friendly posture, hands positioned as if holding coffee cup or wiping counter, warm amber and teal palette with heavy amber bias, transparent background, clean linework, retro nostalgic feel",
-      "style_notes": "Must convey wisdom and approachability at small size. Coffee shop elements should be subtle but clear. Warm, maternal energy that suggests she knows more than she lets on.",
+      "prompt": "16-bit pixel art character sprite, SNES Stardew Valley style, wise all-knowing barista woman, coffee-stained apron over casual clothes, warm smile, ethnic ambiguity, shoulder-length hair, holding coffee mug, amber and teal palette with warm browns, transparent background, clean linework, retro nostalgic feel",
+      "style_notes": "maternal energy and wisdom must read clearly, apron and coffee mug as key identifiers",
       "revision_notes": "",
       "target_width": 32,
       "target_height": 48,
       "created_round": 16,
-      "last_modified_round": 16
+      "last_modified_round": 26
     },
     "player_sprite_confident": {
       "file": "player_sprite_confident_v1.png",
@@ -235,6 +235,84 @@
       "target_height": 160,
       "created_round": 22,
       "last_modified_round": 22
+    },
+    "obj_tip_jar": {
+      "file": "obj_tip_jar_v1.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "Clear glass tip jar with a few bills and coins, small handwritten label, pixel art, tiny, transparent background",
+      "target_width": 32,
+      "target_height": 32,
+      "created_round": "asset-studio",
+      "last_modified": "2026-03-11T22:14:47.022Z"
+    },
+    "test_audit_tile": {
+      "file": "test_audit_tile_v1.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "Exposed red-brown brick wall tile, warm tone, pixel art, front-facing",
+      "target_width": 32,
+      "target_height": 32,
+      "created_round": "asset-studio",
+      "last_modified": "2026-03-11T23:20:37.445Z"
+    },
+    "test_audit_mapobj": {
+      "status": "generating",
+      "prompt": "Clear glass tip jar with coins, pixel art, tiny",
+      "target_width": 32,
+      "target_height": 32,
+      "pixellabJobId": "3a41dbf4-dd98-4d88-ac30-da00af19b009",
+      "pixellabObjectId": "bbcdc6f6-2d27-4ef5-8957-b436f2795535",
+      "last_modified": "2026-03-11T23:23:00.074Z"
+    },
+    "tile_floor_wood_01": {
+      "file": "tile_floor_wood_01_v1.png",
+      "version": 2,
+      "status": "pending",
+      "prompt": "Warm hardwood plank floor tile, medium tone oak, slightly worn grain, pixel art, cozy coffee shop, warm amber lighting, top-down view",
+      "target_width": 32,
+      "target_height": 32,
+      "created_round": "asset-studio",
+      "last_modified": "2026-03-12T15:14:56.176Z"
+    },
+    "tile_coffee_counter": {
+      "file": "tile_coffee_counter_v1.png",
+      "original_file": "tile_coffee_counter_v1.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art coffee shop counter tile, SNES style, top-down 3/4 view, wooden counter with espresso machine and register, warm amber lighting, teal and brown accents, worn wood texture, transparent background, clean readable edges for tile placement",
+      "style_notes": "counter edge must be clearly defined for collision, espresso machine recognizable at small size",
+      "revision_notes": "",
+      "target_width": 32,
+      "target_height": 32,
+      "created_round": 26,
+      "last_modified_round": 26
+    },
+    "tile_coffee_booth": {
+      "file": "tile_coffee_booth_v1.png",
+      "original_file": "tile_coffee_booth_v1.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art coffee shop booth seating, SNES style, top-down 3/4 view, cozy 2-person booth with small table, warm amber wood and teal cushions, laptop-friendly surface, transparent background, clean readable silhouette",
+      "style_notes": "table surface and seating areas must be visually distinct, intimate but business-appropriate",
+      "revision_notes": "",
+      "target_width": 32,
+      "target_height": 32,
+      "created_round": 26,
+      "last_modified_round": 26
+    },
+    "npc_angel_investor_idle": {
+      "file": "npc_angel_investor_idle_v1.png",
+      "original_file": "npc_angel_investor_idle_v1.png",
+      "version": 1,
+      "status": "pending",
+      "prompt": "16-bit pixel art character sprite, SNES style, professional angel investor, gender neutral business casual, tablet or small briefcase, approachable but serious expression, amber and teal palette with navy/gray accents, transparent background, clean linework, confident posture",
+      "style_notes": "professional authority must read clearly, tablet/briefcase as key business identifier",
+      "revision_notes": "",
+      "target_width": 32,
+      "target_height": 48,
+      "created_round": 26,
+      "last_modified_round": 26
     }
   }
 }
