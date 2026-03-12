@@ -590,6 +590,65 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
 }
 
 .btn-cancel-batch:hover { background: rgba(233, 69, 96, 0.15); }
+
+/* ── Tab Navigation ──────────────────────────────── */
+#tab-nav {
+  display: flex;
+  gap: 0;
+  padding: 0 12px;
+  background: var(--bg-body);
+}
+.tab-btn {
+  padding: 8px 24px;
+  background: var(--bg-body);
+  color: var(--text-dim);
+  border: 2px solid #333;
+  border-bottom: none;
+  cursor: pointer;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px;
+  border-radius: 6px 6px 0 0;
+  margin-right: 2px;
+  transition: all 0.15s;
+}
+.tab-btn.active {
+  background: var(--bg-panel);
+  color: var(--gold);
+  border-color: var(--gold);
+}
+.tab-btn:hover:not(.active) { color: var(--text); border-color: #555; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── Asset Studio ──────────────────────────────── */
+#tab-assets {
+  height: calc(100vh - 84px);
+  overflow: hidden;
+}
+.asset-card {
+  background: #12122a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+  transition: border 0.15s;
+}
+.asset-card:hover { border-color: #555; }
+.asset-card.selected { border: 2px solid var(--gold); }
+.asset-card.active { border: 2px solid #555; background: #1a1a3e; }
+.cat-filter, .status-filter {
+  padding: 4px 10px;
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  border: 1px solid #444;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: 'Share Tech Mono', monospace;
+  transition: all 0.15s;
+}
+.cat-filter.active { background: var(--gold); color: var(--bg-body); border-color: var(--gold); }
+.status-filter.active { background: #333; color: #ccc; }
 </style>
 </head>
 <body>
@@ -607,7 +666,14 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
   </div>
 </div>
 
-<!-- Main Layout -->
+<!-- Tab Navigation -->
+<div id="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('pipeline')" id="tab-btn-pipeline">Pipeline</button>
+  <button class="tab-btn" onclick="switchTab('assets')" id="tab-btn-assets">Asset Studio</button>
+</div>
+
+<!-- Pipeline Tab -->
+<div id="tab-pipeline" class="tab-content active">
 <div id="layout">
 
   <!-- Left Sidebar -->
@@ -771,6 +837,22 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
         <div class="agent-role">Producer</div>
         <div class="agent-status"><span class="status-idle">IDLE</span></div>
       </div>
+      <div class="agent-card dimmed" id="card-marcus-webb" data-agent="marcus-webb">
+        <div class="agent-top">
+          <span><span class="agent-emoji">&#x1F3D7;&#xFE0F;</span><span class="agent-name">Marcus Webb</span></span>
+          <span class="model-badge model-opus">OPUS</span>
+        </div>
+        <div class="agent-role">Tech Lead</div>
+        <div class="agent-status"><span class="status-idle">IDLE</span></div>
+      </div>
+      <div class="agent-card dimmed" id="card-atlas-novak" data-agent="atlas-novak">
+        <div class="agent-top">
+          <span><span class="agent-emoji">&#x1F4BB;</span><span class="agent-name">Atlas Novak</span></span>
+          <span class="model-badge model-opus">OPUS</span>
+        </div>
+        <div class="agent-role">Developer</div>
+        <div class="agent-status"><span class="status-idle">IDLE</span></div>
+      </div>
       <div class="agent-card dimmed" id="card-bea-ortiz" data-agent="bea-ortiz">
         <div class="agent-top">
           <span><span class="agent-emoji">&#x1F579;&#xFE0F;</span><span class="agent-name">Bea Ortiz</span></span>
@@ -823,6 +905,104 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
   <div id="console-area"></div>
 
 </div>
+</div><!-- /tab-pipeline -->
+
+<!-- Asset Studio Tab -->
+<div id="tab-assets" class="tab-content">
+
+  <!-- Asset Studio Header -->
+  <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--bg-panel); border:1px solid var(--border); border-radius:6px; margin:12px;">
+    <div>
+      <h2 style="margin:0; color:var(--gold); font-size:18px;">Asset Studio — Scene 001: Grind & Brew</h2>
+      <p style="margin:4px 0 0 0; color:var(--text-dim); font-size:12px;">PixelLab v2 API | 70 assets | ~$0.50-1.12 estimated cost</p>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <span id="pixellab-balance" style="color:var(--text-dim); font-size:12px;">Credits: --</span>
+      <button class="btn btn-gold" onclick="refreshCatalog()" style="font-size:12px;">Refresh</button>
+    </div>
+  </div>
+
+  <!-- Asset Studio Layout: Catalog + Preview -->
+  <div style="display:grid; grid-template-columns:1fr 360px; gap:12px; height:calc(100vh - 170px); padding:0 12px 12px 12px;">
+
+    <!-- Left: Asset Catalog -->
+    <div style="overflow-y:auto; background:var(--bg-body); border:1px solid var(--border); border-radius:6px; padding:12px;">
+
+      <!-- Category Filter -->
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
+        <button class="cat-filter active" onclick="filterCategory('all', this)">All</button>
+        <button class="cat-filter" onclick="filterCategory('floor_tiles', this)">Floor</button>
+        <button class="cat-filter" onclick="filterCategory('walls_architecture', this)">Walls</button>
+        <button class="cat-filter" onclick="filterCategory('furniture', this)">Furniture</button>
+        <button class="cat-filter" onclick="filterCategory('detail_objects', this)">Details</button>
+        <button class="cat-filter" onclick="filterCategory('characters', this)">Characters</button>
+        <button class="cat-filter" onclick="filterCategory('portraits', this)">Portraits</button>
+      </div>
+
+      <!-- Status Filter -->
+      <div style="display:flex; gap:6px; margin-bottom:12px;">
+        <button class="status-filter active" onclick="filterStatus('all', this)">All</button>
+        <button class="status-filter" onclick="filterStatus('pending', this)" style="color:#f59e0b;border-color:#f59e0b;">Pending</button>
+        <button class="status-filter" onclick="filterStatus('generating', this)" style="color:#3b82f6;border-color:#3b82f6;">Generating</button>
+        <button class="status-filter" onclick="filterStatus('approved', this)" style="color:#10b981;border-color:#10b981;">Approved</button>
+        <button class="status-filter" onclick="filterStatus('needs_revision', this)" style="color:#ef4444;border-color:#ef4444;">Flagged</button>
+      </div>
+
+      <!-- Batch Actions -->
+      <div style="display:flex; gap:8px; margin-bottom:12px; padding:8px; background:var(--bg-panel); border-radius:4px;">
+        <button class="btn btn-gold" id="btn-generate-selected" onclick="generateSelected()" style="font-size:12px;font-weight:bold;">Generate Selected</button>
+        <button class="btn" onclick="selectAllPending()" style="font-size:12px;">Select All Pending</button>
+        <button class="btn" onclick="clearSelection()" style="font-size:12px;">Clear</button>
+        <span id="selection-count" style="color:var(--text-dim); font-size:12px; align-self:center; margin-left:auto;">0 selected</span>
+      </div>
+
+      <!-- Asset Grid -->
+      <div id="asset-catalog-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:8px;">
+      </div>
+    </div>
+
+    <!-- Right: Preview + Details Panel -->
+    <div style="overflow-y:auto; background:var(--bg-body); border:1px solid var(--border); border-radius:6px; padding:12px;">
+      <div id="asset-preview-placeholder" style="text-align:center; padding:20px 0;">
+        <p style="color:var(--text-dim); font-size:13px;">Select an asset to preview</p>
+      </div>
+      <div id="asset-detail-panel" style="display:none;">
+        <h3 id="detail-name" style="color:var(--gold); margin:0 0 8px 0; font-size:14px;"></h3>
+        <div id="detail-preview" style="background:#000; border:1px solid #333; border-radius:4px; padding:16px; text-align:center; margin-bottom:12px;">
+          <img id="detail-img" style="image-rendering:pixelated; max-width:100%;" />
+        </div>
+        <div style="font-size:11px; color:#aaa; margin-bottom:8px;">
+          <div><span style="color:var(--text-dim);">ID:</span> <span id="detail-id"></span></div>
+          <div><span style="color:var(--text-dim);">Size:</span> <span id="detail-size"></span></div>
+          <div><span style="color:var(--text-dim);">Status:</span> <span id="detail-status"></span></div>
+          <div><span style="color:var(--text-dim);">Category:</span> <span id="detail-category"></span></div>
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="color:var(--text-dim); font-size:11px; display:block; margin-bottom:4px;">Prompt:</label>
+          <textarea id="detail-prompt" style="width:100%; height:80px; background:var(--bg-panel); color:var(--text); border:1px solid #444; border-radius:4px; padding:6px; font-size:11px; font-family:'Share Tech Mono',monospace; resize:vertical;"></textarea>
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="color:var(--text-dim); font-size:11px; display:block; margin-bottom:4px;">Notes:</label>
+          <div id="detail-notes" style="color:var(--text-dim); font-size:11px; font-style:italic;"></div>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="btn btn-gold" onclick="generateSingle(this)" style="font-size:11px;font-weight:bold;">Generate</button>
+          <button class="btn" onclick="approveAsset()" style="font-size:11px;background:rgba(16,185,129,0.2);color:#10b981;border-color:#10b981;">Approve</button>
+          <button class="btn" onclick="flagAsset()" style="font-size:11px;background:rgba(239,68,68,0.2);color:#ef4444;border-color:#ef4444;">Flag</button>
+          <button class="btn" onclick="savePromptEdit()" style="font-size:11px;color:#3b82f6;border-color:#3b82f6;">Save Edit</button>
+        </div>
+      </div>
+
+      <!-- Generation Queue -->
+      <div style="margin-top:16px; border-top:1px solid var(--border); padding-top:12px;">
+        <h4 style="color:var(--gold); margin:0 0 8px 0; font-size:13px;">Generation Queue</h4>
+        <div id="gen-queue" style="font-size:11px; color:var(--text-dim);">
+          <p>No active generations</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><!-- /tab-assets -->
 
 <script>
 (function() {
@@ -840,7 +1020,7 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
     engine: ['marcus-webb', 'atlas-novak'],
     story: ['luna-reyes', 'sage-moretti', 'felix-park'],
     art: ['priya-vasquez', 'iris-nakamura'],
-    integration: ['vivian-cross', 'ren-tanaka', 'atlas-novak', 'bea-ortiz'],
+    integration: ['vivian-cross', 'ren-tanaka', 'marcus-webb', 'atlas-novak', 'bea-ortiz'],
     hotfix: ['atlas-novak', 'bea-ortiz']
   };
 
@@ -881,6 +1061,7 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
     integration: [
       { emoji: '\uD83D\uDC54', name: 'Vivian' },
       { emoji: '\uD83D\uDCCB', name: 'Ren' },
+      { emoji: '\uD83C\uDFD7\uFE0F', name: 'Marcus' },
       { emoji: '\uD83D\uDCBB', name: 'Atlas' },
       { emoji: '\uD83D\uDD79\uFE0F', name: 'Bea' }
     ],
@@ -1567,6 +1748,405 @@ select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold
   loadNextUpPreview();
   loadAssets();
 })();
+
+// ========= ASSET STUDIO =========
+
+let sceneCatalog = null;
+let selectedAssetId = null;
+let selectedAssets = new Set();
+let currentCategoryFilter = 'all';
+let currentStatusFilter = 'all';
+let activeGenerations = new Map();
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.style.display = 'none';
+    el.classList.remove('active');
+  });
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  const content = document.getElementById('tab-' + tab);
+  content.style.display = 'block';
+  content.classList.add('active');
+  document.getElementById('tab-btn-' + tab).classList.add('active');
+  if (tab === 'assets' && !sceneCatalog) refreshCatalog();
+}
+
+async function refreshCatalog() {
+  try {
+    const res = await fetch('/scene-001/catalog');
+    sceneCatalog = await res.json();
+    renderAssetGrid();
+    try {
+      const balRes = await fetch('/pixellab/balance');
+      const balData = await balRes.json();
+      const credits = balData.data?.remaining_credits ?? balData.remaining_credits ?? '--';
+      const gens = balData.data?.remaining_generations ?? balData.remaining_generations ?? '';
+      document.getElementById('pixellab-balance').textContent = 'Credits: ' + credits + (gens ? ' | Gens: ' + gens : '');
+    } catch(e) {
+      document.getElementById('pixellab-balance').textContent = 'Credits: (error)';
+    }
+  } catch(e) {
+    console.error('Failed to load catalog:', e);
+  }
+}
+
+function renderAssetGrid() {
+  const grid = document.getElementById('asset-catalog-grid');
+  grid.innerHTML = '';
+  if (!sceneCatalog?.categories) return;
+
+  const statusColors = { pending: '#f59e0b', generating: '#3b82f6', approved: '#10b981', needs_revision: '#ef4444' };
+  const statusIcons = { pending: 'PEND', generating: 'GEN', approved: 'OK', needs_revision: 'FLAG' };
+
+  for (const [catKey, cat] of Object.entries(sceneCatalog.categories)) {
+    for (const asset of (cat.assets || [])) {
+      if (currentCategoryFilter !== 'all' && currentCategoryFilter !== catKey) continue;
+      if (currentStatusFilter !== 'all' && currentStatusFilter !== asset.status) continue;
+
+      const isSelected = selectedAssets.has(asset.id);
+      const isActive = selectedAssetId === asset.id;
+      const hasImage = asset.file && asset.status !== 'pending';
+
+      const card = document.createElement('div');
+      card.className = 'asset-card' + (isSelected ? ' selected' : '') + (isActive ? ' active' : '');
+      card.onclick = (e) => {
+        if (e.shiftKey) { toggleSelection(asset.id); }
+        else { selectAsset(asset.id, catKey); }
+      };
+
+      const imgHtml = hasImage
+        ? '<img src="/assets/' + (asset.subfolder || 'sprites') + '/' + asset.file + '" style="image-rendering:pixelated; width:64px; height:64px; object-fit:contain; background:#000; border-radius:3px;" />'
+        : '<div style="width:64px; height:64px; background:#000; border-radius:3px; display:flex; align-items:center; justify-content:center; color:#333; font-size:24px; margin:0 auto;">' + (cat.method === 'character' ? '?' : '#') + '</div>';
+
+      card.innerHTML =
+        '<div style="text-align:center; margin-bottom:6px;">' + imgHtml + '</div>' +
+        '<div style="font-size:10px; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="' + asset.id + '">' + asset.id + '</div>' +
+        '<div style="font-size:9px; color:' + (statusColors[asset.status] || '#888') + '; margin-top:2px;">' + (statusIcons[asset.status] || '--') + ' ' + (asset.status || 'pending') + '</div>' +
+        '<div style="font-size:9px; color:#555; margin-top:2px;">' + asset.width + 'x' + asset.height + '</div>';
+      grid.appendChild(card);
+    }
+  }
+}
+
+function selectAsset(assetId, categoryKey) {
+  selectedAssetId = assetId;
+  if (!sceneCatalog?.categories) return;
+
+  let asset = null;
+  let catKey = categoryKey;
+  for (const [ck, cat] of Object.entries(sceneCatalog.categories)) {
+    const found = (cat.assets || []).find(a => a.id === assetId);
+    if (found) { asset = found; catKey = ck; break; }
+  }
+  if (!asset) return;
+
+  document.getElementById('asset-preview-placeholder').style.display = 'none';
+  document.getElementById('asset-detail-panel').style.display = 'block';
+  document.getElementById('detail-name').textContent = asset.id;
+  document.getElementById('detail-id').textContent = asset.id;
+  document.getElementById('detail-size').textContent = asset.width + 'x' + asset.height;
+  document.getElementById('detail-status').textContent = asset.status || 'pending';
+  document.getElementById('detail-category').textContent = catKey;
+  document.getElementById('detail-prompt').value = asset.description;
+  document.getElementById('detail-notes').textContent = asset.notes || '';
+
+  const img = document.getElementById('detail-img');
+  if (asset.file && asset.status !== 'pending') {
+    img.src = '/assets/' + (asset.subfolder || 'sprites') + '/' + asset.file;
+    img.style.display = 'block';
+    img.style.width = (asset.width * 4) + 'px';
+    img.style.height = (asset.height * 4) + 'px';
+  } else {
+    img.style.display = 'none';
+  }
+  renderAssetGrid();
+}
+
+function toggleSelection(assetId) {
+  if (selectedAssets.has(assetId)) { selectedAssets.delete(assetId); }
+  else { selectedAssets.add(assetId); }
+  document.getElementById('selection-count').textContent = selectedAssets.size + ' selected';
+  renderAssetGrid();
+}
+
+function selectAllPending() {
+  if (!sceneCatalog?.categories) return;
+  selectedAssets.clear();
+  for (const cat of Object.values(sceneCatalog.categories)) {
+    for (const asset of (cat.assets || [])) {
+      if (asset.status === 'pending' || !asset.status) { selectedAssets.add(asset.id); }
+    }
+  }
+  document.getElementById('selection-count').textContent = selectedAssets.size + ' selected';
+  renderAssetGrid();
+}
+
+function clearSelection() {
+  selectedAssets.clear();
+  document.getElementById('selection-count').textContent = '0 selected';
+  renderAssetGrid();
+}
+
+function filterCategory(cat, btn) {
+  currentCategoryFilter = cat;
+  document.querySelectorAll('.cat-filter').forEach(el => el.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderAssetGrid();
+}
+
+function filterStatus(status, btn) {
+  currentStatusFilter = status;
+  document.querySelectorAll('.status-filter').forEach(el => el.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderAssetGrid();
+}
+
+async function generateSingle(btn) {
+  if (!selectedAssetId || !sceneCatalog) return;
+  let asset = null;
+  let catObj = null;
+  for (const cat of Object.values(sceneCatalog.categories)) {
+    const found = (cat.assets || []).find(a => a.id === selectedAssetId);
+    if (found) { asset = found; catObj = cat; break; }
+  }
+  if (!asset) return;
+
+  const prompt = document.getElementById('detail-prompt').value;
+
+  if (catObj.method === 'character') {
+    try {
+      const res = await fetch('/pixellab/create-character', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetId: asset.id, description: prompt,
+          width: asset.width, height: asset.height,
+          options: { ...(sceneCatalog.styleDefaults?.characterStyle || {}) }
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        addToGenQueue(asset.id, data.jobId || data.characterId, 'character');
+        asset.status = 'generating';
+        renderAssetGrid();
+      } else { alert('Generation failed: ' + (data.error || 'Unknown error')); }
+    } catch(e) { alert('Error: ' + e.message); }
+  } else if (catObj.method === 'map-object') {
+    // map-objects is async — returns job ID like characters
+    try {
+      if (btn) { btn.textContent = 'Queuing...'; btn.disabled = true; }
+      const res = await fetch('/pixellab/generate-map-object', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetId: asset.id, description: prompt,
+          width: asset.width, height: asset.height,
+          options: {
+            ...(sceneCatalog.styleDefaults?.imageStyle || {}),
+            view: asset.height > asset.width ? 'side' : (sceneCatalog.styleDefaults?.view || 'high top-down'),
+            guidanceScale: sceneCatalog.styleDefaults?.guidanceScale || 8
+          }
+        })
+      });
+      const data = await res.json();
+      if (btn) { btn.textContent = 'Generate'; btn.disabled = false; }
+      if (data.ok) {
+        addToGenQueue(asset.id, data.jobId, 'map-object');
+        asset.status = 'generating';
+        renderAssetGrid();
+      } else { alert('Generation failed: ' + (data.error || 'Unknown error')); }
+    } catch(e) {
+      if (btn) { btn.textContent = 'Generate'; btn.disabled = false; }
+      alert('Error: ' + e.message);
+    }
+  } else {
+    // Sync image generation (pixflux — tiles, walls, portraits)
+    try {
+      if (btn) { btn.textContent = 'Generating...'; btn.disabled = true; }
+      const res = await fetch('/pixellab/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetId: asset.id, description: prompt,
+          width: asset.width, height: asset.height,
+          options: {
+            ...(sceneCatalog.styleDefaults?.imageStyle || {}),
+            noBackground: asset.noBackground || false,
+            view: asset.height > asset.width ? 'side' : (sceneCatalog.styleDefaults?.view || 'high top-down'),
+            guidanceScale: sceneCatalog.styleDefaults?.guidanceScale || 8
+          }
+        })
+      });
+      const data = await res.json();
+      if (btn) { btn.textContent = 'Generate'; btn.disabled = false; }
+      if (data.ok) {
+        asset.status = 'pending';
+        asset.file = data.filename;
+        refreshCatalog();
+        selectAsset(asset.id);
+      } else { alert('Generation failed: ' + (data.error || 'Unknown error')); }
+    } catch(e) {
+      if (btn) { btn.textContent = 'Generate'; btn.disabled = false; }
+      alert('Error: ' + e.message);
+    }
+  }
+}
+
+async function generateSelected() {
+  if (selectedAssets.size === 0) return;
+  const btn = document.getElementById('btn-generate-selected');
+  btn.textContent = 'Generating 0/' + selectedAssets.size + '...';
+  btn.disabled = true;
+
+  let done = 0;
+  for (const assetId of selectedAssets) {
+    let asset = null;
+    let catObj = null;
+    for (const cat of Object.values(sceneCatalog.categories)) {
+      const found = (cat.assets || []).find(a => a.id === assetId);
+      if (found) { asset = found; catObj = cat; break; }
+    }
+    if (!asset) continue;
+
+    try {
+      if (catObj.method === 'character') {
+        const res = await fetch('/pixellab/create-character', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            assetId: asset.id, description: asset.description,
+            width: asset.width, height: asset.height,
+            options: { ...(sceneCatalog.styleDefaults?.characterStyle || {}) }
+          })
+        });
+        const data = await res.json();
+        if (data.ok) addToGenQueue(asset.id, data.jobId || data.characterId, 'character');
+      } else if (catObj.method === 'map-object') {
+        const res = await fetch('/pixellab/generate-map-object', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            assetId: asset.id, description: asset.description,
+            width: asset.width, height: asset.height,
+            options: {
+              ...(sceneCatalog.styleDefaults?.imageStyle || {}),
+              view: sceneCatalog.styleDefaults?.view || 'high top-down',
+              guidanceScale: sceneCatalog.styleDefaults?.guidanceScale || 8
+            }
+          })
+        });
+        const data = await res.json();
+        if (data.ok) addToGenQueue(asset.id, data.jobId, 'map-object');
+      } else {
+        const res = await fetch('/pixellab/generate-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            assetId: asset.id, description: asset.description,
+            width: asset.width, height: asset.height,
+            options: {
+              ...(sceneCatalog.styleDefaults?.imageStyle || {}),
+              noBackground: asset.noBackground || false,
+              view: sceneCatalog.styleDefaults?.view || 'high top-down',
+              guidanceScale: sceneCatalog.styleDefaults?.guidanceScale || 8
+            }
+          })
+        });
+        await res.json();
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    } catch(e) { console.error('Failed to generate ' + assetId + ':', e); }
+    done++;
+    btn.textContent = 'Generating ' + done + '/' + selectedAssets.size + '...';
+  }
+
+  btn.textContent = 'Generate Selected';
+  btn.disabled = false;
+  selectedAssets.clear();
+  document.getElementById('selection-count').textContent = '0 selected';
+  refreshCatalog();
+}
+
+async function approveAsset() {
+  if (!selectedAssetId) return;
+  await fetch('/scene-001/asset/' + selectedAssetId, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'approved' })
+  });
+  refreshCatalog();
+}
+
+async function flagAsset() {
+  if (!selectedAssetId) return;
+  await fetch('/scene-001/asset/' + selectedAssetId, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'needs_revision' })
+  });
+  refreshCatalog();
+}
+
+async function savePromptEdit() {
+  if (!selectedAssetId) return;
+  const newPrompt = document.getElementById('detail-prompt').value;
+  await fetch('/scene-001/asset/' + selectedAssetId, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ description: newPrompt })
+  });
+  refreshCatalog();
+}
+
+function addToGenQueue(assetId, jobId, type) {
+  activeGenerations.set(jobId || assetId, { assetId, type, startTime: Date.now() });
+  renderGenQueue();
+  if (jobId) pollJob(jobId, assetId);
+}
+
+function renderGenQueue() {
+  const container = document.getElementById('gen-queue');
+  if (activeGenerations.size === 0) {
+    container.innerHTML = '<p>No active generations</p>';
+    return;
+  }
+  container.innerHTML = '';
+  for (const [jobId, info] of activeGenerations) {
+    const elapsed = Math.round((Date.now() - info.startTime) / 1000);
+    const el = document.createElement('div');
+    el.style.cssText = 'padding:4px 0; border-bottom:1px solid #222;';
+    el.innerHTML = '<span style="color:#3b82f6;">GEN</span> ' + info.assetId + ' <span style="color:#555;">(' + info.type + ', ' + elapsed + 's)</span>';
+    container.appendChild(el);
+  }
+}
+
+async function pollJob(jobId, assetId) {
+  const maxAttempts = 60;
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(r => setTimeout(r, 5000));
+    try {
+      const res = await fetch('/pixellab/job/' + jobId);
+      const data = await res.json();
+      const status = data.data?.status || data.status;
+      if (status === 'completed' || status === 'success') {
+        activeGenerations.delete(jobId);
+        renderGenQueue();
+        refreshCatalog();
+        return;
+      } else if (status === 'failed' || status === 'error') {
+        activeGenerations.delete(jobId);
+        renderGenQueue();
+        console.error('Job ' + jobId + ' failed:', data);
+        return;
+      }
+    } catch(e) { console.error('Poll error:', e); }
+    renderGenQueue();
+  }
+  activeGenerations.delete(jobId);
+  renderGenQueue();
+}
+
+setInterval(renderGenQueue, 5000);
 </script>
 </body>
 </html>

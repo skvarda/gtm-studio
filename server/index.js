@@ -5,6 +5,7 @@ const { execSync, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
+const pixellab = require('./pixellab');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -191,44 +192,60 @@ function validateEngineOutput(html, protectedSystems, previousHtml) {
 // ── Iris (Asset Generator — API, not Claude) ────────────────────────────────
 
 async function generateAsset(assetId, prompt, subfolder = 'sprites', targetWidth = 32, targetHeight = 48) {
-  const apiKey = process.env.GOOGLE_AI_API_KEY;
-  if (!apiKey) {
-    console.error('GOOGLE_AI_API_KEY not set — skipping asset generation');
+  if (!process.env.PIXELLAB_API_KEY) {
+    console.error('PIXELLAB_API_KEY not set — skipping asset generation');
     return null;
   }
 
   try {
-    const ratio = targetWidth / targetHeight;
-    let aspectRatio = '1:1';
-    if (ratio < 0.85) aspectRatio = '3:4';
-    else if (ratio > 1.15) aspectRatio = '4:3';
+    const isSprite = subfolder === 'sprites' || subfolder.startsWith('sprites/');
+    let result;
 
-    const response = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey
-        },
-        body: JSON.stringify({
-          instances: [{ prompt }],
-          parameters: { sampleCount: 1, aspectRatio }
-        })
+    if (isSprite) {
+      // map-objects is ASYNC — need to poll for completion
+      const initResult = await pixellab.generateMapObject(prompt, targetWidth, targetHeight, {
+        outline: pixellab.IMAGE_STYLE.outline,
+        shading: pixellab.IMAGE_STYLE.shading,
+        detail: pixellab.IMAGE_STYLE.detail,
+        view: 'high top-down'
+      });
+
+      const jobId = initResult.background_job_id || initResult.data?.background_job_id;
+      if (!jobId) {
+        console.error(`[Iris] No job ID from map-objects for ${assetId}:`, JSON.stringify(initResult).substring(0, 300));
+        return null;
       }
-    );
 
-    if (!response.ok) {
-      const err = await response.text();
-      console.error(`[Iris] API error for ${assetId}:`, err);
-      return null;
-    }
+      console.log(`[Iris] Map object job ${jobId} started for ${assetId}, polling...`);
 
-    const data = await response.json();
-    const b64 = data?.predictions?.[0]?.bytesBase64Encoded;
-    if (!b64) {
-      console.error(`[Iris] No image data returned for ${assetId}`);
-      return null;
+      // Poll until complete (max 2 minutes)
+      for (let i = 0; i < 24; i++) {
+        await new Promise(r => setTimeout(r, 5000));
+        const status = await pixellab.getJobStatus(jobId);
+        const jobStatus = status.status || status.data?.status;
+        if (jobStatus === 'completed' || jobStatus === 'success') {
+          result = status;
+          break;
+        } else if (jobStatus === 'failed' || jobStatus === 'error') {
+          console.error(`[Iris] Job ${jobId} failed for ${assetId}`);
+          return null;
+        }
+        console.log(`[Iris] Job ${jobId} status: ${jobStatus} (${(i+1)*5}s)`);
+      }
+
+      if (!result) {
+        console.error(`[Iris] Job ${jobId} timed out for ${assetId}`);
+        return null;
+      }
+    } else {
+      // pixflux is SYNC — returns image data directly
+      result = await pixellab.generateImage(prompt, targetWidth, targetHeight, {
+        outline: pixellab.IMAGE_STYLE.outline,
+        shading: pixellab.IMAGE_STYLE.shading,
+        detail: pixellab.IMAGE_STYLE.detail,
+        noBackground: false,
+        view: 'high top-down'
+      });
     }
 
     const registryPath = path.join(BUILDS, 'asset-registry.json');
@@ -238,30 +255,31 @@ async function generateAsset(assetId, prompt, subfolder = 'sprites', targetWidth
     const existing = registry.assets[assetId];
     const version = existing ? existing.version + 1 : 1;
     const filename = `${assetId}_v${version}.png`;
-    const originalFilename = `${assetId}_v${version}_original.png`;
-
-    const originalBuffer = Buffer.from(b64, 'base64');
-    const originalPath = path.join(BASE, 'assets', 'originals', subfolder, originalFilename);
-    fs.mkdirSync(path.dirname(originalPath), { recursive: true });
-    fs.writeFileSync(originalPath, originalBuffer);
-    console.log(`[Iris] Saved original: ${originalFilename} (${originalBuffer.length} bytes)`);
 
     const gameReadyPath = path.join(BASE, 'assets', subfolder, filename);
-    fs.mkdirSync(path.dirname(gameReadyPath), { recursive: true });
-    await sharp(originalBuffer)
-      .resize(targetWidth, targetHeight, { kernel: sharp.kernel.nearest, fit: 'fill' })
-      .png()
-      .toFile(gameReadyPath);
+    const saved = pixellab.saveImageFromResponse(result, gameReadyPath);
 
-    const docsAssetPath = path.join(DOCS, 'assets', subfolder, filename);
-    fs.mkdirSync(path.dirname(docsAssetPath), { recursive: true });
-    fs.copyFileSync(gameReadyPath, docsAssetPath);
+    if (!saved) {
+      console.error(`[Iris] Failed to save ${assetId} — check pm2 logs for response shape`);
+      return null;
+    }
 
-    console.log(`[Iris] Processed: ${filename} (${targetWidth}x${targetHeight})`);
+    const docsPath = path.join(BASE, 'docs', 'assets', subfolder, filename);
+    fs.mkdirSync(path.dirname(docsPath), { recursive: true });
+    fs.copyFileSync(gameReadyPath, docsPath);
 
-    return { filename, originalFilename, version, path: `assets/${subfolder}/${filename}`, targetWidth, targetHeight };
+    console.log(`[Iris] Generated via PixelLab: ${filename} (${targetWidth}x${targetHeight})`);
+
+    return {
+      filename,
+      originalFilename: filename,
+      version,
+      path: `/assets/${subfolder}/${filename}`,
+      targetWidth,
+      targetHeight
+    };
   } catch (err) {
-    console.error(`[Iris] generateAsset error for ${assetId}:`, err.message);
+    console.error(`[Iris] PixelLab error for ${assetId}:`, err.message);
     return null;
   }
 }
@@ -336,8 +354,8 @@ async function runIris(round, priyaOutput, broadcast) {
     }
 
     if (generated.length > 0) {
-      console.log('[Iris] Rate limit pause (10s)...');
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      console.log('[Iris] Rate limit pause (2s)...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
     const result = await generateAsset(asset_id, prompt, subfolder, target_width, target_height);
@@ -1385,13 +1403,13 @@ Output ONLY the complete HTML file. Start with <!DOCTYPE html> and end with </ht
   const beaPrompt = `You are Bea "Bug" Ortiz, QA Playtester at GTM Studio.
 
 NEW game.html TO REVIEW:
-${gameHtml.slice(0, 15000)}${gameHtml.length > 15000 ? '\n... [TRUNCATED]' : ''}
+${gameHtml}
 
 DEVELOPER BUILD REPORT:
 ${buildReport}
 
-PREVIOUS game.html (first 5000 chars for comparison):
-${currentGame ? currentGame.slice(0, 5000) : '(No previous build)'}
+PREVIOUS game.html (first 10000 chars for comparison):
+${currentGame ? currentGame.slice(0, 10000) : '(No previous build)'}
 
 PROTECTED SYSTEMS:
 ${JSON.stringify(protectedSystems, null, 2)}
@@ -1452,8 +1470,8 @@ Then provide your detailed findings.`;
   } else {
     // REJECT — give Atlas one retry
     broadcast({ type: 'developer_retry', round });
-    const qaErrorText = beaOutput.slice(0, 500);
-    const renSummaryForQARetry = renOutput.slice(0, 200);
+    const qaErrorText = beaOutput.slice(0, 1500);
+    const renSummaryForQARetry = renOutput.slice(0, 500);
     const retryPrompt = `You are Atlas Novak. QA rejected your integration build.
 
 QA FEEDBACK:
@@ -1465,8 +1483,8 @@ ${renSummaryForQARetry}
 PROTECTED FUNCTIONS (do not remove):
 ${protectedFnList}
 
-CURRENT game.html:
-${currentGame || '(No game.html)'}
+YOUR PREVIOUS BUILD (fix the QA issues in this file):
+${gameHtml}
 
 Output ONLY the complete HTML file. Start with <!DOCTYPE html> and end with </html>. No explanation, no markdown, no build report — ONLY the HTML file.`;
 
@@ -1487,11 +1505,11 @@ Output ONLY the complete HTML file. Start with <!DOCTYPE html> and end with </ht
       // Re-QA (abbreviated)
       const beaRetryPrompt = `You are Bea Ortiz. Quick re-review after Atlas's fix.
 
-ATLAS'S REVISED game.html (first 10000 chars):
-${gameHtml.slice(0, 10000)}
+ATLAS'S REVISED game.html:
+${gameHtml}
 
 PREVIOUS QA ISSUES:
-${beaOutput}
+${beaOutput.slice(0, 3000)}
 
 Did Atlas fix the issues? VERDICT: SHIP or VERDICT: REJECT`;
 
@@ -1875,6 +1893,342 @@ app.patch('/asset-registry/:assetId', (req, res) => {
     } else {
       res.status(404).json({ error: 'Asset not found' });
     }
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Scene-001 Catalog & PixelLab Endpoints ──────────────────────────────────
+
+function loadSceneCatalog() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(__dirname, 'scene-001-catalog.json'), 'utf8'));
+  } catch(e) {
+    console.error('Failed to load scene catalog:', e.message);
+    return { categories: {} };
+  }
+}
+
+app.get('/scene-001/catalog', (req, res) => {
+  try {
+    const catalog = loadSceneCatalog();
+    const registryPath = path.join(BUILDS, 'asset-registry.json');
+    let registry = { assets: {} };
+    try { registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')); } catch(e) {}
+
+    for (const catKey of Object.keys(catalog.categories || {})) {
+      const cat = catalog.categories[catKey];
+      for (const asset of (cat.assets || [])) {
+        const regEntry = registry.assets[asset.id];
+        if (regEntry) {
+          asset.status = regEntry.status;
+          asset.file = regEntry.file;
+          asset.version = regEntry.version;
+          asset.pixellabCharacterId = regEntry.pixellabCharacterId || null;
+          asset.pixellabJobId = regEntry.pixellabJobId || null;
+        }
+      }
+    }
+    res.json(catalog);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/pixellab/generate-image', async (req, res) => {
+  try {
+    const { assetId, description, width, height, options = {} } = req.body;
+    if (!assetId || !description) return res.status(400).json({ error: 'assetId and description required' });
+
+    console.log(`[Asset Studio] Generating image: ${assetId} (${width}x${height})`);
+
+    // Validate style enums — reject character-style values that don't belong in pixflux
+    const VALID_OUTLINES = ['single color black outline', 'single color outline', 'selective outline', 'lineless'];
+    const VALID_SHADINGS = ['flat shading', 'basic shading', 'medium shading', 'detailed shading', 'highly detailed shading'];
+    const VALID_DETAILS = ['low detail', 'medium detail', 'highly detailed'];
+
+    const safeOptions = {
+      ...options,
+      outline: VALID_OUTLINES.includes(options.outline) ? options.outline : pixellab.IMAGE_STYLE.outline,
+      shading: VALID_SHADINGS.includes(options.shading) ? options.shading : pixellab.IMAGE_STYLE.shading,
+      detail: VALID_DETAILS.includes(options.detail) ? options.detail : pixellab.IMAGE_STYLE.detail
+    };
+
+    const result = await pixellab.generateImage(description, width, height, safeOptions);
+
+    const catalog = loadSceneCatalog();
+    let subfolder = 'sprites';
+    for (const cat of Object.values(catalog.categories || {})) {
+      const found = (cat.assets || []).find(a => a.id === assetId);
+      if (found) { subfolder = found.subfolder || 'sprites'; break; }
+    }
+
+    const filename = `${assetId}_v1.png`;
+    const outputPath = path.join(BASE, 'assets', subfolder, filename);
+    const saved = pixellab.saveImageFromResponse(result, outputPath);
+
+    if (saved) {
+      const docsPath = path.join(BASE, 'docs', 'assets', subfolder, filename);
+      fs.mkdirSync(path.dirname(docsPath), { recursive: true });
+      fs.copyFileSync(outputPath, docsPath);
+
+      const registryPath = path.join(BUILDS, 'asset-registry.json');
+      let registry = { version: 1, assets: {} };
+      try { registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')); } catch(e) {}
+
+      const existing = registry.assets[assetId];
+      const version = existing ? existing.version + 1 : 1;
+      registry.assets[assetId] = {
+        file: filename,
+        version,
+        status: 'pending',
+        prompt: description,
+        target_width: width,
+        target_height: height,
+        created_round: existing?.created_round || 'asset-studio',
+        last_modified: new Date().toISOString()
+      };
+      fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2));
+
+      console.log(`[Asset Studio] Saved: ${outputPath}`);
+      res.json({ ok: true, assetId, filename, path: `/assets/${subfolder}/${filename}`, version });
+    } else {
+      res.status(500).json({ error: 'Failed to extract image from PixelLab response' });
+    }
+  } catch(e) {
+    console.error('[Asset Studio] generate-image error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/pixellab/create-character', async (req, res) => {
+  try {
+    const { assetId, description, width, height, options = {} } = req.body;
+    if (!assetId || !description) return res.status(400).json({ error: 'assetId and description required' });
+
+    console.log(`[Asset Studio] Creating character: ${assetId}`);
+    const result = await pixellab.createCharacter4Dir(description, width, height, options);
+
+    // PixelLab v2 returns background_job_id and character_id at top level
+    const jobId = result.background_job_id || result.data?.background_job_id || result.data?.job_id || result.job_id || null;
+    const characterId = result.character_id || result.data?.character_id || null;
+
+    // Log the actual response for debugging
+    console.log(`[Asset Studio] Character creation response keys:`, Object.keys(result));
+    if (!jobId && !characterId) {
+      console.log(`[Asset Studio] Full response:`, JSON.stringify(result).substring(0, 500));
+    }
+
+    const registryPath = path.join(BUILDS, 'asset-registry.json');
+    let registry = { version: 1, assets: {} };
+    try { registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')); } catch(e) {}
+
+    registry.assets[assetId] = {
+      ...(registry.assets[assetId] || {}),
+      status: 'generating',
+      prompt: description,
+      target_width: width,
+      target_height: height,
+      pixellabJobId: jobId,
+      pixellabCharacterId: characterId,
+      last_modified: new Date().toISOString()
+    };
+    fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2));
+
+    console.log(`[Asset Studio] Character job started: ${jobId || characterId}`);
+    res.json({ ok: true, assetId, jobId, characterId });
+  } catch(e) {
+    console.error('[Asset Studio] create-character error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/pixellab/animate-character', async (req, res) => {
+  try {
+    const { characterId, templateAnimationId, options = {} } = req.body;
+    if (!characterId || !templateAnimationId) {
+      return res.status(400).json({ error: 'characterId and templateAnimationId required' });
+    }
+
+    console.log(`[Asset Studio] Animating character ${characterId}: ${templateAnimationId}`);
+    const result = await pixellab.animateCharacter(characterId, templateAnimationId, options);
+
+    const jobId = result.data?.job_id || result.job_id || null;
+    res.json({ ok: true, characterId, templateAnimationId, jobId });
+  } catch(e) {
+    console.error('[Asset Studio] animate-character error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/pixellab/create-tileset', async (req, res) => {
+  try {
+    const { lowerDescription, upperDescription, options = {} } = req.body;
+    if (!lowerDescription || !upperDescription) {
+      return res.status(400).json({ error: 'lowerDescription and upperDescription required' });
+    }
+
+    console.log(`[Asset Studio] Creating tileset: ${lowerDescription} → ${upperDescription}`);
+    const result = await pixellab.createTileset(lowerDescription, upperDescription, options);
+
+    const jobId = result.data?.job_id || result.job_id || null;
+    res.json({ ok: true, jobId, result: result.data || result });
+  } catch(e) {
+    console.error('[Asset Studio] create-tileset error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/pixellab/job/:jobId', async (req, res) => {
+  try {
+    const result = await pixellab.getJobStatus(req.params.jobId);
+    res.json(result);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/pixellab/balance', async (req, res) => {
+  try {
+    const result = await pixellab.getBalance();
+    res.json(result);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/pixellab/characters', async (req, res) => {
+  try {
+    const result = await pixellab.listCharacters();
+    res.json(result);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/pixellab/character/:characterId', async (req, res) => {
+  try {
+    const result = await pixellab.getCharacter(req.params.characterId);
+    res.json(result);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/pixellab/download-character/:characterId', async (req, res) => {
+  try {
+    const { characterId } = req.params;
+    const { assetId } = req.body;
+    const zipPath = path.join(BASE, 'assets', 'sprites', 'characters', `${assetId || characterId}.zip`);
+
+    console.log(`[Asset Studio] Downloading character ZIP: ${characterId}`);
+    await pixellab.downloadCharacterZip(characterId, zipPath);
+
+    console.log(`[Asset Studio] ZIP saved to: ${zipPath}`);
+    res.json({ ok: true, zipPath, characterId });
+  } catch(e) {
+    console.error('[Asset Studio] download-character error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.patch('/scene-001/asset/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const catalogPath = path.join(__dirname, 'scene-001-catalog.json');
+    const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+
+    let found = false;
+    for (const cat of Object.values(catalog.categories || {})) {
+      const asset = (cat.assets || []).find(a => a.id === id);
+      if (asset) {
+        if (updates.status) asset.status = updates.status;
+        if (updates.description) asset.description = updates.description;
+        if (updates.notes) asset.notes = updates.notes;
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) return res.status(404).json({ error: `Asset ${id} not found in catalog` });
+
+    fs.writeFileSync(catalogPath, JSON.stringify(catalog, null, 2));
+
+    if (updates.status) {
+      const registryPath = path.join(BUILDS, 'asset-registry.json');
+      let registry = { version: 1, assets: {} };
+      try { registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')); } catch(e) {}
+      if (registry.assets[id]) {
+        registry.assets[id].status = updates.status;
+        fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2));
+      }
+    }
+
+    res.json({ ok: true, id, updates });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Generate map object (furniture, props — transparent bg game items)
+// NOTE: map-objects is ASYNC — returns background_job_id, not immediate image
+app.post('/pixellab/generate-map-object', async (req, res) => {
+  try {
+    const { assetId, description, width, height, options = {} } = req.body;
+    if (!assetId || !description) return res.status(400).json({ error: 'assetId and description required' });
+
+    console.log(`[Asset Studio] Generating map object: ${assetId} (${width}x${height})`);
+
+    // Validate style enums — reject character-style values that don't belong in map-objects
+    const VALID_OUTLINES = ['single color black outline', 'single color outline', 'selective outline', 'lineless'];
+    const VALID_SHADINGS = ['flat shading', 'basic shading', 'medium shading', 'detailed shading', 'highly detailed shading'];
+    const VALID_DETAILS = ['low detail', 'medium detail', 'highly detailed'];
+
+    const result = await pixellab.generateMapObject(description, width, height, {
+      outline: VALID_OUTLINES.includes(options.outline) ? options.outline : pixellab.IMAGE_STYLE.outline,
+      shading: VALID_SHADINGS.includes(options.shading) ? options.shading : pixellab.IMAGE_STYLE.shading,
+      detail: VALID_DETAILS.includes(options.detail) ? options.detail : pixellab.IMAGE_STYLE.detail,
+      view: options.view || 'high top-down',
+      guidanceScale: options.guidanceScale || 8
+    });
+
+    // map-objects is async — returns background_job_id and object_id
+    const jobId = result.background_job_id || null;
+    const objectId = result.object_id || null;
+
+    console.log(`[Asset Studio] Map object job started: jobId=${jobId}, objectId=${objectId}, status=${result.status}`);
+
+    // Update registry with job tracking
+    const registryPath = path.join(BUILDS, 'asset-registry.json');
+    let registry = { version: 1, assets: {} };
+    try { registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')); } catch(e) {}
+
+    registry.assets[assetId] = {
+      ...(registry.assets[assetId] || {}),
+      status: 'generating',
+      prompt: description,
+      target_width: width,
+      target_height: height,
+      pixellabJobId: jobId,
+      pixellabObjectId: objectId,
+      last_modified: new Date().toISOString()
+    };
+    fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2));
+
+    res.json({ ok: true, assetId, jobId, objectId, status: result.status || 'queued' });
+  } catch(e) {
+    console.error('[Asset Studio] generate-map-object error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get completed tileset
+app.get('/pixellab/tileset/:tilesetId', async (req, res) => {
+  try {
+    const result = await pixellab.getTileset(req.params.tilesetId);
+    res.json(result);
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
