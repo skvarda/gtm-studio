@@ -1,12 +1,16 @@
 {
-  "version": 1,
-  "last_updated_round": 0,
-  "protected": [],
-  "rules": [
-    "Protected systems may only be modified by Engine rounds.",
-    "Integration rounds must verify no protected function signatures were altered.",
-    "If a patch touches a protected line range, Integration rejects the patch.",
-    "To unprotect a system, Marcus must issue an explicit directive with justification.",
-    "Systems are added to this list by Marcus Webb (Tech Lead) after they are implemented and stable."
-  ]
+  "version": 4,
+  "protected_files": [
+    {
+      "path": "res://project.godot",
+      "reason": "Project configuration — never modify via agents"
+    },
+    {
+      "path": "res://export_presets.cfg",
+      "reason": "Web export configuration — never modify via agents"
+    }
+  ],
+  "protected_autoloads": [],
+  "protected_scenes": [],
+  "notes": "Populated as Godot scenes and scripts are built and locked."
 }

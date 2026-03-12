@@ -1,0 +1,11 @@
+{
+  "lastRound": 0,
+  "lastRoundType": null,
+  "lastQAVerdict": null,
+  "knownIssues": [],
+  "deferredWork": [],
+  "roundHistory": [],
+  "version": "v4",
+  "architecture": "godot+pixellab",
+  "notes": "Clean slate for v4. Game output is now a Godot project, not a single HTML file."
+}

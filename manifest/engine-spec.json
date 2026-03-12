@@ -1,102 +1,22 @@
 {
-  "version": 1,
-  "last_updated_round": 0,
-  "rendering": {
-    "native_width": 640,
-    "native_height": 360,
-    "scale_factor": 2,
-    "tile_size": 32,
-    "sprite_rendering": "nearest_neighbor",
-    "dpr_correction": true
-  },
+  "version": 4,
+  "godot_version": "4.6.1",
+  "runtime": "godot-web-export-single-threaded",
+  "renderer": "compatibility",
+  "art_pipeline": "pixellab-v2",
   "systems": {
-    "canvas_rendering": {
-      "status": "planned",
-      "protected": false,
-      "description": "HTML5 Canvas setup with DPR correction. 640x360 native at 2x scale.",
-      "entry_function": "initCanvas()"
-    },
-    "pixel_font_renderer": {
-      "status": "planned",
-      "protected": false,
-      "description": "Custom bitmap font rendering. Do not replace with canvas fillText.",
-      "entry_function": "drawText(ctx, text, x, y, color, scale)"
-    },
-    "tile_movement": {
-      "status": "planned",
-      "protected": false,
-      "description": "Grid-based movement with eased interpolation. Arrow keys + WASD.",
-      "entry_function": "handleMovement(dt)",
-      "tile_size": 32
-    },
-    "hud_display": {
-      "status": "planned",
-      "protected": false,
-      "description": "Top-of-screen HUD showing Day, Cash, MRR, Runway, AP.",
-      "entry_function": "drawHUD(ctx)"
-    },
-    "day_cycle": {
-      "status": "planned",
-      "protected": false,
-      "description": "Day counter, phase transitions (morning/afternoon/evening).",
-      "entry_function": "advanceDay()"
-    },
-    "character_creation": {
-      "status": "planned",
-      "protected": false,
-      "description": "Role selection screen. Three choices: Seller, Dev, Marketer.",
-      "dependencies": ["pixel_font_renderer", "tile_movement"]
-    },
-    "dialogue_system": {
-      "status": "planned",
-      "protected": false,
-      "description": "NPC dialogue with branching responses. Bottom-of-screen dialogue box.",
-      "dependencies": ["pixel_font_renderer", "npc_interaction"]
-    },
-    "action_point_system": {
-      "status": "planned",
-      "protected": false,
-      "description": "5 AP per day. Activities cost 1-3 AP. AP shown in HUD.",
-      "dependencies": ["hud_display", "day_cycle"]
-    },
-    "email_inbox": {
-      "status": "planned",
-      "protected": false,
-      "description": "Morning email phase. 2-5 emails per day. Player reads and responds.",
-      "dependencies": ["dialogue_system", "day_cycle"]
-    },
-    "npc_interaction": {
-      "status": "planned",
-      "protected": false,
-      "description": "Walk to NPC, press action key, trigger dialogue.",
-      "dependencies": ["tile_movement"]
-    },
-    "economy_tick": {
-      "status": "planned",
-      "protected": false,
-      "description": "Daily revenue/expense calculation. MRR, burn, runway.",
-      "dependencies": ["day_cycle", "hud_display"]
-    },
-    "location_transitions": {
-      "status": "planned",
-      "protected": false,
-      "description": "Move between locations via door tiles. Fade transition.",
-      "dependencies": ["tile_movement"]
-    },
-    "asset_preloader": {
-      "status": "planned",
-      "protected": false,
-      "description": "Load PNG assets before game loop starts. Fallback to rectangles.",
-      "dependencies": []
-    }
-  },
-  "input_map": {
-    "move_up": ["ArrowUp", "KeyW"],
-    "move_down": ["ArrowDown", "KeyS"],
-    "move_left": ["ArrowLeft", "KeyA"],
-    "move_right": ["ArrowRight", "KeyD"],
-    "interact": ["Space", "Enter", "KeyE"],
-    "cancel": ["Escape", "KeyX"],
-    "menu": ["KeyM", "Tab"]
+    "godot_project_bootstrap": { "status": "planned", "notes": "project.godot, export_presets.cfg for Web, main.tscn entry point" },
+    "tile_renderer": { "status": "planned", "notes": "TileMapLayer node (Godot 4.3+) with 32x32 tiles, Compatibility renderer" },
+    "player_movement": { "status": "planned", "notes": "CharacterBody2D, grid-based tween movement, 8-direction" },
+    "camera_system": { "status": "planned", "notes": "Camera2D following player, clamped to room bounds" },
+    "room_transitions": { "status": "planned", "notes": "SceneTree.change_scene_to_packed() between room .tscn files" },
+    "npc_system": { "status": "planned", "notes": "StaticBody2D NPCs with Area2D interaction zones, data-driven from JSON" },
+    "dialogue_system": { "status": "planned", "notes": "CanvasLayer UI, loads from data/dialogue.json, supports player choices" },
+    "email_system": { "status": "planned", "notes": "CanvasLayer overlay, data-driven from data/emails.json" },
+    "economy_engine": { "status": "planned", "notes": "Autoload singleton, MRR/burn/runway, $150K start" },
+    "day_cycle": { "status": "planned", "notes": "Morning/afternoon/evening phases, 5 AP per day" },
+    "hud": { "status": "planned", "notes": "CanvasLayer, day/cash/MRR/runway/AP display" },
+    "character_creation": { "status": "planned", "notes": "Standalone scene, role selection (seller/dev/marketer)" },
+    "save_system": { "status": "planned", "notes": "user:// filesystem (IndexedDB on web), JSON save format" }
   }
 }

@@ -1,12 +1,5 @@
 {
-  "queue": [
-    {
-      "round": 16,
-      "type": "integration",
-      "priority": "beat_4_angel_arrives",
-      "note": "Angel investor meeting, coffee shop explorable. Third human checkpoint."
-    }
-  ],
+  "queue": [],
   "paused": false,
   "auto_advance": false
 }

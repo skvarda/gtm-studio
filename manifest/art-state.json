@@ -1,34 +1,20 @@
 {
-  "version": 1,
-  "last_updated_round": 26,
+  "version": 4,
+  "last_updated_round": 0,
+  "pipeline": "pixellab-v2",
   "palette": {
-    "primary": {
-      "amber": "#D4A04A",
-      "teal": "#4A8C8C"
-    },
-    "background": {
-      "dark": "#1A1A2E",
-      "medium": "#2D2D44"
-    },
-    "accent": {
-      "gold": "#F0C040",
-      "green": "#58B868",
-      "red": "#E94560"
-    },
-    "skin_tones": [
-      "#F5D6B8",
-      "#D4A574",
-      "#8D5524",
-      "#4A2C17"
-    ],
-    "note": "SNES-era warm. Chrono Trigger interiors. Harvest Moon warmth."
+    "primary": ["#f0c040", "#2dd4bf", "#a855f7"],
+    "warm": ["#d4956a", "#c47a53", "#a85f3c"],
+    "cool": ["#3a6b8a", "#2a5070", "#1a3550"],
+    "neutral": ["#e8dcc8", "#c8b8a0", "#887868"]
   },
-  "assets": {},
-  "asset_requests_pending": [],
   "style_guide": {
-    "character_proportions": "2.5 head-heights tall. Big expressive eyes. Simple readable silhouettes.",
-    "tile_style": "Top-down 3/4 view. Warm lighting. Visible texture. No pure black outlines.",
-    "ui_style": "Dark panels with subtle warm border. Amber accent on interactive elements.",
-    "animation_frames": "2-4 per direction for walk. 2 for idle breathe. Personality in idle."
-  }
+    "outline": "selective outline",
+    "shading": "medium shading",
+    "detail": "medium detail",
+    "character_size": "32x48",
+    "tile_size": "32x32",
+    "portrait_size": "64x64"
+  },
+  "assets": {}
 }
