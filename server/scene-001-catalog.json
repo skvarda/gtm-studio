@@ -1,0 +1,491 @@
+{
+  "scene": "001-grind-and-brew",
+  "title": "Grind & Brew Coffee Shop",
+  "dimensions": { "width": 20, "height": 15, "tileSize": 32 },
+  "palette": {
+    "description": "Warm amber coffeehouse — exposed brick reds, dark wood browns, cream walls, golden Edison bulb light, sage/olive accents, worn hardwood mid-tones",
+    "colors": ["#8B4513", "#D2691E", "#F5DEB3", "#FFF8DC", "#556B2F", "#6B3A2E", "#C4A777", "#3E2723", "#FFD700", "#2F1B14"]
+  },
+  "styleDefaults": {
+    "imageStyle": {
+      "outline": "selective outline",
+      "shading": "medium shading",
+      "detail": "medium detail"
+    },
+    "characterStyle": {
+      "outline": "thin",
+      "shading": "soft",
+      "detail": "medium"
+    },
+    "view": "high top-down",
+    "guidanceScale": 8
+  },
+  "categories": {
+    "floor_tiles": {
+      "label": "Floor Tiles",
+      "method": "tileset",
+      "assets": [
+        {
+          "id": "tile_floor_wood_01",
+          "description": "Warm hardwood plank floor tile, medium tone oak, slightly worn grain, pixel art, cozy coffee shop, warm amber lighting, top-down view",
+          "width": 32, "height": 32,
+          "subfolder": "tiles",
+          "status": "pending",
+          "notes": "Base floor tile — ~180 placements. Use as lower terrain for Wang tileset."
+        },
+        {
+          "id": "tile_floor_wood_02",
+          "description": "Hardwood floor tile variant, slightly darker grain than base, subtle knot marks, pixel art, warm tone, top-down view",
+          "width": 32, "height": 32,
+          "subfolder": "tiles",
+          "status": "pending",
+          "notes": "Darker variant — ~60 placements. Mix with 01 for natural variation."
+        },
+        {
+          "id": "tile_floor_wood_03",
+          "description": "Worn hardwood floor tile, lighter and scuffed from foot traffic, pixel art, warm aging patina, top-down view",
+          "width": 32, "height": 32,
+          "subfolder": "tiles",
+          "status": "pending",
+          "notes": "Worn variant — ~20 placements. Concentrated near counter and door."
+        },
+        {
+          "id": "tile_floor_mat",
+          "description": "Black rubber anti-fatigue mat, textured surface, small pixel art tile, behind-counter workspace, top-down view",
+          "width": 32, "height": 32,
+          "subfolder": "tiles",
+          "status": "pending",
+          "notes": "4 placements behind counter where Gina stands."
+        },
+        {
+          "id": "tile_floor_doormat",
+          "description": "Welcome doormat, worn brown fiber, slightly frayed edges, pixel art, coffee shop entrance, top-down view",
+          "width": 32, "height": 32,
+          "subfolder": "tiles",
+          "status": "pending",
+          "notes": "2 placements just inside front door."
+        }
+      ]
+    },
+    "walls_architecture": {
+      "label": "Walls & Architecture",
+      "method": "image",
+      "assets": [
+        {
+          "id": "tile_wall_brick",
+          "description": "Exposed red-brown brick wall tile, warm tone, old building character, pixel art, coffee shop interior, subtle mortar lines, front-facing view",
+          "width": 32, "height": 32,
+          "subfolder": "tiles",
+          "status": "pending",
+          "notes": "~40 tiles. Back wall behind counter. Signature texture."
+        },
+        {
+          "id": "tile_wall_painted",
+          "description": "Cream sage painted drywall tile, slightly warm white, subtle texture, pixel art, indie coffee shop side wall, front-facing view",
+          "width": 32, "height": 32,
+          "subfolder": "tiles",
+          "status": "pending",
+          "notes": "~30 tiles. Side walls."
+        },
+        {
+          "id": "tile_wall_wainscot",
+          "description": "Dark wood wainscoting strip, lower wall panel, rich brown stained wood, pixel art, half-height decorative trim, front-facing view",
+          "width": 32, "height": 16,
+          "subfolder": "tiles",
+          "status": "pending",
+          "notes": "~20 tiles. Half-height at bottom of painted walls."
+        },
+        {
+          "id": "tile_wall_chalkboard",
+          "description": "Black chalkboard menu board with faint chalk writing, coffee shop menu, hand-drawn drink names, pixel art, front-facing view",
+          "width": 32, "height": 32,
+          "subfolder": "tiles",
+          "status": "pending",
+          "notes": "6 tiles. Menu board behind counter. Text baked into art."
+        },
+        {
+          "id": "tile_window_frame",
+          "description": "Wooden window frame, warm brown painted wood, coffee shop front window border, pixel art, front-facing view",
+          "width": 32, "height": 32,
+          "subfolder": "tiles",
+          "status": "pending",
+          "notes": "8 tiles. Front window border."
+        },
+        {
+          "id": "tile_window_glass",
+          "description": "Window glass with condensation and warm light glow from outside, blurred sidewalk scene through glass, late afternoon, pixel art",
+          "width": 32, "height": 32,
+          "subfolder": "tiles",
+          "status": "pending",
+          "notes": "6 tiles. Interior of window. Impressionistic exterior."
+        },
+        {
+          "id": "tile_door_frame",
+          "description": "Wooden door frame with glass panel door, small PUSH sticker, coffee shop entrance, pixel art, warm brown wood, front-facing view",
+          "width": 32, "height": 64,
+          "subfolder": "tiles",
+          "status": "pending",
+          "notes": "2 tiles tall. Front door."
+        },
+        {
+          "id": "tile_counter_front",
+          "description": "L-shaped coffee bar counter face, dark stained walnut wood, customer-facing side, pixel art, front-facing view",
+          "width": 32, "height": 32,
+          "subfolder": "tiles",
+          "status": "pending",
+          "notes": "10 tiles. Customer side of bar."
+        },
+        {
+          "id": "tile_counter_top",
+          "description": "Coffee bar counter surface from above, dark wood edge with subtle items (napkin stack, card reader), pixel art, top-down view",
+          "width": 32, "height": 32,
+          "subfolder": "tiles",
+          "status": "pending",
+          "notes": "10 tiles. Counter top surface."
+        },
+        {
+          "id": "tile_counter_back",
+          "description": "Behind-counter barista workspace, slightly cluttered with cups pitchers and tools, pixel art, top-down view",
+          "width": 32, "height": 32,
+          "subfolder": "tiles",
+          "status": "pending",
+          "notes": "8 tiles. Where Gina works."
+        }
+      ]
+    },
+    "furniture": {
+      "label": "Furniture",
+      "method": "map-object",
+      "assets": [
+        {
+          "id": "obj_table_round_01",
+          "description": "Small round cafe table with laptop and half-empty latte on top, light wood, slightly worn, pixel art, top-down view, transparent background",
+          "width": 32, "height": 32,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Player's table — corner near window."
+        },
+        {
+          "id": "obj_table_round_02",
+          "description": "Small round cafe table with open book and full coffee cup, light wood, worn, pixel art, top-down view, transparent background",
+          "width": 32, "height": 32,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Reader's table."
+        },
+        {
+          "id": "obj_table_round_03",
+          "description": "Small round cafe table, empty, light wood, slightly worn surface, pixel art, top-down view, transparent background",
+          "width": 32, "height": 32,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Empty table near door."
+        },
+        {
+          "id": "obj_chair_wood",
+          "description": "Simple wooden cafe chair, seen from above at slight angle, light wood, pixel art, transparent background",
+          "width": 16, "height": 32,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "6 placed at tables, various angles."
+        },
+        {
+          "id": "obj_chair_cushion",
+          "description": "Upholstered cafe chair with olive or rust colored cushion seat, wooden frame, pixel art, top-down view, transparent background",
+          "width": 16, "height": 32,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "2 placed. Mismatched chairs = indie shop."
+        },
+        {
+          "id": "obj_stool_bar",
+          "description": "Bar stool at coffee counter, dark wood with simple round seat, pixel art, side/top view, transparent background",
+          "width": 16, "height": 32,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "3 along customer side of counter."
+        },
+        {
+          "id": "obj_bookshelf",
+          "description": "Tall wooden bookshelf packed with colorful paperback books, some tilted and dog-eared, pixel art, front-facing view, transparent background",
+          "width": 32, "height": 64,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "1 against side wall."
+        },
+        {
+          "id": "obj_coatrack",
+          "description": "Standing wooden coat rack with one jacket hanging, pixel art, front-facing view, transparent background",
+          "width": 16, "height": 48,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Near door. Jacket implies someone is staying."
+        },
+        {
+          "id": "obj_corner_booth",
+          "description": "Small booth banquette seat against wall, cracked leather, dark upholstery, pixel art, top-down view, transparent background",
+          "width": 64, "height": 32,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Investor meeting booth. Currently empty."
+        }
+      ]
+    },
+    "detail_objects": {
+      "label": "Detail Objects",
+      "method": "map-object",
+      "assets": [
+        {
+          "id": "obj_espresso_machine",
+          "description": "Professional chrome and black espresso machine, two group heads, portafilters hanging, heavy and well-used, pixel art, transparent background",
+          "width": 64, "height": 48,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Visual centerpiece behind counter."
+        },
+        {
+          "id": "obj_grinder",
+          "description": "Coffee grinder with hopper on top and catch bin below, matte black, pixel art, transparent background",
+          "width": 32, "height": 32,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Beside espresso machine."
+        },
+        {
+          "id": "obj_knock_box",
+          "description": "Small dark bin for spent coffee grounds, barista knock box, pixel art, tiny, transparent background",
+          "width": 16, "height": 16,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Tucked next to grinder."
+        },
+        {
+          "id": "obj_milk_pitcher",
+          "description": "Stainless steel milk steaming pitcher, barista tool, pixel art, tiny, transparent background",
+          "width": 16, "height": 16,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Near steam wand. Animated during steaming."
+        },
+        {
+          "id": "obj_pastry_case",
+          "description": "Glass display case with muffins and croissants inside, slightly blurred through glass, pixel art, transparent background",
+          "width": 48, "height": 32,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Customer side of counter."
+        },
+        {
+          "id": "obj_tip_jar",
+          "description": "Clear glass tip jar with a few bills and coins, small handwritten label, pixel art, tiny, transparent background",
+          "width": 16, "height": 16,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "On counter."
+        },
+        {
+          "id": "obj_register",
+          "description": "Small point-of-sale screen register, faint screen glow, pixel art, tiny, transparent background",
+          "width": 32, "height": 16,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "On counter."
+        },
+        {
+          "id": "obj_plant_window",
+          "description": "Small potted plant on windowsill, slightly drooping leaves, terracotta pot, pixel art, tiny, transparent background",
+          "width": 16, "height": 16,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Not perfectly maintained."
+        },
+        {
+          "id": "obj_plant_hanging",
+          "description": "Hanging trailing vine plant from ceiling bracket, green cascading leaves, pixel art, transparent background",
+          "width": 16, "height": 32,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Vertical interest."
+        },
+        {
+          "id": "obj_bulletin_board",
+          "description": "Cork bulletin board with overlapping colorful flyers and business cards, concert posters, room for rent notice, pixel art, transparent background",
+          "width": 32, "height": 48,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Near door. Shape of community."
+        },
+        {
+          "id": "obj_neon_open",
+          "description": "Small OPEN neon sign glowing warm amber, coffee shop window sign, pixel art, transparent background",
+          "width": 32, "height": 16,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Warm glow in window."
+        },
+        {
+          "id": "obj_wifi_sign",
+          "description": "Small chalkboard with WiFi password written in chalk, pixel art, tiny, transparent background",
+          "width": 16, "height": 16,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "World-building detail."
+        },
+        {
+          "id": "obj_outlet_strip",
+          "description": "Power strip with charger plugged in, under table, pixel art, tiny, transparent background",
+          "width": 32, "height": 16,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Under player's table."
+        },
+        {
+          "id": "obj_bell_door",
+          "description": "Tiny brass bell above door frame, small and shiny, pixel art, transparent background",
+          "width": 8, "height": 8,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Rings when door opens."
+        },
+        {
+          "id": "obj_mop_bucket",
+          "description": "Mop and bucket in corner, yellow bucket with mop handle, working coffee shop detail, pixel art, transparent background",
+          "width": 16, "height": 32,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Half-hidden behind counter."
+        },
+        {
+          "id": "obj_newspaper_stack",
+          "description": "Small stack of newspapers and free weekly magazines on table, pixel art, tiny, transparent background",
+          "width": 16, "height": 16,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "On empty table or counter."
+        },
+        {
+          "id": "obj_laptop_player",
+          "description": "Open laptop computer with faint blue-white screen glow, seen from above, pixel art, transparent background",
+          "width": 32, "height": 16,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "On player's table. Screen glow disappears when closed."
+        },
+        {
+          "id": "obj_latte_cup",
+          "description": "Ceramic latte cup half-empty on a small saucer, warm cream color, pixel art, tiny, transparent background",
+          "width": 16, "height": 16,
+          "subfolder": "sprites",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "On player's table initially."
+        }
+      ]
+    },
+    "characters": {
+      "label": "Characters",
+      "method": "character",
+      "assets": [
+        {
+          "id": "char_gina",
+          "description": "Young woman barista, mid-20s, hair in messy bun or ponytail, wearing apron over band t-shirt, dark sneakers, slight smile, observant expression, warm indie coffee shop character, 16-bit pixel art, Stardew Valley style",
+          "width": 32, "height": 48,
+          "subfolder": "sprites/characters",
+          "status": "pending",
+          "characterType": "4-direction",
+          "animations": ["breathing-idle", "walking"],
+          "notes": "Gina the barista. Knows everything. Behind the counter the entire scene."
+        },
+        {
+          "id": "char_player",
+          "description": "Young person in hoodie and jeans, slightly rumpled, tired but focused eyes, laptop bag, casual comfortable look, startup founder vibe, 16-bit pixel art, Stardew Valley style",
+          "width": 32, "height": 48,
+          "subfolder": "sprites/characters",
+          "status": "pending",
+          "characterType": "4-direction",
+          "animations": ["breathing-idle", "walking"],
+          "notes": "Player character. Hoodie, jeans, tired eyes."
+        },
+        {
+          "id": "char_chad",
+          "description": "Confident young man in blazer over fitted t-shirt, sunglasses pushed up on head, great hair, takes up space, slightly arrogant posture, tech bro energy, 16-bit pixel art, Stardew Valley style",
+          "width": 32, "height": 48,
+          "subfolder": "sprites/characters",
+          "status": "pending",
+          "characterType": "4-direction",
+          "animations": ["breathing-idle", "walking"],
+          "notes": "Chad Thunderpitch. The nemesis. Walks like he owns the room."
+        },
+        {
+          "id": "char_reader",
+          "description": "Middle-aged person with glasses in comfortable casual clothes, sitting posture, quiet bookish demeanor, reading a paperback, 16-bit pixel art, Stardew Valley style",
+          "width": 32, "height": 48,
+          "subfolder": "sprites/characters",
+          "status": "pending",
+          "characterType": "4-direction",
+          "animations": ["breathing-idle"],
+          "notes": "Background NPC. Exists to make the room feel real."
+        }
+      ]
+    },
+    "portraits": {
+      "label": "Character Portraits",
+      "method": "image",
+      "assets": [
+        {
+          "id": "portrait_player",
+          "description": "Close-up face portrait of young startup founder, warm expression, slightly tired eyes, relatable not heroic, 16-bit pixel art, warm amber lighting, dialogue box portrait",
+          "width": 64, "height": 64,
+          "subfolder": "sprites/portraits",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Player dialogue portrait. Says 'I'm figuring it out.'"
+        },
+        {
+          "id": "portrait_chad",
+          "description": "Close-up face portrait of confident tech bro, smirk, perfect teeth, slightly hollow eyes behind the confidence, 16-bit pixel art, warm lighting, dialogue box portrait",
+          "width": 64, "height": 64,
+          "subfolder": "sprites/portraits",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Chad dialogue portrait. Punchable but also performing."
+        },
+        {
+          "id": "portrait_gina",
+          "description": "Close-up face portrait of young barista woman, knowing smile, observant eyes, hair pulled back, warm and friendly but sharp, 16-bit pixel art, warm amber lighting, dialogue box portrait",
+          "width": 64, "height": 64,
+          "subfolder": "sprites/portraits",
+          "status": "pending",
+          "noBackground": true,
+          "notes": "Gina dialogue portrait. She knows everything."
+        }
+      ]
+    }
+  }
+}

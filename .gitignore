@@ -1,7 +1,22 @@
 node_modules/
 .env
-server/*
-!server/index.js
-ui/*
-!ui/index.html
 *.log
+
+# Server — track source, ignore deps
+server/node_modules/
+
+# UI — track source
+ui/*.bak
+
+# Godot 4.6 — auto-generated cache/import directory
+.godot/
+
+# Web export output (rebuilt from source via CLI)
+godot/export/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Do NOT ignore: *.import, *.uid, export_presets.cfg, project.godot
+# Godot needs .import files for resource loading in exported builds
