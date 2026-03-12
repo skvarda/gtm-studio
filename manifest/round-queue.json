@@ -1,18 +1,6 @@
 {
   "queue": [
     {
-      "round": 14,
-      "type": "story",
-      "priority": "angel_investor_gina",
-      "note": "Angel investor email + meeting dialogue (3 role variants), Gina barista intro, coffee shop ambiance"
-    },
-    {
-      "round": 15,
-      "type": "art",
-      "priority": "coffee_shop_sprites",
-      "note": "Coffee shop tileset, Gina sprite, counter/booth objects, angel investor sprite"
-    },
-    {
       "round": 16,
       "type": "integration",
       "priority": "beat_4_angel_arrives",
