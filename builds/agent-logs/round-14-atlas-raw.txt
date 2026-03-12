@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SaaS Quest: Startup Simulator</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+</style>
+</head>
+<body>
+<script>
+// ============================================================
+// SaaS Quest: Startup Simulator — Engine Round: AP_SYSTEM_EMAIL_INBOX
+// Systems-only build: Canvas, Font, HUD, Day Cycle, AP, Email, Economy
+// ============================================================
+
+// --- Palette ---
+const PAL = {
+  bg: '#0f0e17',
+  hudBg: '#1a1a2e',
+  hudText: '#e0d9c8',
+  apFull: '#f4a261',
+  apEmpty: '#555555',
+  emailBg: '#16213e',
+  emailSelected: '#0f3460',
+  emailUnread: '#e94560',
+  emailRead: '#888888',
+  textPrimary: '#fffffe',
+  textSecondary: '#a7a9be',
+  textAccent: '#ff8906',
+  positive: '#2cb67d',
+  negative: '#e53170',
+  buttonBg: '#242629',
+  buttonHover: '#3a3d42'
+};
+
+// --- Pixel Font Renderer ---
+const FONT_W = 5, FONT_H = 7, FONT_DATA = {};
+(function defineFont() {
+  const G = {
+    'A':['01110','10001','10001','11111','10001','10001','10001'],
+    'B':['11110','10001','10001','11110','10001','10001','11110'],
+    'C':['01110','10001','10000','10000','10000','10001','01110'],
+    'D':['11100','10010','10001','10001','10001','10010','11100'],
+    'E':['11111','10000','10000','11110','10000','10000','11111'],
+    'F':['11111','10000','10000','11110','10000','10000','10000'],
+    'G':['01110','10001','10000','10111','10001','10001','01110'],
+    'H':['10001','10001','10001','11111','10001','10001','10001'],
+    'I':['11111','00100','00100','00100','00100','00100','11111'],
+    'J':['00111','00010','00010','00010','00010','10010','01100'],
+    'K':['10001','10010','10100','11000','10100','10010','10001'],
+    'L':['10000','10000','10000','10000','10000','10000','11111'],
+    'M':['10001','11011','10101','10101','10001','10001','10001'],
+    'N':['10001','11001','10101','10011','10001','10001','10001'],
+    'O':['01110','10001','10001','10001','10001','10001','01110'],
+    'P':['11110','10001','10001','11110','10000','10000','10000'],
+    'Q':['01110','10001','10001','10001','10101','10010','01101'],
+    'R':['11110','10001','10001','11110','10100','10010','10001'],
+    'S':['01111','10000','10000','01110','00001','00001','11110'],
+    'T':['11111','00100','00100','00100','00100','00100','00100'],
+    'U':['10001','10001','10001','10001','10001','10001','01110'],
+    'V':['10001','10001','10001','10001','01010','01010','00100'],
+    'W':['10001','10001','10001','10101','10101','11011','10001'],
+    'X':['10001','10001','01010','00100','01010','10001','10001'],
+    'Y':['10001','10001','01010','00100','00100','00100','00100'],
+    'Z':['11111','00001','00010','00100','01000','10000','11111'],
+    '0':['01110','10001','10011','10101','11001','10001','01110'],
+    '1':['00100','01100','00100','00100','00100','00100','11111'],
+    '2':['01110','10001','00001','00110','01000','10000','11111'],
+    '3':['01110','10001','00001','00110','00001','10001','01110'],
+    '4':['00010','00110','01010','10010','11111','00010','00010'],
+    '5':['11111','10000','11110','00001','00001','10001','01110'],
+    '6':['01110','10000','10000','11110','10001','10001','01110'],
+    '7':['11111','00001','00010','00100','01000','01000','01000'],
+    '8':['01110','10001','10001','01110','10001','10001','01110'],
+    '9':['01110','10001','10001','01111','00001','00001','01110'],
+    '.':['00000','00000','00000','00000','00000','00000','01100'],
+    ',':['00000','00000','00000','00000','00000','01100','01000'],
+    ':':['00000','01100','01100','00000','01100','01100','00000'],
+    '!':['00100','00100','00100','00100','00100','00000','00100'],
+    '?':['01110','10001','00001','00110','00100','00000','00100'],
+    "'":['00100','00100','01000','00000','00000','00000','00000'],
+    '-':['00000','00000','00000','11111','00000','00000','00000'],
+    '/':['00001','00010','00010','00100','01000','01000','10000'],
+    '$':['00100','01111','10100','01110','00101','11110','00100'],
+    '%':['11001','11010','00010','00100','01000','01011','10011'],
+    '(':['00010','00100','01000','01000','01000','00100','00010'],
+    ')':['01000','00100','00010','00010','00010','00100','01000'],
+    '+':['00000','00100','00100','11111','00100','00100','00000'],
+    '[':['01110','01000','01000','01000','01000','01000','01110'],
+    ']':['01110','00010','00010','00010','00010','00010','01110'],
+    '_':['00000','00000','00000','00000','00000','00000','11111'],
+    ' ':['00000','00000','00000','00000','00000','00000','00000'],
+    '#':['01010','01010','11111','01010','11111','01010','01010'],
+    '*':['00000','10101','01110','11111','01110','10101','00000'],
+    '"':['01010','01010','00000','00000','00000','00000','00000'],
+    ';':['00000','01100','01100','00000','01100','01000','00000'],
+    '&':['01100','10010','10100','01000','10101','10010','01101'],
+    '<':['00010','00100','01000','10000','01000','00100','00010'],
+    '>':['01000','00100','00010','00001','00010','00100','01000'],
+    '=':['00000','00000','11111','00000','11111','00000','00000'],
+    '~':['00000','00000','01000','10101','00010','00000','00000'],
+    '@':['01110','10001','10111','10101','10110','10000','01110']
+  };
+  for (const ch in G) {
+    const rows = G[ch]; const bits = [];
+    for (let r = 0; r < FONT_H; r++) for (let c = 0; c < FONT_W; c++) bits.push(rows[r][c]==='1'?1:0);
+    FONT_DATA[ch] = bits;
+  }
+  for (let i = 97; i <= 122; i++) {
+    const l = String.fromCharCode(i), u = String.fromCharCode(i-32);
+    if (FONT_DATA[u]) FONT_DATA[l] = FONT_DATA[u];
+  }
+})();
+
+function drawText(ctx, text, x, y, color, scale) {
+  if (scale === undefined) scale = 1;
+  ctx.fillStyle = color;
+  let cx = x;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i], glyph = FONT_DATA[ch];
+    if (ch === ' ') { cx += 4 * scale; continue; }
+    if (!glyph) { cx += (FONT_W + 1) * scale; continue; }
+    for (let r = 0; r < FONT_H; r++)
+      for (let c = 0; c < FONT_W; c++)
+        if (glyph[r * FONT_W + c]) ctx.fillRect(cx + c * scale, y + r * scale, scale, scale);
+    cx += (FONT_W + 1) * scale;
+  }
+}
+
+function measureText(text, scale) {
+  if (scale === undefined) scale = 1;
+  let w = 0;
+  for (let i = 0; i < text.length; i++) w += (text[i] === ' ') ? 4 * scale : (FONT_W + 1) * scale;
+  if (text.length > 0) w -= 1 * scale;
+  return { width: w, height: FONT_H * scale };
+}
+
+function wrapText(text, maxWidth, scale) {
+  const words = text.split(' '), lines = [];
+  let cur = '';
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    const test = cur ? cur + ' ' + w : w;
+    if (measureText(test, scale).width > maxWidth) {
+      if (cur) lines.push(cur);
+      cur = w;
+    } else cur = test;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+// --- Canvas Rendering ---
+let canvas, ctx;
+function initCanvas() {
+  canvas = document.createElement('canvas');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = 640 * dpr;
+  canvas.height = 360 * dpr;
+  canvas.style.width = '1280px';
+  canvas.style.height = '720px';
+  document.body.appendChild(canvas);
+  ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.scale(dpr, dpr);
+  return { canvas, ctx };
+}
+
+// --- ENGINE object ---
+const ENGINE = {};
+
+// --- Format helpers ---
+function formatCash(n) {
+  if (n < 0) return '-$' + formatCashAbs(-n);
+  return '$' + formatCashAbs(n);
+}
+function formatCashAbs(n) {
+  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// --- Game State ---
+const gameState = {
+  phase: 'morning',
+  day: 1,
+  era: 'garage',
+  cash: 150000,
+  mrr: 0,
+  customers: 0,
+  monthlyBurn: 8000,
+  ap: 5,
+  maxAP: 5,
+  employees: [],
+  product: 0,
+  bugs: 3,
+  emailsSent: [],
+  inbox: [],
+  uiState: 'inbox',
+  selectedIndex: 0,
+  actionResult: null,
+  eveningSummary: null,
+  gameOver: false
+};
+
+// --- Action Point System ---
+function getAP(gs) { return gs.ap; }
+function spendAP(gs, cost) {
+  if (gs.ap < cost) return false;
+  gs.ap -= cost;
+  return true;
+}
+function canAfford(gs, cost) { return gs.ap >= cost; }
+function resetAP(gs) { gs.ap = gs.maxAP; }
+
+// --- Action Definitions ---
+ENGINE.actions = [
+  {
+    id: 'code_feature',
+    label: 'CODE FEATURE',
+    cost: 2,
+    phase: 'afternoon',
+    enabled: function(gs) { return true; },
+    execute: function(gs) {
+      const gain = 8 + Math.floor(Math.random() * 8);
+      gs.product += gain;
+      return { text: 'You wrote ' + gain + ' lines of beautiful code. Product improved!', effects: { product: gain } };
+    }
+  },
+  {
+    id: 'fix_bugs',
+    label: 'FIX BUGS',
+    cost: 1,
+    phase: 'afternoon',
+    enabled: function(gs) { return gs.bugs > 0; },
+    execute: function(gs) {
+      const fixed = Math.min(gs.bugs, 1 + Math.floor(Math.random() * 3));
+      gs.bugs -= fixed;
+      return { text: 'Squashed ' + fixed + ' bug' + (fixed > 1 ? 's' : '') + '! ' + gs.bugs + ' remaining.', effects: {} };
+    }
+  },
+  {
+    id: 'sales_call',
+    label: 'SALES CALL',
+    cost: 2,
+    phase: 'afternoon',
+    enabled: function(gs) { return true; },
+    execute: function(gs) {
+      const chance = 0.4 + Math.min(gs.product * 0.005, 0.3);
+      if (Math.random() < chance) {
+        const tier = Math.random();
+        let revenue, label;
+        if (tier < 0.6) { revenue = 49; label = 'Starter'; }
+        else if (tier < 0.9) { revenue = 99; label = 'Pro'; }
+        else { revenue = 249; label = 'Business'; }
+        gs.customers++;
+        return { text: 'Closed a ' + label + ' deal! New customer at $' + revenue + '/mo.', effects: { customers: 1, mrr: revenue } };
+      }
+      return { text: 'The prospect said "We\'ll circle back." They won\'t.', effects: {} };
+    }
+  },
+  {
+    id: 'cold_email',
+    label: 'COLD EMAIL',
+    cost: 1,
+    phase: 'afternoon',
+    enabled: function(gs) { return true; },
+    execute: function(gs) {
+      if (Math.random() < 0.25) {
+        gs.customers++;
+        return { text: 'Someone actually replied! New customer signed up at $49/mo.', effects: { customers: 1, mrr: 49 } };
+      }
+      return { text: 'Sent 50 cold emails. Got 49 bounces and 1 unsubscribe.', effects: {} };
+    }
+  },
+  {
+    id: 'post_on_hn',
+    label: 'POST ON HN',
+    cost: 1,
+    phase: 'afternoon',
+    enabled: function(gs) { return true; },
+    execute: function(gs) {
+      const roll = Math.random();
+      if (roll < 0.15) {
+        const custs = 2 + Math.floor(Math.random() * 4);
+        gs.customers += custs;
+        return { text: 'FRONT PAGE! ' + custs + ' customers signed up from the traffic!', effects: { customers: custs } };
+      } else if (roll < 0.4) {
+        gs.customers++;
+        return { text: 'Got a few upvotes. One person signed up.', effects: { customers: 1 } };
+      } else if (roll < 0.65) {
+        gs.bugs += 2;
+        return { text: '"Your landing page is broken on Firefox." Great, more bugs.', effects: {} };
+      } else {
+        return { text: 'Post sank without a trace. The HN gods are fickle.', effects: {} };
+      }
+    }
+  },
+  {
+    id: 'nap',
+    label: 'TAKE A NAP',
+    cost: 1,
+    phase: 'afternoon',
+    enabled: function(gs) { return true; },
+    execute: function(gs) {
+      const msgs = [
+        'You napped for 45 minutes. Feel slightly less dead inside.',
+        'Dreamed about product-market fit. Woke up disappointed.',
+        'Power nap complete. Your hoodie now has desk imprints.',
+        'Fell asleep on keyboard. Accidentally shipped a feature.',
+        'Nap interrupted by Slack notification. Worth it anyway.'
+      ];
+      return { text: msgs[Math.floor(Math.random() * msgs.length)], effects: {} };
+    }
+  },
+  {
+    id: 'end_day',
+    label: 'END DAY EARLY',
+    cost: 0,
+    phase: 'afternoon',
+    enabled: function(gs) { return true; },
+    execute: function(gs) {
+      gs.ap = 0;
+      return { text: 'Called it a day. Sometimes rest is productive too.', effects: {} };
+    }
+  }
+];
+
+function getAvailableActions(gs) {
+  return ENGINE.actions.filter(function(a) {
+    return a.phase === gs.phase && a.enabled(gs) && (a.cost === 0 || canAfford(gs, a.cost));
+  });
+}
+
+// --- Economy Tick ---
+function economyTick(gs) {
+  const avgRevenue = 99;
+  const newMRR = gs.customers * avgRevenue;
+  gs.mrr = newMRR;
+
+  let employeeSalaries = 0;
+  for (let i = 0; i < gs.employees.length; i++) employeeSalaries += gs.employees[i].salary;
+  const baseBurn = 2000;
+  gs.monthlyBurn = employeeSalaries + baseBurn * 4;
+  const weeklyBurn = Math.floor(gs.monthlyBurn / 4);
+
+  const revenue = Math.floor(newMRR / 4);
+  gs.cash += revenue;
+  gs.cash -= weeklyBurn;
+
+  let churnedCustomers = 0;
+  let remaining = gs.customers;
+  for (let i = 0; i < remaining; i++) {
+    if (Math.random() < 0.03) churnedCustomers++;
+  }
+  gs.customers = Math.max(0, gs.customers - churnedCustomers);
+  gs.mrr = gs.customers * avgRevenue;
+
+  const newRunway = weeklyBurn > revenue ? Math.floor(gs.cash / (weeklyBurn - revenue)) : 999;
+
+  if (gs.product > 0 && Math.random() < 0.3) {
+    gs.bugs += Math.floor(Math.random() * 2) + 1;
+  }
+
+  return {
+    revenue: revenue,
+    burn: weeklyBurn,
+    churnedCustomers: churnedCustomers,
+    newRunway: newRunway,
+    netChange: revenue - weeklyBurn
+  };
+}
+
+// --- Day Cycle ---
+function initDay(gs) {
+  gs.phase = 'morning';
+  resetAP(gs);
+  gs.inbox = generateEmails(gs);
+  gs.uiState = 'inbox';
+  gs.selectedIndex = 0;
+  gs.actionResult = null;
+  gs.eveningSummary = null;
+}
+
+function advancePhase(gs) {
+  if (gs.phase === 'morning') {
+    gs.phase = 'afternoon';
+    gs.uiState = 'action_menu';
+    gs.selectedIndex = 0;
+    return 'afternoon';
+  } else if (gs.phase === 'afternoon') {
+    gs.phase = 'evening';
+    gs.eveningSummary = economyTick(gs);
+    gs.uiState = 'evening_summary';
+    if (gs.cash <= 0) gs.gameOver = true;
+    return 'evening';
+  } else if (gs.phase === 'evening') {
+    advanceDay(gs);
+    return 'morning';
+  }
+}
+
+function advanceDay(gs) {
+  gs.day++;
+  if (gs.day <= 10) gs.era = 'garage';
+  else if (gs.day <= 30) gs.era = 'early';
+  else if (gs.day <= 60) gs.era = 'growth';
+  else gs.era = 'scale';
+  initDay(gs);
+}
+
+function getCurrentPhase(gs) { return gs.phase; }
+
+// --- Email System ---
+const EMAIL_POOL = [
+  // Day 1 mandatory
+  { id: 'welcome', from: 'Jordan', subject: 'Welcome to the grind', body: "Day 1. We have $150K in the bank, zero customers, and a half-baked MVP. I'll handle the architecture. You handle... everything else. Don't let me down.", day: 1, choices: null, unique: true },
+  { id: 'landlord', from: 'Landlord', subject: 'Garage lease agreement', body: "Confirming your month-to-month lease on the garage unit. $2,000/month. Please don't blow anything up.", day: 1, choices: null, unique: true },
+  // Day 1-10 pool
+  { id: 'mom1', from: 'Mom', subject: 'Are you eating?', body: "Sweetie, your father and I saw your website. What is a SaaS? Are you eating enough? Please call. Love, Mom.", minDay: 2, maxDay: 8, choices: null, unique: true },
+  { id: 'investor_checkin', from: 'Angel Investor', subject: 'Quick check-in', body: "Just checking in on my investment. How's the product coming along? Any early traction? Would love to see some numbers.", minDay: 3, maxDay: 10, choices: null, unique: true },
+  { id: 'aws_bill', from: 'AWS Billing', subject: 'Your bill is ready', body: "Your AWS bill for this month: $847.32. You have 14 unused EC2 instances running. Consider shutting them down.", minDay: 2, maxDay: 15, choices: null, unique: true },
+  { id: 'spam1', from: 'Nigerian Prince', subject: 'URGENT BUSINESS PROPOSAL', body: "Dear Sir/Madam, I am a prince with $10M USD that needs to be transferred. I will give you 30% if you help.", minDay: 1, maxDay: 999, choices: null, unique: false },
+  { id: 'cold_inbound1', from: 'Interested User', subject: 'Found you on Product Hunt', body: "Hey, saw your product listed. Looks interesting! Do you have a free trial? We're a 50-person company looking for exactly this.", minDay: 3, maxDay: 15, choices: null, unique: true },
+  { id: 'recruiter1', from: 'TechRecruit', subject: 'Amazing opportunity at Google', body: "Hi! I found your profile. Google is hiring senior engineers at $400K+. Want to chat? ...Wait, you're a founder? Never mind.", minDay: 2, maxDay: 999, choices: null, unique: false },
+  { id: 'coffee_invite', from: 'Gina (Byte Cafe)', subject: 'New espresso blend!', body: "Hey founder! Just got a new Ethiopian single-origin in. First cup's on the house. Come by whenever.", minDay: 2, maxDay: 10, choices: null, unique: true },
+  { id: 'github_star', from: 'GitHub', subject: 'Someone starred your repo', body: "Your repository got a new star! Total stars: 1. (It was your mom.)", minDay: 2, maxDay: 8, choices: null, unique: true },
+  { id: 'slack_notif', from: 'Slack', subject: 'Workspace activity', body: "You have 0 unread messages in 0 channels. It's just you and Jordan in here. Awkward.", minDay: 1, maxDay: 5, choices: null, unique: true },
+  { id: 'domain_renewal', from: 'GoDaddy', subject: 'Domain expiring soon', body: "Your domain startup.io is expiring in 30 days. Renew now for $12.99/year or $499.99 for our Premium DNS Protection bundle.", minDay: 4, maxDay: 12, choices: null, unique: true },
+  { id: 'competitor_news', from: 'TechCrunch Alert', subject: 'ThunderCorp raises $5M', body: "BREAKING: Chad Thunderpitch's company ThunderCorp just closed a $5M Series A. 'We're disrupting the disruptors,' says Thunderpitch.", minDay: 5, maxDay: 15, choices: null, unique: true },
+  { id: 'hn_comment', from: 'HN Notifications', subject: 'New comment on your post', body: "'Actually, this has been done before. Also your font rendering is wrong. Also you should rewrite it in Rust.' - user pg_wannabe", minDay: 3, maxDay: 999, choices: null, unique: false },
+  { id: 'feature_req1', from: 'Beta User', subject: 'Feature request: CSV export', body: "Love the product! But I really need CSV export. Also PDF export. Also API access. Also can you build a mobile app? Thanks!", minDay: 5, maxDay: 20, choices: null, unique: true },
+  { id: 'mentor_advice', from: 'Startup Mentor', subject: 'Advice from the trenches', body: "Three things: 1) Talk to customers. 2) Ship fast. 3) Don't run out of money. That's it. Everything else is noise.", minDay: 3, maxDay: 12, choices: null, unique: true },
+  { id: 'coworking', from: 'WeWork', subject: 'Upgrade your workspace!', body: "Tired of working from a garage? Our hot desk plan starts at just $500/month. Includes free beer on Fridays!", minDay: 4, maxDay: 999, choices: null, unique: false },
+  { id: 'podcast_invite', from: 'Startup Podcast', subject: 'Be a guest on our show?', body: "We'd love to have you on 'Founders Who Haven't Failed Yet'. Our audience of 12 listeners would love your story.", minDay: 6, maxDay: 20, choices: null, unique: true },
+  { id: 'bug_report1', from: 'Support', subject: 'Bug: Login page broken', body: "Customer reports 500 error on login. They say 'the website is doing a weird thing.' Very helpful description.", minDay: 4, maxDay: 999, choices: null, unique: false },
+  { id: 'jordan_cryptic1', from: 'Jordan', subject: 'Re: Architecture', body: "I've been thinking about the data layer. There's a pattern here that nobody else sees. Will explain later. Or maybe not.", minDay: 5, maxDay: 15, choices: null, unique: true },
+  { id: 'churn_alert', from: 'System', subject: 'Customer churned', body: "A customer just cancelled their subscription. Reason given: 'Found a better solution.' Ouch.", minDay: 8, maxDay: 999, choices: null, unique: false },
+  { id: 'partnership1', from: 'BizDev (TechPartner)', subject: 'Partnership opportunity', body: "We have 10K users who might need your tool. Want to explore an integration? Could be big for both of us.", minDay: 10, maxDay: 30, choices: null, unique: true },
+  { id: 'vc_interest', from: 'VC (Acme Ventures)', subject: 'Interesting space', body: "Your company came up in a partner meeting. We're interested in the space. Would love to get a deck and chat.", minDay: 10, maxDay: 40, choices: null, unique: true },
+  { id: 'hiring_app', from: 'Job Applicant', subject: 'Application: Full Stack Dev', body: "Hi, I'm a 10x developer with 15 years of experience in a framework released 2 years ago. I'd love to join your team.", minDay: 8, maxDay: 999, choices: null, unique: false },
+  { id: 'server_down', from: 'PagerDuty', subject: 'ALERT: Server unresponsive', body: "Your production server has been unresponsive for 5 minutes. All 3 of your users are affected.", minDay: 5, maxDay: 999, choices: null, unique: false },
+  { id: 'stripe_email', from: 'Stripe', subject: 'Payment received!', body: "You received a payment of $99.00. Your Stripe balance is now enough to buy a nice dinner. Celebrate!", minDay: 6, maxDay: 999, choices: null, unique: false },
+  { id: 'jordan_notebook', from: 'Jordan', subject: '...', body: "Found something in the data. Patterns. Can't explain yet. Don't ask.", minDay: 15, maxDay: 40, choices: null, unique: true },
+  { id: 'conference', from: 'SaaSConf', subject: 'Speaker invitation', body: "We'd love you to speak at SaaSConf 2026. Topic: 'How We Almost Died 47 Times.' Travel not included.", minDay: 15, maxDay: 999, choices: null, unique: true },
+  { id: 'acqui_hire', from: 'BigTech Corp', subject: 'Acquisition interest', body: "We've been watching your product. Would you be open to a conversation about joining our team? (We mean buying you.)", minDay: 20, maxDay: 999, choices: null, unique: true },
+  { id: 'tax_reminder', from: 'Accountant', subject: 'Tax deadline approaching', body: "Quarterly taxes are due. I need your financials. Please tell me you've been keeping records. Please.", minDay: 8, maxDay: 999, choices: null, unique: false },
+  { id: 'press_mention', from: 'Google Alerts', subject: 'You were mentioned!', body: "Your startup was mentioned in an article titled '50 Startups Most Likely To Fail In 2026.' Congrats on the press!", minDay: 10, maxDay: 999, choices: null, unique: false },
+  { id: 'maya_intro', from: 'Maya Chen', subject: 'Excited to start!', body: "Hey! Jordan told me about what you're building. I just quit my job at BigCorp. When do I start? (Please say tomorrow.)", minDay: 8, maxDay: 20, choices: null, unique: true },
+  { id: 'derek_intro', from: 'Derek Williams', subject: 'LETS CLOSE SOME DEALS', body: "Heard you need a sales guy. I brought my own gong. Every deal we close, I ring it. Non-negotiable. When do I start?", minDay: 10, maxDay: 25, choices: null, unique: true }
+];
+
+function generateEmails(gs) {
+  const emails = [];
+  const eligible = EMAIL_POOL.filter(function(tmpl) {
+    if (tmpl.day && tmpl.day !== gs.day) return false;
+    if (tmpl.day && tmpl.day === gs.day) return true;
+    if (tmpl.minDay && gs.day < tmpl.minDay) return false;
+    if (tmpl.maxDay && gs.day > tmpl.maxDay) return false;
+    if (tmpl.unique && gs.emailsSent.indexOf(tmpl.id) !== -1) return false;
+    return true;
+  });
+
+  // Mandatory emails (exact day match)
+  const mandatory = eligible.filter(function(e) { return e.day === gs.day; });
+  for (let i = 0; i < mandatory.length; i++) {
+    emails.push(makeEmail(mandatory[i], gs));
+  }
+
+  // Random from pool
+  const pool = eligible.filter(function(e) { return !e.day; });
+  const shuffled = pool.sort(function() { return Math.random() - 0.5; });
+  const needed = Math.max(0, (2 + Math.floor(Math.random() * 3)) - emails.length);
+  for (let i = 0; i < Math.min(needed, shuffled.length); i++) {
+    emails.push(makeEmail(shuffled[i], gs));
+  }
+
+  // Ensure at least 1 email
+  if (emails.length === 0) {
+    emails.push({
+      id: 'fallback_' + gs.day,
+      from: 'Jordan',
+      subject: 'Day ' + gs.day,
+      body: 'Another day, another chance to not go bankrupt. Get to work.',
+      day: gs.day,
+      choices: null,
+      read: false
+    });
+  }
+
+  return emails;
+}
+
+function makeEmail(tmpl, gs) {
+  if (tmpl.unique) gs.emailsSent.push(tmpl.id);
+  return {
+    id: tmpl.id,
+    from: tmpl.from,
+    subject: tmpl.subject,
+    body: tmpl.body,
+    day: gs.day,
+    choices: tmpl.choices || null,
+    read: false
+  };
+}
+
+// --- Drawing Functions ---
+
+function drawHUD(ctx, gs) {
+  // Background bar
+  ctx.fillStyle = PAL.hudBg;
+  ctx.fillRect(0, 0, 640, 24);
+  ctx.fillStyle = '#2a2a3e';
+  ctx.fillRect(0, 24, 640, 1);
+
+  // Day
+  drawText(ctx, 'DAY ' + gs.day, 6, 4, PAL.hudText, 1);
+
+  // Phase indicator
+  const phaseStr = gs.phase.toUpperCase();
+  drawText(ctx, phaseStr, 6, 14, PAL.textSecondary, 1);
+
+  // Cash with commas
+  drawText(ctx, formatCash(gs.cash), 100, 4, PAL.textAccent, 1);
+
+  // MRR
+  drawText(ctx, 'MRR ' + formatCash(gs.mrr), 230, 4, PAL.positive, 1);
+
+  // Runway
+  const weeklyBurn = Math.floor(gs.monthlyBurn / 4);
+  const weeklyRev = Math.floor(gs.mrr / 4);
+  let runwayStr;
+  if (weeklyBurn <= weeklyRev) {
+    runwayStr = 'RWY ~';
+  } else if (gs.cash <= 0) {
+    runwayStr = 'RWY 0mo';
+  } else {
+    const rwWeeks = Math.floor(gs.cash / (weeklyBurn - weeklyRev));
+    const rwMonths = Math.floor(rwWeeks / 4);
+    runwayStr = 'RWY ' + rwMonths + 'mo';
+  }
+  const rwColor = runwayStr === 'RWY ~' ? PAL.positive : (parseInt(runwayStr.replace(/\D/g,'')) < 6 ? PAL.negative : PAL.hudText);
+  drawText(ctx, runwayStr, 370, 4, rwColor, 1);
+
+  // AP pips
+  drawText(ctx, 'AP', 480, 4, PAL.hudText, 1);
+  for (let i = 0; i < gs.maxAP; i++) {
+    const px = 504 + i * 14;
+    const py = 7;
+    const filled = i < gs.ap;
+    ctx.fillStyle = filled ? PAL.apFull : PAL.apEmpty;
+    // Diamond shape
+    ctx.beginPath();
+    ctx.moveTo(px, py - 5);
+    ctx.lineTo(px + 5, py);
+    ctx.lineTo(px, py + 5);
+    ctx.lineTo(px - 5, py);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Era
+  drawText(ctx, gs.era.toUpperCase(), 600, 14, PAL.textSecondary, 1);
+}
+
+function drawInbox(ctx, gs) {
+  const inbox = gs.inbox;
+  const sel = gs.selectedIndex;
+
+  // Full screen overlay
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+
+  // Header
+  ctx.fillStyle = PAL.hudBg;
+  ctx.fillRect(0, 0, 640, 30);
+  drawText(ctx, 'INBOX - DAY ' + gs.day + ' MORNING', 10, 8, PAL.textAccent, 2);
+
+  const unreadCount = inbox.filter(function(e) { return !e.read; }).length;
+  if (unreadCount > 0) {
+    drawText(ctx, unreadCount + ' UNREAD', 520, 12, PAL.emailUnread, 1);
+  } else {
+    drawText(ctx, 'ALL READ', 530, 12, PAL.positive, 1);
+  }
+
+  // Left panel: email list
+  const listW = 220;
+  ctx.fillStyle = PAL.emailBg;
+  ctx.fillRect(0, 30, listW, 330);
+
+  for (let i = 0; i < inbox.length; i++) {
+    const email = inbox[i];
+    const ey = 34 + i * 40;
+
+    if (i === sel) {
+      ctx.fillStyle = PAL.emailSelected;
+      ctx.fillRect(0, ey, listW, 38);
+    }
+
+    // Unread dot
+    if (!email.read) {
+      ctx.fillStyle = PAL.emailUnread;
+      ctx.beginPath();
+      ctx.arc(10, ey + 12, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // From
+    drawText(ctx, email.from, 18, ey + 4, email.read ? PAL.emailRead : PAL.textPrimary, 1);
+    // Subject (truncated)
+    const maxSubjW = listW - 24;
+    let subj = email.subject;
+    while (measureText(subj, 1).width > maxSubjW && subj.length > 3) {
+      subj = subj.slice(0, -1);
+    }
+    drawText(ctx, subj, 18, ey + 16, email.read ? PAL.emailRead : PAL.textSecondary, 1);
+
+    // Separator
+    ctx.fillStyle = '#1a2a4e';
+    ctx.fillRect(10, ey + 38, listW - 20, 1);
+  }
+
+  // Right panel: email detail
+  ctx.fillStyle = '#111122';
+  ctx.fillRect(listW, 30, 640 - listW, 330);
+
+  if (sel >= 0 && sel < inbox.length) {
+    const email = inbox[sel];
+    const rx = listW + 16;
+
+    drawText(ctx, email.subject, rx, 44, PAL.textAccent, 2);
+    drawText(ctx, 'FROM: ' + email.from, rx, 68, PAL.textSecondary, 1);
+
+    ctx.fillStyle = '#222244';
+    ctx.fillRect(rx, 82, 640 - listW - 32, 1);
+
+    const bodyLines = wrapText(email.body, 640 - listW - 40, 1);
+    for (let i = 0; i < bodyLines.length; i++) {
+      drawText(ctx, bodyLines[i], rx, 92 + i * 14, PAL.textPrimary, 1);
+    }
+  }
+
+  // Bottom instructions
+  ctx.fillStyle = PAL.hudBg;
+  ctx.fillRect(0, 336, 640, 24);
+
+  drawText(ctx, 'UP/DOWN: Navigate', 10, 342, PAL.textSecondary, 1);
+  drawText(ctx, 'ENTER: Read', 200, 342, PAL.textSecondary, 1);
+
+  if (unreadCount === 0) {
+    drawText(ctx, 'SPACE: Start Day', 380, 342, PAL.positive, 1);
+  } else {
+    drawText(ctx, 'Read all emails to continue', 380, 342, PAL.emailUnread, 1);
+  }
+}
+
+function drawActionMenu(ctx, gs) {
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+
+  // Header
+  drawHUD(ctx, gs);
+
+  // Title
+  drawText(ctx, 'AFTERNOON - CHOOSE AN ACTION', 10, 32, PAL.textAccent, 2);
+
+  // Action list
+  const actions = ENGINE.actions;
+  const sel = gs.selectedIndex;
+
+  for (let i = 0; i < actions.length; i++) {
+    const action = actions[i];
+    const ay = 58 + i * 38;
+    const isSelected = i === sel;
+    const affordable = action.cost === 0 || canAfford(gs, action.cost);
+    const enabled = action.enabled(gs) && affordable;
+
+    // Selection highlight
+    if (isSelected) {
+      ctx.fillStyle = PAL.buttonHover;
+      ctx.fillRect(10, ay, 620, 36);
+    } else {
+      ctx.fillStyle = PAL.buttonBg;
+      ctx.fillRect(10, ay, 620, 36);
+    }
+
+    // Cursor
+    if (isSelected) {
+      drawText(ctx, '>', 16, ay + 6, PAL.textAccent, 2);
+    }
+
+    // Label
+    const labelColor = enabled ? (isSelected ? PAL.textAccent : PAL.textPrimary) : PAL.apEmpty;
+    drawText(ctx, action.label, 40, ay + 4, labelColor, 2);
+
+    // AP cost
+    if (action.cost > 0) {
+      const costStr = action.cost + ' AP';
+      const costColor = affordable ? PAL.apFull : PAL.negative;
+      drawText(ctx, costStr, 560, ay + 8, costColor, 1);
+    } else {
+      drawText(ctx, 'FREE', 560, ay + 8, PAL.positive, 1);
+    }
+
+    // Description line for selected
+    if (isSelected) {
+      let desc = '';
+      if (action.id === 'code_feature') desc = 'Spend time coding. Improves product quality.';
+      else if (action.id === 'fix_bugs') desc = 'Fix bugs in the codebase. (' + gs.bugs + ' bugs)';
+      else if (action.id === 'sales_call') desc = 'Call a prospect. Good chance to close a deal.';
+      else if (action.id === 'cold_email') desc = 'Blast out cold emails. Low chance, low cost.';
+      else if (action.id === 'post_on_hn') desc = 'Post on Hacker News. Random outcome.';
+      else if (action.id === 'nap') desc = 'Sometimes you just need to rest.';
+      else if (action.id === 'end_day') desc = 'Skip remaining AP and end the day.';
+      drawText(ctx, desc, 40, ay + 22, PAL.textSecondary, 1);
+    }
+
+    if (!enabled && isSelected) {
+      if (!action.enabled(gs)) drawText(ctx, 'Not available', 400, ay + 22, PAL.negative, 1);
+      else drawText(ctx, 'Not enough AP', 400, ay + 22, PAL.negative, 1);
+    }
+  }
+
+  // Bottom bar
+  ctx.fillStyle = PAL.hudBg;
+  ctx.fillRect(0, 336, 640, 24);
+  drawText(ctx, 'UP/DOWN: Navigate   ENTER: Select', 10, 342, PAL.textSecondary, 1);
+  drawText(ctx, 'AP: ' + gs.ap + '/' + gs.maxAP, 540, 342, PAL.apFull, 1);
+}
+
+function drawActionResult(ctx, gs) {
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+  drawHUD(ctx, gs);
+
+  const result = gs.actionResult;
+  if (!result) return;
+
+  // Result box
+  const boxW = 500, boxH = 180;
+  const bx = Math.floor((640 - boxW) / 2);
+  const by = Math.floor((360 - boxH) / 2);
+
+  ctx.fillStyle = PAL.emailBg;
+  ctx.fillRect(bx, by, boxW, boxH);
+  ctx.strokeStyle = PAL.textAccent;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(bx, by, boxW, boxH);
+
+  drawText(ctx, 'RESULT', bx + 10, by + 10, PAL.textAccent, 2);
+
+  const lines = wrapText(result.text, boxW - 30, 1);
+  for (let i = 0; i < lines.length; i++) {
+    drawText(ctx, lines[i], bx + 14, by + 40 + i * 14, PAL.textPrimary, 1);
+  }
+
+  // Show effects
+  let ey = by + 40 + lines.length * 14 + 14;
+  if (result.effects) {
+    if (result.effects.customers) drawText(ctx, '+' + result.effects.customers + ' CUSTOMERS', bx + 14, ey, PAL.positive, 1);
+    if (result.effects.product) drawText(ctx, '+' + result.effects.product + ' PRODUCT', bx + 200, ey, PAL.positive, 1);
+  }
+
+  // Continue prompt
+  const apLeft = gs.ap;
+  if (apLeft > 0) {
+    drawText(ctx, 'SPACE: Continue (' + apLeft + ' AP left)', bx + 10, by + boxH - 20, PAL.textSecondary, 1);
+  } else {
+    drawText(ctx, 'SPACE: End Day (0 AP left)', bx + 10, by + boxH - 20, PAL.textSecondary, 1);
+  }
+}
+
+function drawEveningSummary(ctx, gs) {
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+
+  const summary = gs.eveningSummary;
+  if (!summary) return;
+
+  const boxW = 440, boxH = 280;
+  const bx = Math.floor((640 - boxW) / 2);
+  const by = Math.floor((360 - boxH) / 2);
+
+  ctx.fillStyle = PAL.emailBg;
+  ctx.fillRect(bx, by, boxW, boxH);
+  ctx.strokeStyle = PAL.apFull;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(bx, by, boxW, boxH);
+
+  drawText(ctx, 'EVENING REPORT - DAY ' + gs.day, bx + 10, by + 10, PAL.textAccent, 2);
+
+  let ly = by + 40;
+  const lh = 18;
+
+  drawText(ctx, 'REVENUE THIS WEEK:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, formatCash(summary.revenue), bx + 250, ly, PAL.positive, 1);
+  ly += lh;
+
+  drawText(ctx, 'BURN THIS WEEK:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, formatCash(summary.burn), bx + 250, ly, PAL.negative, 1);
+  ly += lh;
+
+  const net = summary.netChange;
+  drawText(ctx, 'NET CHANGE:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, (net >= 0 ? '+' : '') + formatCash(net), bx + 250, ly, net >= 0 ? PAL.positive : PAL.negative, 1);
+  ly += lh + 6;
+
+  ctx.fillStyle = '#222244';
+  ctx.fillRect(bx + 20, ly, boxW - 40, 1);
+  ly += 10;
+
+  drawText(ctx, 'CUSTOMERS:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, '' + gs.customers, bx + 250, ly, PAL.textPrimary, 1);
+  ly += lh;
+
+  if (summary.churnedCustomers > 0) {
+    drawText(ctx, 'CHURNED:', bx + 20, ly, PAL.textSecondary, 1);
+    drawText(ctx, '-' + summary.churnedCustomers, bx + 250, ly, PAL.negative, 1);
+    ly += lh;
+  }
+
+  drawText(ctx, 'MRR:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, formatCash(gs.mrr), bx + 250, ly, PAL.positive, 1);
+  ly += lh;
+
+  drawText(ctx, 'CASH:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, formatCash(gs.cash), bx + 250, ly, gs.cash > 0 ? PAL.textAccent : PAL.negative, 1);
+  ly += lh;
+
+  drawText(ctx, 'PRODUCT QUALITY:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, '' + gs.product, bx + 250, ly, PAL.positive, 1);
+  ly += lh;
+
+  drawText(ctx, 'BUGS:', bx + 20, ly, PAL.textSecondary, 1);
+  drawText(ctx, '' + gs.bugs, bx + 250, ly, gs.bugs > 0 ? PAL.negative : PAL.positive, 1);
+  ly += lh;
+
+  if (gs.gameOver) {
+    ly += 10;
+    const goStr = 'RUNWAY EXHAUSTED';
+    const goW = measureText(goStr, 2);
+    drawText(ctx, goStr, bx + Math.floor((boxW - goW.width) / 2), ly, PAL.negative, 2);
+    ly += 24;
+    const restartStr = 'PRESS ENTER TO RESTART';
+    const rw = measureText(restartStr, 1);
+    drawText(ctx, restartStr, bx + Math.floor((boxW - rw.width) / 2), ly, PAL.textSecondary, 1);
+  } else {
+    const contStr = 'PRESS ENTER/SPACE FOR NEXT DAY';
+    const cw = measureText(contStr, 1);
+    drawText(ctx, contStr, bx + Math.floor((boxW - cw.width) / 2), by + boxH - 20, PAL.textSecondary, 1);
+  }
+}
+
+function drawGameOver(ctx, gs) {
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+
+  const title = 'GAME OVER';
+  const tw = measureText(title, 4);
+  drawText(ctx, title, Math.floor((640 - tw.width) / 2), 80, PAL.negative, 4);
+
+  const sub = 'RUNWAY EXHAUSTED';
+  const sw = measureText(sub, 2);
+  drawText(ctx, sub, Math.floor((640 - sw.width) / 2), 130, PAL.textAccent, 2);
+
+  const stats = [
+    'Survived ' + gs.day + ' days',
+    'Peak MRR: ' + formatCash(gs.mrr),
+    'Final customers: ' + gs.customers,
+    'Product quality: ' + gs.product
+  ];
+
+  for (let i = 0; i < stats.length; i++) {
+    const sW = measureText(stats[i], 1);
+    drawText(ctx, stats[i], Math.floor((640 - sW.width) / 2), 180 + i * 18, PAL.textSecondary, 1);
+  }
+
+  if (Math.floor(Date.now() / 500) % 2 === 0) {
+    const restart = 'PRESS ENTER TO TRY AGAIN';
+    const rw = measureText(restart, 2);
+    drawText(ctx, restart, Math.floor((640 - rw.width) / 2), 280, PAL.textPrimary, 2);
+  }
+}
+
+// --- Input Handling ---
+function handleInput(e) {
+  const key = e.code;
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab','Enter'].indexOf(key) !== -1) e.preventDefault();
+
+  if (gs.gameOver && gs.uiState === 'game_over') {
+    if (key === 'Enter' || key === 'Space') location.reload();
+    return;
+  }
+
+  switch (gs.uiState) {
+    case 'inbox': handleInboxInput(key); break;
+    case 'action_menu': handleActionMenuInput(key); break;
+    case 'action_result': handleActionResultInput(key); break;
+    case 'evening_summary': handleEveningSummaryInput(key); break;
+  }
+}
+
+function handleInboxInput(key) {
+  const inbox = gs.inbox;
+  if (key === 'ArrowUp' || key === 'KeyW') {
+    gs.selectedIndex = Math.max(0, gs.selectedIndex - 1);
+  } else if (key === 'ArrowDown' || key === 'KeyS') {
+    gs.selectedIndex = Math.min(inbox.length - 1, gs.selectedIndex + 1);
+  } else if (key === 'Enter') {
+    if (gs.selectedIndex >= 0 && gs.selectedIndex < inbox.length) {
+      inbox[gs.selectedIndex].read = true;
+    }
+  } else if (key === 'Space') {
+    const unread = inbox.filter(function(e) { return !e.read; }).length;
+    if (unread === 0) {
+      advancePhase(gs);
+    }
+  }
+}
+
+function handleActionMenuInput(key) {
+  const actions = ENGINE.actions;
+  if (key === 'ArrowUp' || key === 'KeyW') {
+    gs.selectedIndex = Math.max(0, gs.selectedIndex - 1);
+  } else if (key === 'ArrowDown' || key === 'KeyS') {
+    gs.selectedIndex = Math.min(actions.length - 1, gs.selectedIndex + 1);
+  } else if (key === 'Enter' || key === 'Space') {
+    const action = actions[gs.selectedIndex];
+    if (!action) return;
+
+    const affordable = action.cost === 0 || canAfford(gs, action.cost);
+    const enabled = action.enabled(gs) && affordable;
+    if (!enabled) return;
+
+    if (action.cost > 0) spendAP(gs, action.cost);
+    const result = action.execute(gs);
+    gs.actionResult = result;
+    gs.uiState = 'action_result';
+  }
+}
+
+function handleActionResultInput(key) {
+  if (key === 'Space' || key === 'Enter') {
+    gs.actionResult = null;
+    if (gs.ap <= 0) {
+      advancePhase(gs);
+    } else {
+      gs.uiState = 'action_menu';
+      gs.selectedIndex = 0;
+    }
+  }
+}
+
+function handleEveningSummaryInput(key) {
+  if (key === 'Enter' || key === 'Space') {
+    if (gs.gameOver) {
+      gs.uiState = 'game_over';
+    } else {
+      advancePhase(gs);
+    }
+  }
+}
+
+window.addEventListener('keydown', handleInput);
+
+// --- Game Loop ---
+const gs = gameState;
+let lastTime = 0;
+
+function gameLoop(timestamp) {
+  if (!lastTime) lastTime = timestamp;
+  lastTime = timestamp;
+
+  // Clear
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+
+  // Draw based on UI state
+  switch (gs.uiState) {
+    case 'inbox':
+      drawInbox(ctx, gs);
+      break;
+    case 'action_menu':
+      drawActionMenu(ctx, gs);
+      break;
+    case 'action_result':
+      drawActionResult(ctx, gs);
+      break;
+    case 'evening_summary':
+      drawEveningSummary(ctx, gs);
+      break;
+    case 'game_over':
+      drawGameOver(ctx, gs);
+      break;
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// --- Boot ---
+initCanvas();
+initDay(gs);
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
+
+<!-- BUILD_REPORT_START -->
+## Build Report: AP_SYSTEM_EMAIL_INBOX
+
+### What Changed (complete rebuild)
+- **canvas_rendering**: 640x360 native, 2x CSS scale, DPR correction via initCanvas()
+- **pixel_font_renderer**: Bitmap font drawText() — zero use of fillText() anywhere. Full A-Z, 0-9, punctuation
+- **hud_display**: Top 24px bar with Day, Phase, Cash (comma-formatted), MRR, Runway, AP diamond pips, Era
+- **day_cycle**: Three phases (morning→afternoon→evening), player-controlled transitions, no auto-timers
+- **action_point_system**: 5 AP/day, 7 actions (code_feature 2AP, fix_bugs 1AP, sales_call 2AP, cold_email 1AP, post_on_hn 1AP, nap 1AP, end_day 0AP). getAP/spendAP/canAfford/resetAP all implemented
+- **email_inbox**: 30+ email templates with day ranges, unique tracking, 2-4 emails per morning. Must read all before advancing. Left panel list + right panel detail. Day 1 mandatory Jordan welcome email
+- **economy_tick**: Weekly burn from monthly, $99 avg customer revenue, 3% churn, bug accumulation, runway calculation
+
+### What Was Cut
+- No tile movement, no rooms, no NPCs, no sprites — this is systems-only per Marcus's directive
+- No email choices/effects (structure supports it but no choice emails defined yet)
+- No title screen — boots straight into Day 1 per spec
+- Employee hiring not yet in actions (no hire action) — placeholder for future rounds
+
+### What's Fragile
+- Economy balance: $2K/day base burn = $8K/month = $2K/week. At $150K cash with no revenue, runway is ~75 weeks. May need tuning
+- Email pool: 30+ templates but some repeat (non-unique emails). Pool will feel thin after ~20 days
+- Churn at 3% per customer per tick — with very few customers early on, it rarely fires but can feel random later
+- Cash formatting: negative cash displays as -$X,XXX which works but could look odd at edge cases
+
+### Recommendations for Next Round
+- Add title screen and character creation (role selection affects starting stats)
+- Implement tile_movement and location system (apartment, office, cafe, street)
+- Add NPC sprites and dialogue system
+- Expand email pool with choice-based emails that affect game state
+- Add hire action to build team
+- Consider adding product milestones that unlock new actions
+- Balance pass on economy numbers once core loop is tested
+<!-- BUILD_REPORT_END -->

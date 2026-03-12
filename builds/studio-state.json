@@ -1,15 +1,173 @@
 {
-  "lastRound": 12,
-  "lastRoundType": "feature",
+  "lastRound": 24,
+  "lastRoundType": "integration",
   "lastQAVerdict": "ship",
-  "knownIssues": [
-    "Rounds 13-15 caused regressions - movement system was rewritten, pixel font was replaced, starting cash changed from $150K to $50K",
-    "Game was rolled back to Round 12 build which is stable"
-  ],
-  "deferredWork": [
-    "Email inbox system",
-    "Coffee shop location",
-    "NPC dialogue variety for Jordan"
-  ],
-  "roundHistory": []
+  "knownIssues": [],
+  "deferredWork": [],
+  "roundHistory": [
+    {
+      "round": 1,
+      "type": "engine",
+      "verdict": "ship",
+      "timestamp": "2026-03-07T22:01:39.780Z"
+    },
+    {
+      "round": 2,
+      "type": "engine",
+      "verdict": "ship",
+      "timestamp": "2026-03-08T16:56:22.037Z"
+    },
+    {
+      "round": 3,
+      "type": "engine",
+      "verdict": "ship",
+      "timestamp": "2026-03-08T17:23:37.177Z"
+    },
+    {
+      "round": 4,
+      "type": "engine",
+      "verdict": "ship",
+      "timestamp": "2026-03-08T17:38:17.565Z"
+    },
+    {
+      "round": 5,
+      "type": "story",
+      "priority": "day1_content",
+      "verdict": "complete",
+      "timestamp": "2026-03-08T18:01:01.086Z"
+    },
+    {
+      "round": 6,
+      "type": "story",
+      "priority": "day1_content",
+      "verdict": "complete",
+      "timestamp": "2026-03-08T18:09:32.506Z"
+    },
+    {
+      "round": 7,
+      "type": "art",
+      "priority": "core_sprites",
+      "verdict": "complete",
+      "timestamp": "2026-03-08T18:11:26.515Z"
+    },
+    {
+      "round": 8,
+      "type": "integration",
+      "priority": "beats_1_2",
+      "verdict": "reject",
+      "timestamp": "2026-03-08T19:02:32.648Z"
+    },
+    {
+      "round": 9,
+      "type": "integration",
+      "priority": "beats_1_2",
+      "verdict": "reject",
+      "timestamp": "2026-03-08T21:28:35.108Z"
+    },
+    {
+      "round": 10,
+      "type": "integration",
+      "priority": "beats_1_2",
+      "verdict": "reject",
+      "timestamp": "2026-03-09T15:20:00.161Z"
+    },
+    {
+      "round": 11,
+      "type": "integration",
+      "priority": "assemble-latest",
+      "verdict": "reject",
+      "timestamp": "2026-03-09T16:14:11.687Z"
+    },
+    {
+      "round": 12,
+      "type": "integration",
+      "priority": "beats_1_2",
+      "verdict": "ship",
+      "timestamp": "2026-03-09T16:30:20.562Z"
+    },
+    {
+      "round": 13,
+      "type": "integration",
+      "priority": "beats_1_2",
+      "verdict": "reject",
+      "timestamp": "2026-03-09T16:51:12.276Z"
+    },
+    {
+      "round": 14,
+      "type": "engine",
+      "priority": "ap_system_email_inbox",
+      "verdict": "ship",
+      "timestamp": "2026-03-09T17:09:20.522Z"
+    },
+    {
+      "round": 15,
+      "type": "engine",
+      "priority": "ap_system_email_inbox",
+      "verdict": "ship",
+      "timestamp": "2026-03-09T17:25:08.527Z"
+    },
+    {
+      "round": 16,
+      "type": "art",
+      "priority": "create pixel art",
+      "verdict": "complete",
+      "timestamp": "2026-03-09T17:37:03.917Z"
+    },
+    {
+      "round": 17,
+      "type": "art",
+      "priority": "improve player sprites",
+      "verdict": "complete",
+      "timestamp": "2026-03-09T17:41:45.650Z"
+    },
+    {
+      "round": 18,
+      "type": "art",
+      "priority": "improve the most recently created sprite",
+      "verdict": "complete",
+      "timestamp": "2026-03-09T17:50:01.040Z"
+    },
+    {
+      "round": 19,
+      "type": "engine",
+      "priority": "ap_system_email_inbox",
+      "verdict": "ship",
+      "timestamp": "2026-03-11T20:42:43.500Z"
+    },
+    {
+      "round": 20,
+      "type": "engine",
+      "priority": "economy_tick_day_advance",
+      "verdict": "ship",
+      "timestamp": "2026-03-11T20:58:50.185Z"
+    },
+    {
+      "round": 21,
+      "type": "story",
+      "priority": "days_2_3_content",
+      "verdict": "complete",
+      "timestamp": "2026-03-11T21:02:12.008Z"
+    },
+    {
+      "round": 22,
+      "type": "art",
+      "priority": "ui_polish",
+      "verdict": "complete",
+      "timestamp": "2026-03-11T21:04:06.278Z"
+    },
+    {
+      "round": 23,
+      "type": "integration",
+      "priority": "beat_3_core_loop",
+      "verdict": "ship",
+      "timestamp": "2026-03-11T21:30:08.602Z"
+    },
+    {
+      "round": 24,
+      "type": "integration",
+      "priority": "beat_3_core_loop",
+      "verdict": "ship",
+      "timestamp": "2026-03-11T21:45:56.439Z"
+    }
+  ]
 }

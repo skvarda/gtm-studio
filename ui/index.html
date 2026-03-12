@@ -3,1266 +3,2150 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GTM STUDIO v2 — MISSION CONTROL</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<title>GTM Studio v3</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg:      #0d0d1a;
-  --bg2:     #13131f;
-  --panel:   #111120;
-  --border:  #1e1e35;
-  --border2: #2a2a45;
-  --gold:    #f0c040;
-  --green:   #58b868;
-  --red:     #e94560;
-  --orange:  #ff8c42;
-  --purple:  #9b59b6;
-  --teal:    #2eb8b8;
-  --dim:     #3a3a5c;
-  --dim2:    #4a4a6a;
-  --text:    #c8c8e8;
-  --text2:   #8888aa;
-  --white:   #f0f0ff;
-}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg-body: #0d0d1a;
+  --bg-panel: #13131f;
+  --gold: #f0c040;
+  --green: #58b868;
+  --red: #e94560;
+  --orange: #ff8c42;
+  --purple: #a855f7;
+  --teal: #2dd4bf;
+  --yellow: #eab308;
+  --dim: #555570;
+  --text: #c8c8d8;
+  --text-dim: #7a7a8e;
+  --border: #1e1e30;
+}
 
 body {
-  background: var(--bg);
-  color: var(--text);
   font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 12px;
-  height: 100vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  background: var(--bg-body);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
-/* CRT scanlines */
-body::before {
+body::after {
   content: '';
   position: fixed;
-  inset: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 9999;
   background: repeating-linear-gradient(
     0deg,
     transparent,
     transparent 2px,
-    rgba(0,0,0,0.10) 2px,
-    rgba(0,0,0,0.10) 4px
+    rgba(0, 0, 0, 0.06) 2px,
+    rgba(0, 0, 0, 0.06) 4px
   );
-  pointer-events: none;
-  z-index: 9999;
 }
 
-/* CRT flicker band */
-body::after {
-  content: '';
-  position: fixed;
-  top: -100%;
-  left: 0; right: 0;
-  height: 28%;
-  background: linear-gradient(transparent, rgba(255,255,255,0.018), transparent);
-  animation: crt-scan 12s linear infinite;
-  pointer-events: none;
-  z-index: 9998;
-}
-@keyframes crt-scan { to { top: 200%; } }
-
-/* ── TOP BAR ── */
-header {
-  height: 50px;
+/* ── Top Bar ─────────────────────────────────────── */
+#topbar {
   display: flex;
   align-items: center;
-  padding: 0 18px;
-  border-bottom: 1px solid var(--border2);
-  background: linear-gradient(90deg, #0d0d1a 0%, #111128 100%);
-  flex-shrink: 0;
-  gap: 18px;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  height: 48px;
 }
 
-.logo {
-  font-size: 15px;
+#topbar-title {
+  font-size: 18px;
   color: var(--gold);
-  letter-spacing: 5px;
-  text-shadow: 0 0 10px rgba(240,192,64,0.65), 0 0 22px rgba(240,192,64,0.25);
-}
-.logo .v2 {
-  color: var(--text2);
-  font-size: 10px;
-  letter-spacing: 2px;
-  margin-left: 2px;
+  letter-spacing: 3px;
+  text-shadow: 0 0 8px rgba(240, 192, 64, 0.3);
 }
 
-.conn-indicator {
+#topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 12px;
+}
+
+.conn-status {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
-  color: var(--text2);
 }
+
 .conn-dot {
-  width: 8px; height: 8px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--dim);
-  transition: background 0.4s;
-}
-.conn-dot.live {
-  background: var(--green);
-  box-shadow: 0 0 6px rgba(88,184,104,0.85);
-  animation: conn-pulse 2.5s ease-in-out infinite;
-}
-@keyframes conn-pulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
-
-.header-spacer { flex: 1; }
-
-.round-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.round-num {
-  font-size: 12px;
-  color: var(--text2);
-  letter-spacing: 2px;
-}
-.round-num span {
-  color: var(--gold);
-  font-size: 15px;
-  text-shadow: 0 0 8px rgba(240,192,64,0.5);
+  background: var(--red);
 }
 
-.round-type-badge {
-  font-size: 9px;
-  padding: 2px 7px;
-  border: 1px solid;
-  letter-spacing: 1px;
+.conn-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+.round-badge {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
   text-transform: uppercase;
-  display: none;
-}
-.round-type-badge.feature   { color: var(--green);  border-color: var(--green);  }
-.round-type-badge.bugfix    { color: var(--red);    border-color: var(--red);    }
-.round-type-badge.polish    { color: var(--purple); border-color: var(--purple); }
-.round-type-badge.bigchange { color: var(--orange); border-color: var(--orange); }
-
-.status-badge {
-  font-size: 10px;
-  padding: 3px 9px;
-  border: 1px solid var(--border2);
-  color: var(--text2);
   letter-spacing: 1px;
 }
-.status-badge.running {
-  color: var(--gold);
-  border-color: var(--gold);
-  animation: badge-blink 1s infinite;
-}
-.status-badge.paused  { color: var(--orange); border-color: var(--orange); }
-.status-badge.done    { color: var(--green);  border-color: var(--green);  }
-@keyframes badge-blink { 50% { border-color: transparent; } }
 
-/* ── MAIN 3-COLUMN LAYOUT ── */
-.main-area {
-  flex: 1;
+.badge-engine { background: rgba(88, 184, 104, 0.2); color: var(--green); border: 1px solid var(--green); }
+.badge-story { background: rgba(96, 165, 250, 0.2); color: #60a5fa; border: 1px solid #60a5fa; }
+.badge-art { background: rgba(168, 85, 247, 0.2); color: var(--purple); border: 1px solid var(--purple); }
+.badge-integration { background: rgba(255, 140, 66, 0.2); color: var(--orange); border: 1px solid var(--orange); }
+.badge-hotfix { background: rgba(233, 69, 96, 0.2); color: var(--red); border: 1px solid var(--red); }
+
+/* ── Layout ──────────────────────────────────────── */
+#layout {
   display: grid;
-  grid-template-columns: 240px 1fr 270px;
-  overflow: hidden;
-  min-height: 0;
+  grid-template-columns: 280px 1fr 300px;
+  grid-template-rows: 1fr 200px;
+  height: calc(100vh - 48px);
 }
 
-/* ── LEFT SIDEBAR: Sean's Feedback ── */
-.feedback-panel {
-  border-right: 1px solid var(--border2);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--bg2);
-}
-
-.panel-header {
-  padding: 9px 13px;
-  border-bottom: 1px solid var(--border2);
-  font-size: 9px;
-  letter-spacing: 2px;
-  color: var(--text2);
-  background: var(--bg);
-  text-transform: uppercase;
-  flex-shrink: 0;
-}
-
-.feedback-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 11px;
-  gap: 8px;
+#left-sidebar {
+  grid-row: 1 / 3;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
   overflow-y: auto;
-  min-height: 0;
-}
-
-.fb-label {
-  font-size: 10px;
-  color: var(--text2);
-  line-height: 1.5;
-}
-
-.feedback-textarea {
-  flex: 1;
-  min-height: 130px;
-  background: var(--bg);
-  border: 1px solid var(--border2);
-  color: var(--text);
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 11px;
-  padding: 8px;
-  resize: none;
-  outline: none;
-  line-height: 1.6;
-}
-.feedback-textarea:focus { border-color: var(--gold); }
-.feedback-textarea::placeholder { color: var(--dim2); }
-
-.fb-btns { display: flex; gap: 6px; }
-
-.btn {
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 11px;
-  padding: 6px 10px;
-  border: 1px solid;
-  cursor: pointer;
-  letter-spacing: 1px;
-  background: transparent;
-  transition: all 0.15s;
-}
-.btn-gold  { color: var(--gold);  border-color: var(--gold);  }
-.btn-gold:hover  { background: rgba(240,192,64,0.1); box-shadow: 0 0 8px rgba(240,192,64,0.2); }
-.btn-dim   { color: var(--text2); border-color: var(--border2); }
-.btn-dim:hover   { color: var(--text); border-color: var(--dim2); }
-
-.pending-block {
-  background: var(--bg);
-  border: 1px solid var(--border2);
-  border-left: 2px solid var(--gold);
-  padding: 8px;
-  display: none;
-}
-.pending-label {
-  font-size: 9px;
-  color: var(--gold);
-  letter-spacing: 1px;
-  margin-bottom: 4px;
-}
-.pending-text {
-  font-size: 10px;
-  color: var(--text2);
-  line-height: 1.5;
-  word-break: break-word;
-}
-
-.fb-note {
-  font-size: 9px;
-  color: var(--dim2);
-  line-height: 1.6;
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
-}
-
-/* ── CENTER: Agent Pipeline ── */
-.pipeline-section {
-  overflow-y: auto;
-  padding: 14px 14px 14px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-height: 0;
-}
-
-.tier-header {
-  font-size: 9px;
-  letter-spacing: 3px;
-  color: var(--dim2);
-  text-transform: uppercase;
-  padding: 14px 0 5px 0;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 3px;
-}
-.tier-header:first-child { padding-top: 2px; }
-
-.agent-card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--border);
-  padding: 9px 11px;
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-  user-select: none;
-}
-.agent-card:hover { background: var(--panel); border-color: var(--border2); }
-
-.agent-card.running {
-  border-left-color: var(--gold);
-  border-color: rgba(240,192,64,0.28);
-  background: rgba(240,192,64,0.03);
-}
-.agent-card.complete { border-left-color: var(--green); }
-.agent-card.error    { border-left-color: var(--red); border-color: rgba(233,69,96,0.25); }
-.agent-card.skipped  { opacity: 0.38; }
-
-/* Executive gets orange accent */
-.agent-card.exec-tier {
-  border-left-color: var(--orange);
-}
-.agent-card.exec-tier.running {
-  border-left-color: var(--orange);
-  border-color: rgba(255,140,66,0.28);
-  background: rgba(255,140,66,0.03);
-}
-.agent-card.exec-tier .agent-name { color: var(--orange); text-shadow: 0 0 6px rgba(255,140,66,0.4); }
-
-.card-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.agent-emoji { font-size: 15px; flex-shrink: 0; }
-
-.agent-info { flex: 1; min-width: 0; }
-.agent-name-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 2px;
-}
-.agent-name {
-  font-size: 13px;
-  color: var(--white);
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-}
-.model-badge {
-  font-size: 8px;
-  padding: 1px 5px;
-  border: 1px solid;
-  letter-spacing: 1px;
-  flex-shrink: 0;
-}
-.model-badge.opus    { color: #c678dd; border-color: #c678dd; background: rgba(198,120,221,0.08); }
-.model-badge.sonnet  { color: var(--teal); border-color: var(--teal); background: rgba(46,184,184,0.08); }
-.model-badge.imagen4 { color: var(--orange); border-color: var(--orange); background: rgba(255,140,66,0.08); }
-
-.agent-role {
-  font-size: 10px;
-  color: var(--text2);
-}
-
-.card-status {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 3px;
-  flex-shrink: 0;
-}
-.status-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--dim);
-}
-.agent-card.running  .status-dot { background: var(--gold); animation: pulse-dot 0.75s ease-in-out infinite; box-shadow: 0 0 5px rgba(240,192,64,0.6); }
-.agent-card.complete .status-dot { background: var(--green); box-shadow: 0 0 4px rgba(88,184,104,0.6); }
-.agent-card.error    .status-dot { background: var(--red); }
-.agent-card.exec-tier.running .status-dot { background: var(--orange); box-shadow: 0 0 5px rgba(255,140,66,0.6); }
-@keyframes pulse-dot { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.5);opacity:0.5} }
-
-.card-output-size {
-  font-size: 9px;
-  color: var(--text2);
-  letter-spacing: 0.5px;
-}
-.card-status-icon { font-size: 11px; }
-.card-status-icon.ok  { color: var(--green); }
-.card-status-icon.err { color: var(--red); }
-
-.card-expanded {
-  display: none;
-  margin-top: 9px;
-  padding-top: 9px;
-  border-top: 1px solid var(--border);
-}
-.agent-card.expanded .card-expanded { display: block; }
-
-.card-output-text {
-  font-size: 10px;
-  color: var(--text2);
-  line-height: 1.7;
-  max-height: 180px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-.expand-hint {
-  font-size: 9px;
-  color: var(--dim);
-  text-align: right;
-  margin-top: 3px;
-}
-
-/* ── RIGHT SIDEBAR: Build Report ── */
-.build-report-panel {
-  border-left: 1px solid var(--border2);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--bg2);
-}
-.build-report-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 11px;
-  display: flex;
-  flex-direction: column;
-  gap: 11px;
-  min-height: 0;
-}
-
-.play-btn {
-  display: block;
-  text-align: center;
-  padding: 9px;
-  background: rgba(88,184,104,0.08);
-  border: 1px solid var(--green);
-  color: var(--green);
-  text-decoration: none;
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 2px;
-  transition: all 0.15s;
-  text-shadow: 0 0 6px rgba(88,184,104,0.4);
-}
-.play-btn:hover { background: rgba(88,184,104,0.18); box-shadow: 0 0 10px rgba(88,184,104,0.2); }
-
-.qa-verdict-block {
   padding: 12px;
-  border: 1px solid var(--border2);
-  text-align: center;
-  background: var(--bg);
 }
-.verdict-label {
-  font-size: 9px;
-  letter-spacing: 2px;
-  color: var(--text2);
-  margin-bottom: 7px;
-}
-.verdict-value {
-  font-size: 20px;
-  letter-spacing: 5px;
-  font-weight: bold;
-}
-.verdict-value.pending  { color: var(--dim2); }
-.verdict-value.ship     { color: var(--green);  text-shadow: 0 0 12px rgba(88,184,104,0.65); }
-.verdict-value.reject   { color: var(--red);    text-shadow: 0 0 12px rgba(233,69,96,0.65); }
-.verdict-value.retrying { color: var(--orange); animation: blink-text 1s infinite; }
-@keyframes blink-text { 50% { opacity: 0.45; } }
 
-.report-section-label {
-  font-size: 9px;
+#main-area {
+  grid-column: 2;
+  grid-row: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+#right-sidebar {
+  grid-row: 1 / 3;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 12px;
+}
+
+#console-area {
+  grid-column: 2;
+  grid-row: 2;
+  background: #0a0a14;
+  border-top: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* ── Sidebar Sections ────────────────────────────── */
+.section-title {
+  font-size: 11px;
+  color: var(--gold);
   letter-spacing: 2px;
-  color: var(--dim2);
   text-transform: uppercase;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
   padding-bottom: 4px;
   border-bottom: 1px solid var(--border);
 }
-.report-text {
+
+.section { margin-bottom: 16px; }
+
+textarea.feedback-input {
+  width: 100%;
+  background: var(--bg-body);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 11px;
+  resize: vertical;
+}
+
+textarea.feedback-input:focus { outline: none; border-color: var(--gold); }
+
+.btn {
+  display: inline-block;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-body);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn:hover { border-color: var(--gold); color: var(--gold); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn:disabled:hover { border-color: var(--border); color: var(--text); }
+
+.btn-gold {
+  background: var(--gold);
+  color: #0d0d1a;
+  border-color: var(--gold);
+  font-weight: bold;
+}
+
+.btn-gold:hover { background: #e0b030; border-color: #e0b030; color: #0d0d1a; }
+.btn-gold:disabled { background: #5a4a20; border-color: #5a4a20; color: #333; }
+.btn-gold:disabled:hover { background: #5a4a20; border-color: #5a4a20; color: #333; }
+
+.btn-row { display: flex; gap: 6px; margin-top: 6px; }
+
+.field-label {
   font-size: 10px;
-  color: var(--text2);
-  line-height: 1.7;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+  margin-top: 6px;
+}
+
+select, input[type="text"] {
+  width: 100%;
+  background: var(--bg-body);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+select:focus, input[type="text"]:focus { outline: none; border-color: var(--gold); }
+
+.hint {
+  font-size: 9px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* ── Queue Items ─────────────────────────────────── */
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: var(--bg-body);
+  border-radius: 3px;
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+.queue-item .round-badge { font-size: 9px; padding: 1px 5px; }
+
+/* ── Department Headers ──────────────────────────── */
+.dept-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  margin-top: 16px;
+  border-radius: 3px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.dept-header:first-child { margin-top: 0; }
+
+.dept-executive { background: rgba(255, 140, 66, 0.1); border-left: 3px solid var(--orange); color: var(--orange); }
+.dept-engine { background: rgba(88, 184, 104, 0.1); border-left: 3px solid var(--green); color: var(--green); }
+.dept-story { background: rgba(96, 165, 250, 0.1); border-left: 3px solid #60a5fa; color: #60a5fa; }
+.dept-art { background: rgba(168, 85, 247, 0.1); border-left: 3px solid var(--purple); color: var(--purple); }
+.dept-integration { background: rgba(255, 140, 66, 0.1); border-left: 3px solid var(--orange); color: var(--orange); }
+
+/* ── Agent Cards ─────────────────────────────────── */
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.agent-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.agent-card.dimmed {
+  opacity: 0.3;
+  filter: grayscale(0.7);
+}
+
+.agent-card.status-running {
+  border-color: var(--gold);
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+.agent-card.status-complete { border-color: var(--green); }
+.agent-card.status-error { border-color: var(--red); }
+.agent-card.status-skipped { opacity: 0.35; text-decoration: line-through; }
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 4px rgba(240, 192, 64, 0.2); }
+  50% { box-shadow: 0 0 16px rgba(240, 192, 64, 0.5); }
+}
+
+.agent-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.agent-name {
+  font-size: 13px;
+  color: #e8e8f0;
+}
+
+.agent-emoji { font-size: 16px; margin-right: 4px; }
+
+.model-badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: bold;
+}
+
+.model-opus { background: rgba(168, 85, 247, 0.2); color: var(--purple); border: 1px solid var(--purple); }
+.model-sonnet { background: rgba(45, 212, 191, 0.2); color: var(--teal); border: 1px solid var(--teal); }
+.model-api { background: rgba(234, 179, 8, 0.2); color: var(--yellow); border: 1px solid var(--yellow); }
+
+.agent-role {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.agent-status {
+  font-size: 10px;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.agent-status .status-idle { color: var(--dim); }
+.agent-status .status-running { color: var(--gold); }
+.agent-status .status-complete { color: var(--green); }
+.agent-status .status-error { color: var(--red); }
+
+/* ── Right Sidebar ───────────────────────────────── */
+.build-report-content {
+  font-size: 11px;
+  line-height: 1.5;
+  max-height: 300px;
+  overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
+  background: var(--bg-body);
+  padding: 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
 }
 
-/* ── BOTTOM CONSOLE ── */
-.bottom-console {
-  border-top: 1px solid var(--border2);
-  background: var(--bg);
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  height: 205px;
-}
-.console-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 14px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.run-btn {
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 12px;
-  padding: 8px 22px;
-  background: var(--gold);
-  color: #000;
-  border: none;
-  cursor: pointer;
-  letter-spacing: 2px;
+.verdict-badge {
+  display: inline-block;
+  font-size: 20px;
   font-weight: bold;
-  clip-path: polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%);
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-.run-btn:hover:not(:disabled) {
-  background: #fff;
-  box-shadow: 0 0 18px rgba(240,192,64,0.5);
-}
-.run-btn:disabled {
-  background: var(--dim);
-  color: #000;
-  cursor: not-allowed;
+  padding: 8px 20px;
+  border-radius: 4px;
+  letter-spacing: 3px;
+  text-align: center;
+  margin: 8px 0;
 }
 
-.resume-btn {
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 11px;
-  padding: 7px 14px;
-  background: transparent;
-  color: var(--orange);
-  border: 1px solid var(--orange);
-  cursor: pointer;
-  letter-spacing: 1px;
-  flex-shrink: 0;
-  display: none;
-  transition: all 0.15s;
+.verdict-ship {
+  background: rgba(88, 184, 104, 0.15);
+  color: var(--green);
+  border: 2px solid var(--green);
+  text-shadow: 0 0 10px rgba(88, 184, 104, 0.4);
 }
-.resume-btn:hover { background: rgba(255,140,66,0.1); }
-.resume-btn.visible { display: block; }
 
-.round-history {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  flex: 1;
-  overflow: hidden;
+.verdict-reject {
+  background: rgba(233, 69, 96, 0.15);
+  color: var(--red);
+  border: 2px solid var(--red);
+  text-shadow: 0 0 10px rgba(233, 69, 96, 0.4);
 }
-.history-label {
-  font-size: 9px;
-  color: var(--dim2);
-  letter-spacing: 1px;
-  flex-shrink: 0;
-}
-.history-badges {
-  display: flex;
-  gap: 4px;
-  overflow: hidden;
-}
-.round-badge {
-  font-size: 9px;
-  padding: 2px 6px;
-  border: 1px solid var(--border2);
-  color: var(--text2);
-  white-space: nowrap;
-  cursor: default;
-}
-.round-badge.feature   { border-color: var(--green);  color: var(--green);  }
-.round-badge.bugfix    { border-color: var(--red);    color: var(--red);    }
-.round-badge.polish    { border-color: var(--purple); color: var(--purple); }
-.round-badge.bigchange { border-color: var(--orange); color: var(--orange); }
-.round-badge.ship   { background: rgba(88,184,104,0.08); }
-.round-badge.reject { background: rgba(233,69,96,0.08); }
 
-.clr-btn {
-  font-family: 'Share Tech Mono', monospace;
+.verdict-retry {
+  background: rgba(240, 192, 64, 0.15);
+  color: var(--gold);
+  border: 2px solid var(--gold);
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+.verdict-none {
+  background: rgba(85, 85, 112, 0.15);
+  color: var(--dim);
+  border: 2px solid var(--border);
+}
+
+.game-info {
   font-size: 10px;
-  padding: 4px 8px;
-  background: transparent;
-  border: 1px solid var(--border2);
-  color: var(--dim2);
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+/* ── Assets Panel ────────────────────────────────── */
+.assets-toggle {
   cursor: pointer;
-  letter-spacing: 1px;
-  flex-shrink: 0;
-  transition: all 0.15s;
-}
-.clr-btn:hover { color: var(--text); border-color: var(--dim2); }
-
-.console-log-area {
-  flex: 1;
-  overflow-y: auto;
-  padding: 5px 14px 6px;
-  font-size: 11px;
-  line-height: 1.7;
-  min-height: 0;
-}
-
-.log-line { display: flex; gap: 8px; }
-.log-ts   { color: var(--dim2); flex-shrink: 0; font-size: 10px; }
-.log-msg  { flex: 1; word-break: break-word; }
-.log-line.gold   .log-msg { color: var(--gold);   text-shadow: 0 0 5px rgba(240,192,64,0.35); }
-.log-line.green  .log-msg { color: var(--green);  text-shadow: 0 0 5px rgba(88,184,104,0.35); }
-.log-line.red    .log-msg { color: var(--red);    text-shadow: 0 0 5px rgba(233,69,96,0.35); }
-.log-line.orange .log-msg { color: var(--orange); }
-.log-line.dim    .log-msg { color: var(--dim2); }
-.log-line.normal .log-msg { color: var(--text); }
-
-/* ── ASSET THUMBNAILS ── */
-.asset-thumb-grid {
+  user-select: none;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.asset-thumb-card {
-  background: var(--bg);
-  border: 1px solid var(--border2);
-  padding: 6px;
-  width: 80px;
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 3px;
+  gap: 6px;
 }
-.asset-thumb-img {
+
+.assets-toggle .arrow { transition: transform 0.2s; font-size: 10px; }
+.assets-toggle .arrow.open { transform: rotate(90deg); }
+
+.assets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.asset-item {
+  text-align: center;
+  font-size: 9px;
+  background: var(--bg-body);
+  padding: 4px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.asset-item img {
   width: 48px;
   height: 48px;
   image-rendering: pixelated;
-  image-rendering: crisp-edges;
-  background: var(--border);
   display: block;
+  margin: 0 auto 4px;
 }
-.asset-thumb-id {
+
+.asset-status {
+  display: inline-block;
+  padding: 0 4px;
+  border-radius: 2px;
   font-size: 8px;
-  color: var(--text2);
-  text-align: center;
-  word-break: break-all;
-  line-height: 1.3;
+  text-transform: uppercase;
 }
-.asset-thumb-meta {
-  font-size: 7px;
-  color: var(--dim2);
-  text-align: center;
-}
-.asset-status-btns {
+
+.asset-pending { background: rgba(234, 179, 8, 0.2); color: var(--yellow); }
+.asset-approved { background: rgba(88, 184, 104, 0.2); color: var(--green); }
+.asset-needs_revision { background: rgba(233, 69, 96, 0.2); color: var(--red); }
+
+.asset-actions {
   display: flex;
-  gap: 3px;
-  margin-top: 2px;
+  gap: 2px;
+  margin-top: 3px;
+  justify-content: center;
 }
-.asset-status-btns button {
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 9px;
-  padding: 2px 5px;
-  border: 1px solid;
+
+.asset-actions .btn { font-size: 8px; padding: 1px 4px; }
+
+/* ── Console ─────────────────────────────────────── */
+.console-line { white-space: pre-wrap; word-break: break-word; }
+.console-line .ts { color: var(--dim); }
+.console-line.error { color: var(--red); }
+.console-line.success { color: var(--green); }
+
+/* ── Scrollbar ───────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-body); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+/* ── Round History ───────────────────────────────── */
+.history-card {
+  background: var(--bg-body);
+  border-left: 3px solid var(--border);
+  border-radius: 3px;
+  padding: 4px 8px;
+  margin-bottom: 4px;
   cursor: pointer;
+  transition: all 0.15s;
+  min-height: 36px;
+}
+
+.history-card:hover { border-left-width: 4px; background: rgba(30, 30, 48, 0.8); }
+.history-card.older { opacity: 0.7; }
+
+.history-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.history-card-header .round-badge { font-size: 9px; padding: 1px 5px; }
+
+.history-ts {
+  font-size: 9px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.history-priority {
+  font-size: 10px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-summary {
+  font-size: 10px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+.history-full {
+  font-size: 10px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  max-height: 200px;
+  overflow-y: auto;
+  line-height: 1.4;
+}
+
+/* ── Next Up Preview ────────────────────────────── */
+.next-up-panel {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding: 8px;
+  border: 1px dashed var(--gold);
+  border-radius: 4px;
+  background: rgba(240, 192, 64, 0.03);
+}
+
+.team-roster {
+  font-size: 11px;
+  margin-top: 4px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.team-roster .arrow-sep {
+  color: var(--text-dim);
+  margin: 0 2px;
+}
+
+/* ── Batch / Run to Checkpoint ──────────────────── */
+.btn-orange {
+  background: var(--orange);
+  color: #0d0d1a;
+  border-color: var(--orange);
+  font-weight: bold;
+}
+
+.btn-orange:hover { background: #e07a30; border-color: #e07a30; color: #0d0d1a; }
+.btn-orange:disabled { background: #5a3a18; border-color: #5a3a18; color: #333; }
+.btn-orange:disabled:hover { background: #5a3a18; border-color: #5a3a18; color: #333; }
+
+#batch-indicator {
+  padding: 6px 12px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+#batch-indicator .batch-text { flex: 1; }
+
+.btn-cancel-batch {
+  font-size: 9px;
+  padding: 2px 8px;
+  border: 1px solid var(--red);
+  color: var(--red);
   background: transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn-cancel-batch:hover { background: rgba(233, 69, 96, 0.15); }
+
+/* ── Tab Navigation ──────────────────────────────── */
+#tab-nav {
+  display: flex;
+  gap: 0;
+  padding: 0 12px;
+  background: var(--bg-body);
+}
+.tab-btn {
+  padding: 8px 24px;
+  background: var(--bg-body);
+  color: var(--text-dim);
+  border: 2px solid #333;
+  border-bottom: none;
+  cursor: pointer;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px;
+  border-radius: 6px 6px 0 0;
+  margin-right: 2px;
   transition: all 0.15s;
 }
-.asset-approve-btn { color: var(--green); border-color: var(--green); }
-.asset-approve-btn:hover { background: rgba(88,184,104,0.15); }
-.asset-flag-btn    { color: var(--orange); border-color: var(--orange); }
-.asset-flag-btn:hover { background: rgba(255,140,66,0.15); }
-.asset-thumb-card.approved { border-color: var(--green); }
-.asset-thumb-card.needs_revision { border-color: var(--orange); }
-
-.iris-asset-log {
-  margin-top: 6px;
-  font-size: 9px;
-  color: var(--text2);
-  line-height: 1.8;
+.tab-btn.active {
+  background: var(--bg-panel);
+  color: var(--gold);
+  border-color: var(--gold);
 }
-.iris-asset-log .asset-ok   { color: var(--green); }
-.iris-asset-log .asset-skip { color: var(--dim2); }
+.tab-btn:hover:not(.active) { color: var(--text); border-color: #555; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
 
-/* Scrollbars */
-::-webkit-scrollbar { width: 3px; height: 3px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--dim2); }
+/* ── Asset Studio ──────────────────────────────── */
+#tab-assets {
+  height: calc(100vh - 84px);
+  overflow: hidden;
+}
+.asset-card {
+  background: #12122a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+  transition: border 0.15s;
+}
+.asset-card:hover { border-color: #555; }
+.asset-card.selected { border: 2px solid var(--gold); }
+.asset-card.active { border: 2px solid #555; background: #1a1a3e; }
+.cat-filter, .status-filter {
+  padding: 4px 10px;
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  border: 1px solid #444;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: 'Share Tech Mono', monospace;
+  transition: all 0.15s;
+}
+.cat-filter.active { background: var(--gold); color: var(--bg-body); border-color: var(--gold); }
+.status-filter.active { background: #333; color: #ccc; }
 </style>
 </head>
 <body>
 
-<!-- ── TOP BAR ── -->
-<header>
-  <div class="logo">GTM STUDIO <span class="v2">v2</span></div>
-  <div class="conn-indicator">
-    <div class="conn-dot" id="conn-dot"></div>
-    <span id="conn-label">OFFLINE</span>
+<!-- Top Bar -->
+<div id="topbar">
+  <div id="topbar-title">GTM STUDIO v3</div>
+  <div id="topbar-right">
+    <span id="round-type-badge"></span>
+    <span id="round-number" style="color: var(--text-dim);">ROUND --</span>
+    <span class="conn-status">
+      <span id="conn-dot" class="conn-dot"></span>
+      <span id="conn-label">DISCONNECTED</span>
+    </span>
   </div>
-  <div class="header-spacer"></div>
-  <div class="round-info">
-    <div class="round-num">ROUND <span id="round-num">—</span></div>
-    <div class="round-type-badge" id="round-type-badge"></div>
-    <div class="status-badge" id="status-badge">IDLE</div>
-  </div>
-</header>
+</div>
 
-<!-- ── MAIN AREA ── -->
-<div class="main-area">
+<!-- Tab Navigation -->
+<div id="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('pipeline')" id="tab-btn-pipeline">Pipeline</button>
+  <button class="tab-btn" onclick="switchTab('assets')" id="tab-btn-assets">Asset Studio</button>
+</div>
 
-  <!-- LEFT: Sean's Feedback Panel -->
-  <div class="feedback-panel">
-    <div class="panel-header">SEAN'S DESK</div>
-    <div class="feedback-body">
-      <div class="fb-label">Message to Vivian Cross (Exec Director)</div>
-      <textarea class="feedback-textarea" id="feedback-input"
-        placeholder="Bug reports, ideas, direction changes..."></textarea>
-      <div class="fb-btns">
-        <button class="btn btn-gold" onclick="sendFeedback()" style="flex:1">SEND TO VIVIAN</button>
-        <button class="btn btn-dim" onclick="clearFeedback()">CLR</button>
+<!-- Pipeline Tab -->
+<div id="tab-pipeline" class="tab-content active">
+<div id="layout">
+
+  <!-- Left Sidebar -->
+  <div id="left-sidebar">
+
+    <!-- Feedback -->
+    <div class="section">
+      <div class="section-title">Feedback</div>
+      <textarea id="feedback-input" class="feedback-input" rows="6" placeholder="Type feedback for Vivian..."></textarea>
+      <div class="btn-row">
+        <button class="btn btn-gold" id="btn-send-feedback">Send to Vivian</button>
+        <button class="btn" id="btn-clear-feedback">Clear</button>
       </div>
-      <div class="pending-block" id="pending-block">
-        <div class="pending-label">PENDING</div>
-        <div class="pending-text" id="pending-text"></div>
+      <div class="hint">Feedback is read by the Executive Director at the start of the next round</div>
+    </div>
+
+    <!-- Round Launcher -->
+    <div class="section">
+      <div class="section-title">Round Launcher</div>
+      <div class="field-label">Round Type</div>
+      <select id="round-type">
+        <option value="engine">Engine</option>
+        <option value="story">Story</option>
+        <option value="art">Art</option>
+        <option value="integration">Integration</option>
+        <option value="hotfix">Hotfix</option>
+      </select>
+      <div class="field-label">Priority</div>
+      <input type="text" id="round-priority" placeholder="What to focus on...">
+      <div class="field-label">Note (optional)</div>
+      <input type="text" id="round-note" placeholder="Extra context...">
+      <div id="next-up-panel" class="next-up-panel" style="display:none;"></div>
+      <div class="btn-row" style="margin-top: 10px;">
+        <button class="btn btn-gold" id="btn-run-round" style="flex:1;">Run Round</button>
       </div>
-      <div class="fb-note">Feedback is delivered to the Executive Director at the start of the next round.</div>
+      <div class="btn-row">
+        <button class="btn btn-orange" id="btn-run-checkpoint" style="flex:1;">&#9654;&#9654; Run to Checkpoint</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="btn-run-next" style="flex:1;">Run Next from Queue</button>
+      </div>
+    </div>
+
+    <!-- Round History -->
+    <div class="section">
+      <div class="section-title">Round History</div>
+      <div id="round-history"></div>
+    </div>
+
+    <!-- Round Queue -->
+    <div class="section">
+      <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;">
+        Round Queue
+        <button class="btn" id="btn-refresh-queue" style="font-size:9px;padding:2px 6px;">Refresh</button>
+      </div>
+      <div id="queue-list"></div>
     </div>
   </div>
 
-  <!-- CENTER: Agent Pipeline -->
-  <div class="pipeline-section" id="pipeline"></div>
+  <!-- Main Area: Agent Pipeline -->
+  <div id="main-area">
 
-  <!-- RIGHT: Last Round Summary -->
-  <div class="build-report-panel">
-    <div class="panel-header">LAST ROUND SUMMARY</div>
-    <div class="build-report-body">
-      <div id="summary-round-info" style="font-size:0.75rem;color:#888;margin-bottom:6px;"></div>
-      <a class="play-btn" href="https://skvarda.github.io/gtm-studio/game.html" target="_blank">PLAY LATEST BUILD</a>
-      <div class="qa-verdict-block">
-        <div class="verdict-label">QA VERDICT</div>
-        <div class="verdict-value pending" id="qa-verdict">—</div>
+    <!-- Batch Indicator -->
+    <div id="batch-indicator" style="display:none;">
+      <span class="batch-text" id="batch-text"></span>
+      <button class="btn-cancel-batch" id="btn-cancel-batch">Cancel Batch</button>
+    </div>
+
+    <!-- EXECUTIVE -->
+    <div class="dept-header dept-executive">Executive</div>
+    <div class="agent-grid" id="dept-executive">
+      <div class="agent-card dimmed" id="card-vivian-cross" data-agent="vivian-cross">
+        <div class="agent-top">
+          <span><span class="agent-emoji">&#x1F454;</span><span class="agent-name">Vivian Cross</span></span>
+          <span class="model-badge model-opus">OPUS</span>
+        </div>
+        <div class="agent-role">Executive Director</div>
+        <div class="agent-status"><span class="status-idle">IDLE</span></div>
       </div>
-      <div>
-        <div class="report-section-label">DEVELOPER REPORT</div>
-        <div class="report-text" id="build-report-text">No report yet.</div>
+    </div>
+
+    <!-- ENGINE -->
+    <div class="dept-header dept-engine">Engine</div>
+    <div class="agent-grid" id="dept-engine">
+      <div class="agent-card dimmed" id="card-marcus-webb" data-agent="marcus-webb">
+        <div class="agent-top">
+          <span><span class="agent-emoji">&#x1F3D7;&#xFE0F;</span><span class="agent-name">Marcus Webb</span></span>
+          <span class="model-badge model-opus">OPUS</span>
+        </div>
+        <div class="agent-role">Tech Lead</div>
+        <div class="agent-status"><span class="status-idle">IDLE</span></div>
       </div>
-      <div>
-        <div class="report-section-label">QA NOTES</div>
-        <div class="report-text" id="qa-report-text">No QA report yet.</div>
+      <div class="agent-card dimmed" id="card-atlas-novak" data-agent="atlas-novak">
+        <div class="agent-top">
+          <span><span class="agent-emoji">&#x1F4BB;</span><span class="agent-name">Atlas Novak</span></span>
+          <span class="model-badge model-opus">OPUS</span>
+        </div>
+        <div class="agent-role">Developer</div>
+        <div class="agent-status"><span class="status-idle">IDLE</span></div>
       </div>
-      <div>
-        <div class="report-section-label">ASSETS THIS ROUND</div>
-        <div class="asset-thumb-grid" id="asset-thumb-grid">
-          <div style="font-size:10px;color:var(--dim2)">No assets yet.</div>
+    </div>
+
+    <!-- STORY -->
+    <div class="dept-header dept-story">Story</div>
+    <div class="agent-grid" id="dept-story">
+      <div class="agent-card dimmed" id="card-luna-reyes" data-agent="luna-reyes">
+        <div class="agent-top">
+          <span><span class="agent-emoji">&#x1F3AC;</span><span class="agent-name">Luna Reyes</span></span>
+          <span class="model-badge model-sonnet">SONNET</span>
+        </div>
+        <div class="agent-role">Creative Director</div>
+        <div class="agent-status"><span class="status-idle">IDLE</span></div>
+      </div>
+      <div class="agent-card dimmed" id="card-sage-moretti" data-agent="sage-moretti">
+        <div class="agent-top">
+          <span><span class="agent-emoji">&#x270D;&#xFE0F;</span><span class="agent-name">Sage Moretti</span></span>
+          <span class="model-badge model-sonnet">SONNET</span>
+        </div>
+        <div class="agent-role">Writer</div>
+        <div class="agent-status"><span class="status-idle">IDLE</span></div>
+      </div>
+      <div class="agent-card dimmed" id="card-felix-park" data-agent="felix-park">
+        <div class="agent-top">
+          <span><span class="agent-emoji">&#x1F3AE;</span><span class="agent-name">Felix Park</span></span>
+          <span class="model-badge model-sonnet">SONNET</span>
+        </div>
+        <div class="agent-role">Game Designer</div>
+        <div class="agent-status"><span class="status-idle">IDLE</span></div>
+      </div>
+    </div>
+
+    <!-- ART -->
+    <div class="dept-header dept-art">Art</div>
+    <div class="agent-grid" id="dept-art">
+      <div class="agent-card dimmed" id="card-priya-vasquez" data-agent="priya-vasquez">
+        <div class="agent-top">
+          <span><span class="agent-emoji">&#x1F3A8;</span><span class="agent-name">Priya Vasquez</span></span>
+          <span class="model-badge model-sonnet">SONNET</span>
+        </div>
+        <div class="agent-role">Art Director</div>
+        <div class="agent-status"><span class="status-idle">IDLE</span></div>
+      </div>
+      <div class="agent-card dimmed" id="card-iris-nakamura" data-agent="iris-nakamura">
+        <div class="agent-top">
+          <span><span class="agent-emoji">&#x1F5BC;&#xFE0F;</span><span class="agent-name">Iris Nakamura</span></span>
+          <span class="model-badge model-api">API</span>
+        </div>
+        <div class="agent-role">Asset Generator</div>
+        <div class="agent-status"><span class="status-idle">IDLE</span></div>
+      </div>
+    </div>
+
+    <!-- INTEGRATION -->
+    <div class="dept-header dept-integration">Integration</div>
+    <div class="agent-grid" id="dept-integration">
+      <div class="agent-card dimmed" id="card-ren-tanaka" data-agent="ren-tanaka">
+        <div class="agent-top">
+          <span><span class="agent-emoji">&#x1F4CB;</span><span class="agent-name">Ren Tanaka</span></span>
+          <span class="model-badge model-sonnet">SONNET</span>
+        </div>
+        <div class="agent-role">Producer</div>
+        <div class="agent-status"><span class="status-idle">IDLE</span></div>
+      </div>
+      <div class="agent-card dimmed" id="card-marcus-webb" data-agent="marcus-webb">
+        <div class="agent-top">
+          <span><span class="agent-emoji">&#x1F3D7;&#xFE0F;</span><span class="agent-name">Marcus Webb</span></span>
+          <span class="model-badge model-opus">OPUS</span>
+        </div>
+        <div class="agent-role">Tech Lead</div>
+        <div class="agent-status"><span class="status-idle">IDLE</span></div>
+      </div>
+      <div class="agent-card dimmed" id="card-atlas-novak" data-agent="atlas-novak">
+        <div class="agent-top">
+          <span><span class="agent-emoji">&#x1F4BB;</span><span class="agent-name">Atlas Novak</span></span>
+          <span class="model-badge model-opus">OPUS</span>
+        </div>
+        <div class="agent-role">Developer</div>
+        <div class="agent-status"><span class="status-idle">IDLE</span></div>
+      </div>
+      <div class="agent-card dimmed" id="card-bea-ortiz" data-agent="bea-ortiz">
+        <div class="agent-top">
+          <span><span class="agent-emoji">&#x1F579;&#xFE0F;</span><span class="agent-name">Bea Ortiz</span></span>
+          <span class="model-badge model-opus">OPUS</span>
+        </div>
+        <div class="agent-role">QA Playtester</div>
+        <div class="agent-status"><span class="status-idle">IDLE</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right Sidebar -->
+  <div id="right-sidebar">
+
+    <!-- QA Verdict -->
+    <div class="section">
+      <div class="section-title">QA Verdict</div>
+      <div style="text-align:center;">
+        <div class="verdict-badge verdict-none" id="verdict-badge">---</div>
+      </div>
+      <div class="game-info" id="verdict-round" style="text-align:center;"></div>
+    </div>
+
+    <!-- Build Report -->
+    <div class="section">
+      <div class="section-title">Build Report</div>
+      <div class="build-report-content" id="build-report">No report loaded.</div>
+    </div>
+
+    <!-- Game Preview -->
+    <div class="section">
+      <div class="section-title">Game Preview</div>
+      <button class="btn btn-gold" id="btn-play" style="width:100%;">Play Latest Build</button>
+      <div class="game-info" id="game-info"></div>
+    </div>
+
+    <!-- Assets -->
+    <div class="section">
+      <div class="section-title assets-toggle" id="assets-toggle">
+        <span class="arrow" id="assets-arrow">&#9654;</span> Assets
+      </div>
+      <div id="assets-panel" style="display:none;">
+        <div class="assets-grid" id="assets-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Console -->
+  <div id="console-area"></div>
+
+</div>
+</div><!-- /tab-pipeline -->
+
+<!-- Asset Studio Tab -->
+<div id="tab-assets" class="tab-content">
+
+  <!-- Asset Studio Header -->
+  <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--bg-panel); border:1px solid var(--border); border-radius:6px; margin:12px;">
+    <div>
+      <h2 style="margin:0; color:var(--gold); font-size:18px;">Asset Studio — Scene 001: Grind & Brew</h2>
+      <p style="margin:4px 0 0 0; color:var(--text-dim); font-size:12px;">PixelLab v2 API | 70 assets | ~$0.50-1.12 estimated cost</p>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <span id="pixellab-balance" style="color:var(--text-dim); font-size:12px;">Credits: --</span>
+      <button class="btn btn-gold" onclick="refreshCatalog()" style="font-size:12px;">Refresh</button>
+    </div>
+  </div>
+
+  <!-- Asset Studio Layout: Catalog + Preview -->
+  <div style="display:grid; grid-template-columns:1fr 360px; gap:12px; height:calc(100vh - 170px); padding:0 12px 12px 12px;">
+
+    <!-- Left: Asset Catalog -->
+    <div style="overflow-y:auto; background:var(--bg-body); border:1px solid var(--border); border-radius:6px; padding:12px;">
+
+      <!-- Category Filter -->
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
+        <button class="cat-filter active" onclick="filterCategory('all', this)">All</button>
+        <button class="cat-filter" onclick="filterCategory('floor_tiles', this)">Floor</button>
+        <button class="cat-filter" onclick="filterCategory('walls_architecture', this)">Walls</button>
+        <button class="cat-filter" onclick="filterCategory('furniture', this)">Furniture</button>
+        <button class="cat-filter" onclick="filterCategory('detail_objects', this)">Details</button>
+        <button class="cat-filter" onclick="filterCategory('characters', this)">Characters</button>
+        <button class="cat-filter" onclick="filterCategory('portraits', this)">Portraits</button>
+      </div>
+
+      <!-- Status Filter -->
+      <div style="display:flex; gap:6px; margin-bottom:12px;">
+        <button class="status-filter active" onclick="filterStatus('all', this)">All</button>
+        <button class="status-filter" onclick="filterStatus('pending', this)" style="color:#f59e0b;border-color:#f59e0b;">Pending</button>
+        <button class="status-filter" onclick="filterStatus('generating', this)" style="color:#3b82f6;border-color:#3b82f6;">Generating</button>
+        <button class="status-filter" onclick="filterStatus('approved', this)" style="color:#10b981;border-color:#10b981;">Approved</button>
+        <button class="status-filter" onclick="filterStatus('needs_revision', this)" style="color:#ef4444;border-color:#ef4444;">Flagged</button>
+      </div>
+
+      <!-- Batch Actions -->
+      <div style="display:flex; gap:8px; margin-bottom:12px; padding:8px; background:var(--bg-panel); border-radius:4px;">
+        <button class="btn btn-gold" id="btn-generate-selected" onclick="generateSelected()" style="font-size:12px;font-weight:bold;">Generate Selected</button>
+        <button class="btn" onclick="selectAllPending()" style="font-size:12px;">Select All Pending</button>
+        <button class="btn" onclick="clearSelection()" style="font-size:12px;">Clear</button>
+        <span id="selection-count" style="color:var(--text-dim); font-size:12px; align-self:center; margin-left:auto;">0 selected</span>
+      </div>
+
+      <!-- Asset Grid -->
+      <div id="asset-catalog-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:8px;">
+      </div>
+    </div>
+
+    <!-- Right: Preview + Details Panel -->
+    <div style="overflow-y:auto; background:var(--bg-body); border:1px solid var(--border); border-radius:6px; padding:12px;">
+      <div id="asset-preview-placeholder" style="text-align:center; padding:20px 0;">
+        <p style="color:var(--text-dim); font-size:13px;">Select an asset to preview</p>
+      </div>
+      <div id="asset-detail-panel" style="display:none;">
+        <h3 id="detail-name" style="color:var(--gold); margin:0 0 8px 0; font-size:14px;"></h3>
+        <div id="detail-preview" style="background:#000; border:1px solid #333; border-radius:4px; padding:16px; text-align:center; margin-bottom:12px;">
+          <img id="detail-img" style="image-rendering:pixelated; max-width:100%;" />
+        </div>
+        <div style="font-size:11px; color:#aaa; margin-bottom:8px;">
+          <div><span style="color:var(--text-dim);">ID:</span> <span id="detail-id"></span></div>
+          <div><span style="color:var(--text-dim);">Size:</span> <span id="detail-size"></span></div>
+          <div><span style="color:var(--text-dim);">Status:</span> <span id="detail-status"></span></div>
+          <div><span style="color:var(--text-dim);">Category:</span> <span id="detail-category"></span></div>
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="color:var(--text-dim); font-size:11px; display:block; margin-bottom:4px;">Prompt:</label>
+          <textarea id="detail-prompt" style="width:100%; height:80px; background:var(--bg-panel); color:var(--text); border:1px solid #444; border-radius:4px; padding:6px; font-size:11px; font-family:'Share Tech Mono',monospace; resize:vertical;"></textarea>
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="color:var(--text-dim); font-size:11px; display:block; margin-bottom:4px;">Notes:</label>
+          <div id="detail-notes" style="color:var(--text-dim); font-size:11px; font-style:italic;"></div>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="btn btn-gold" onclick="generateSingle(this)" style="font-size:11px;font-weight:bold;">Generate</button>
+          <button class="btn" onclick="approveAsset()" style="font-size:11px;background:rgba(16,185,129,0.2);color:#10b981;border-color:#10b981;">Approve</button>
+          <button class="btn" onclick="flagAsset()" style="font-size:11px;background:rgba(239,68,68,0.2);color:#ef4444;border-color:#ef4444;">Flag</button>
+          <button class="btn" onclick="savePromptEdit()" style="font-size:11px;color:#3b82f6;border-color:#3b82f6;">Save Edit</button>
+        </div>
+      </div>
+
+      <!-- Generation Queue -->
+      <div style="margin-top:16px; border-top:1px solid var(--border); padding-top:12px;">
+        <h4 style="color:var(--gold); margin:0 0 8px 0; font-size:13px;">Generation Queue</h4>
+        <div id="gen-queue" style="font-size:11px; color:var(--text-dim);">
+          <p>No active generations</p>
         </div>
       </div>
     </div>
   </div>
-
-</div>
-
-<!-- ── BOTTOM CONSOLE ── -->
-<div class="bottom-console">
-  <div class="console-controls">
-    <button class="run-btn" id="run-btn" onclick="triggerRun()">RUN ROUND</button>
-    <button class="resume-btn" id="resume-btn" onclick="triggerResume()">RESUME</button>
-    <div class="round-history">
-      <span class="history-label">HISTORY:</span>
-      <div class="history-badges" id="history-badges"></div>
-    </div>
-    <button class="clr-btn" onclick="clearConsole()">CLR LOG</button>
-  </div>
-  <div class="console-log-area" id="console-log"></div>
-</div>
+</div><!-- /tab-assets -->
 
 <script>
-// ── Agent Definitions ──
-const AGENTS = [
-  { id: 'exec-director',     name: 'Vivian Cross',  role: 'Executive Director', emoji: '👔', model: 'opus',   tier: 'EXECUTIVE',    exec: true },
-  { id: 'creative-director', name: 'Luna Reyes',    role: 'Creative Director',  emoji: '🎬', model: 'sonnet', tier: 'LEADERSHIP'          },
-  { id: 'tech-lead',         name: 'Marcus Webb',   role: 'Tech Lead',          emoji: '🏗️', model: 'opus',   tier: 'LEADERSHIP'          },
-  { id: 'writer',            name: 'Sage Moretti',  role: 'Writer',             emoji: '✍️', model: 'sonnet', tier: 'CREATIVE TEAM'       },
-  { id: 'game-designer',     name: 'Felix Park',    role: 'Game Designer',      emoji: '🎮', model: 'sonnet', tier: 'CREATIVE TEAM'       },
-  { id: 'art-director',      name: 'Priya Vasquez', role: 'Art Director',       emoji: '🎨', model: 'sonnet', tier: 'CREATIVE TEAM'       },
-  { id: 'asset-generator',   name: 'Iris Nakamura', role: 'Asset Generator',    emoji: '🖼️', model: 'imagen4', tier: 'ASSETS'             },
-  { id: 'producer',          name: 'Ren Tanaka',    role: 'Producer',           emoji: '📋', model: 'sonnet', tier: 'SCOPE'               },
-  { id: 'developer',         name: 'Atlas Novak',   role: 'Developer',          emoji: '💻', model: 'opus',   tier: 'EXECUTION'           },
-  { id: 'qa-playtester',     name: 'Bea Ortiz',     role: 'QA Playtester',      emoji: '🕹️', model: 'opus',   tier: 'EXECUTION'           },
-];
+(function() {
+  // ── State ──
+  let sseSource = null;
+  let isRunning = false;
+  let currentRound = 0;
+  let currentRoundType = null;
+  let assetsOpen = false;
+  let consoleLines = [];
+  const MAX_CONSOLE = 200;
 
-// ── Build Pipeline ──
-const pipeline = document.getElementById('pipeline');
-let currentTier = null;
-for (const agent of AGENTS) {
-  if (agent.tier !== currentTier) {
-    currentTier = agent.tier;
-    const h = document.createElement('div');
-    h.className = 'tier-header';
-    h.textContent = agent.tier;
-    pipeline.appendChild(h);
+  // ── Department → Agent mapping for highlighting ──
+  const DEPT_MAP = {
+    engine: ['marcus-webb', 'atlas-novak'],
+    story: ['luna-reyes', 'sage-moretti', 'felix-park'],
+    art: ['priya-vasquez', 'iris-nakamura'],
+    integration: ['vivian-cross', 'ren-tanaka', 'marcus-webb', 'atlas-novak', 'bea-ortiz'],
+    hotfix: ['atlas-novak', 'bea-ortiz']
+  };
+
+  const ALL_AGENTS = [
+    'vivian-cross', 'marcus-webb', 'atlas-novak',
+    'luna-reyes', 'sage-moretti', 'felix-park',
+    'priya-vasquez', 'iris-nakamura',
+    'ren-tanaka', 'bea-ortiz'
+  ];
+
+  const AGENT_INFO = {
+    'vivian-cross': { name: 'Vivian Cross', role: 'Executive Director', emoji: '\uD83D\uDC54' },
+    'marcus-webb': { name: 'Marcus Webb', role: 'Tech Lead', emoji: '\uD83C\uDFD7\uFE0F' },
+    'atlas-novak': { name: 'Atlas Novak', role: 'Developer', emoji: '\uD83D\uDCBB' },
+    'luna-reyes': { name: 'Luna Reyes', role: 'Creative Director', emoji: '\uD83C\uDFAC' },
+    'sage-moretti': { name: 'Sage Moretti', role: 'Writer', emoji: '\u270D\uFE0F' },
+    'felix-park': { name: 'Felix Park', role: 'Game Designer', emoji: '\uD83C\uDFAE' },
+    'priya-vasquez': { name: 'Priya Vasquez', role: 'Art Director', emoji: '\uD83C\uDFA8' },
+    'iris-nakamura': { name: 'Iris Nakamura', role: 'Asset Generator', emoji: '\uD83D\uDDBC\uFE0F' },
+    'ren-tanaka': { name: 'Ren Tanaka', role: 'Producer', emoji: '\uD83D\uDCCB' },
+    'bea-ortiz': { name: 'Bea Ortiz', role: 'QA Playtester', emoji: '\uD83D\uDD79\uFE0F' }
+  };
+
+  const TEAM_ROSTER = {
+    engine: [
+      { emoji: '\uD83C\uDFD7\uFE0F', name: 'Marcus' },
+      { emoji: '\uD83D\uDCBB', name: 'Atlas' }
+    ],
+    story: [
+      { emoji: '\uD83C\uDFAC', name: 'Luna' },
+      { emoji: '\u270D\uFE0F', name: 'Sage' },
+      { emoji: '\uD83C\uDFAE', name: 'Felix' }
+    ],
+    art: [
+      { emoji: '\uD83C\uDFA8', name: 'Priya' },
+      { emoji: '\uD83D\uDDBC\uFE0F', name: 'Iris' }
+    ],
+    integration: [
+      { emoji: '\uD83D\uDC54', name: 'Vivian' },
+      { emoji: '\uD83D\uDCCB', name: 'Ren' },
+      { emoji: '\uD83C\uDFD7\uFE0F', name: 'Marcus' },
+      { emoji: '\uD83D\uDCBB', name: 'Atlas' },
+      { emoji: '\uD83D\uDD79\uFE0F', name: 'Bea' }
+    ],
+    hotfix: [
+      { emoji: '\uD83D\uDCBB', name: 'Atlas' },
+      { emoji: '\uD83D\uDD79\uFE0F', name: 'Bea' }
+    ]
+  };
+
+  // ── DOM refs ──
+  const $connDot = document.getElementById('conn-dot');
+  const $connLabel = document.getElementById('conn-label');
+  const $roundNum = document.getElementById('round-number');
+  const $roundBadge = document.getElementById('round-type-badge');
+  const $feedbackInput = document.getElementById('feedback-input');
+  const $btnSendFeedback = document.getElementById('btn-send-feedback');
+  const $btnClearFeedback = document.getElementById('btn-clear-feedback');
+  const $btnRunRound = document.getElementById('btn-run-round');
+  const $btnRunNext = document.getElementById('btn-run-next');
+  const $roundType = document.getElementById('round-type');
+  const $roundPriority = document.getElementById('round-priority');
+  const $roundNote = document.getElementById('round-note');
+  const $btnRefreshQueue = document.getElementById('btn-refresh-queue');
+  const $queueList = document.getElementById('queue-list');
+  const $verdictBadge = document.getElementById('verdict-badge');
+  const $verdictRound = document.getElementById('verdict-round');
+  const $buildReport = document.getElementById('build-report');
+  const $btnPlay = document.getElementById('btn-play');
+  const $gameInfo = document.getElementById('game-info');
+  const $assetsToggle = document.getElementById('assets-toggle');
+  const $assetsArrow = document.getElementById('assets-arrow');
+  const $assetsPanel = document.getElementById('assets-panel');
+  const $assetsGrid = document.getElementById('assets-grid');
+  const $console = document.getElementById('console-area');
+  const $roundHistory = document.getElementById('round-history');
+  const $nextUpPanel = document.getElementById('next-up-panel');
+  const $btnRunCheckpoint = document.getElementById('btn-run-checkpoint');
+  const $batchIndicator = document.getElementById('batch-indicator');
+  const $batchText = document.getElementById('batch-text');
+  const $btnCancelBatch = document.getElementById('btn-cancel-batch');
+
+  // ── Helpers ──
+  function ts() {
+    const d = new Date();
+    return d.toTimeString().slice(0, 8);
   }
-  const card = document.createElement('div');
-  card.className = 'agent-card' + (agent.exec ? ' exec-tier' : '');
-  card.id = 'card-' + agent.id;
-  card.innerHTML = `
-    <div class="card-main">
-      <span class="agent-emoji">${agent.emoji}</span>
-      <div class="agent-info">
-        <div class="agent-name-row">
-          <span class="agent-name">${agent.name}</span>
-          <span class="model-badge ${agent.model}">${agent.model.toUpperCase()}</span>
-        </div>
-        <div class="agent-role">${agent.role}</div>
-      </div>
-      <div class="card-status">
-        <div class="status-dot"></div>
-        <div class="card-output-size" id="size-${agent.id}"></div>
-        <div class="card-status-icon" id="icon-${agent.id}"></div>
-      </div>
-    </div>
-    <div class="card-expanded">
-      <div class="card-output-text" id="output-${agent.id}">No output yet.</div>
-      ${agent.id === 'asset-generator' ? '<div class="iris-asset-log" id="iris-asset-log"></div>' : ''}
-    </div>
-    <div class="expand-hint">click to expand</div>
-  `;
-  card.addEventListener('click', () => toggleCard(agent.id));
-  pipeline.appendChild(card);
-}
 
-function toggleCard(agentId) {
-  const card = document.getElementById('card-' + agentId);
-  const isOpen = card.classList.contains('expanded');
-  if (!isOpen) {
-    const out = document.getElementById('output-' + agentId);
-    if (out && !out.dataset.loaded) {
-      const round = currentRound || lastRound;
-      if (round) {
-        fetch(`/logs/${round}/${agentId}`)
-          .then(r => r.ok ? r.text() : null)
-          .then(txt => {
-            if (txt) {
-              out.textContent = txt.length > 2000 ? txt.slice(0, 2000) + '\n\n[truncated — ' + txt.length + ' bytes total]' : txt;
-              out.dataset.loaded = '1';
-            }
-          }).catch(() => {});
-      }
+  function log(msg, cls) {
+    if (consoleLines.length >= MAX_CONSOLE) consoleLines.shift();
+    consoleLines.push({ msg, cls: cls || '' });
+    renderConsole();
+  }
+
+  function renderConsole() {
+    $console.innerHTML = consoleLines.map(l =>
+      '<div class="console-line ' + l.cls + '"><span class="ts">[' + ts() + ']</span> ' + escHtml(l.msg) + '</div>'
+    ).join('');
+    $console.scrollTop = $console.scrollHeight;
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function relativeTime(isoStr) {
+    const diff = Date.now() - new Date(isoStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + 'm ago';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    const days = Math.floor(hrs / 24);
+    if (days === 1) return 'yesterday';
+    return days + 'd ago';
+  }
+
+  function typeBorderColor(type) {
+    switch(type) {
+      case 'engine': return 'var(--green)';
+      case 'story': return '#60a5fa';
+      case 'art': return 'var(--purple)';
+      case 'integration': return 'var(--orange)';
+      case 'hotfix': return 'var(--red)';
+      default: return 'var(--border)';
     }
   }
-  card.classList.toggle('expanded', !isOpen);
-}
 
-// ── Console Log ──
-const consoleEl = document.getElementById('console-log');
-
-function log(msg, cls = 'normal') {
-  const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
-  const line = document.createElement('div');
-  line.className = 'log-line ' + cls;
-  line.innerHTML = `<span class="log-ts">[${ts}]</span><span class="log-msg">${esc(msg)}</span>`;
-  consoleEl.appendChild(line);
-  consoleEl.scrollTop = consoleEl.scrollHeight;
-  while (consoleEl.children.length > 300) consoleEl.removeChild(consoleEl.firstChild);
-}
-
-function clearConsole() { consoleEl.innerHTML = ''; }
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-// ── State ──
-let currentRound = 0;
-let lastRound    = 0;
-let isRunning    = false;
-let isPaused     = false;
-
-function setAgentStatus(id, status, bytes) {
-  const card   = document.getElementById('card-' + id);
-  const sizeEl = document.getElementById('size-' + id);
-  const iconEl = document.getElementById('icon-' + id);
-  if (!card) return;
-
-  card.classList.remove('running', 'complete', 'error', 'skipped');
-  if (status) card.classList.add(status);
-
-  if (iconEl) {
-    iconEl.className = 'card-status-icon';
-    if (status === 'complete') { iconEl.textContent = '✓'; iconEl.classList.add('ok'); }
-    else if (status === 'error') { iconEl.textContent = '✗'; iconEl.classList.add('err'); }
-    else if (status === 'skipped') { iconEl.textContent = '—'; }
-    else { iconEl.textContent = ''; }
+  function formatKB(bytes) {
+    return (bytes / 1024).toFixed(1) + ' KB';
   }
-  if (sizeEl && bytes != null) {
-    sizeEl.textContent = bytes >= 1024 ? (bytes / 1024).toFixed(1) + 'kb' : bytes + 'b';
+
+  function setConnected(connected) {
+    $connDot.className = 'conn-dot' + (connected ? ' connected' : '');
+    $connLabel.textContent = connected ? 'CONNECTED' : 'DISCONNECTED';
+    $connLabel.style.color = connected ? 'var(--green)' : 'var(--red)';
   }
-}
 
-function resetAllAgents() {
-  for (const a of AGENTS) {
-    setAgentStatus(a.id, null);
-    const sizeEl = document.getElementById('size-' + a.id);
-    const iconEl = document.getElementById('icon-' + a.id);
-    const out    = document.getElementById('output-' + a.id);
-    const card   = document.getElementById('card-' + a.id);
-    if (sizeEl) sizeEl.textContent = '';
-    if (iconEl) { iconEl.textContent = ''; iconEl.className = 'card-status-icon'; }
-    if (out)  { out.textContent = 'No output yet.'; delete out.dataset.loaded; }
-    if (card) card.classList.remove('expanded');
+  function setRunning(running) {
+    isRunning = running;
+    $btnRunRound.disabled = running;
+    $btnRunNext.disabled = running;
+    $btnRunCheckpoint.disabled = running;
   }
-}
 
-function setRunState(running, paused) {
-  isRunning = running;
-  isPaused  = paused || false;
-  const runBtn    = document.getElementById('run-btn');
-  const resumeBtn = document.getElementById('resume-btn');
-  const badge     = document.getElementById('status-badge');
-
-  runBtn.disabled = running || paused;
-
-  if (paused) {
-    resumeBtn.classList.add('visible');
-    badge.className = 'status-badge paused';
-    badge.textContent = 'PAUSED';
-  } else {
-    resumeBtn.classList.remove('visible');
-    if (running) {
-      badge.className = 'status-badge running';
-      badge.textContent = 'RUNNING';
+  function updateRoundBadge(roundType) {
+    if (roundType) {
+      $roundBadge.innerHTML = '<span class="round-badge badge-' + roundType + '">' + roundType + '</span>';
     } else {
-      badge.className = 'status-badge';
-      badge.textContent = 'IDLE';
+      $roundBadge.innerHTML = '';
     }
   }
-}
 
-function showRoundType(round, type) {
-  document.getElementById('round-num').textContent = round || '—';
-  const badge = document.getElementById('round-type-badge');
-  if (type) {
-    badge.textContent = type.toUpperCase();
-    badge.className   = 'round-type-badge ' + type;
-    badge.style.display = '';
-  } else {
-    badge.style.display = 'none';
+  // ── Agent Card Management ──
+  function getCard(agentId) {
+    return document.getElementById('card-' + agentId);
   }
-}
 
-function setQAVerdict(verdict) {
-  const el = document.getElementById('qa-verdict');
-  el.textContent = verdict.toUpperCase();
-  const map = { ship: 'ship', reject: 'reject', retrying: 'retrying', '—': 'pending' };
-  el.className = 'verdict-value ' + (map[verdict.toLowerCase()] || 'pending');
-}
+  function setAgentStatus(agentId, status, extra) {
+    const card = getCard(agentId);
+    if (!card) return;
+    const statusEl = card.querySelector('.agent-status');
 
-// ── SSE ──
-function connectSSE() {
-  const es = new EventSource('/events');
-  const dot   = document.getElementById('conn-dot');
-  const label = document.getElementById('conn-label');
+    card.classList.remove('status-running', 'status-complete', 'status-error', 'status-skipped');
 
-  es.onmessage = e => {
-    let data;
-    try { data = JSON.parse(e.data); } catch { return; }
+    switch (status) {
+      case 'running':
+        card.classList.add('status-running');
+        statusEl.innerHTML = '<span class="status-running">RUNNING...</span>';
+        break;
+      case 'complete':
+        card.classList.add('status-complete');
+        const sizeStr = extra ? ' (' + formatKB(extra) + ')' : '';
+        statusEl.innerHTML = '<span class="status-complete">\u2705 COMPLETE' + sizeStr + '</span>';
+        break;
+      case 'error':
+        card.classList.add('status-error');
+        statusEl.innerHTML = '<span class="status-error">\u274C ERROR</span>';
+        break;
+      case 'skipped':
+        card.classList.add('status-skipped');
+        statusEl.innerHTML = '<span class="status-idle">SKIPPED</span>';
+        break;
+      default:
+        statusEl.innerHTML = '<span class="status-idle">IDLE</span>';
+    }
+  }
 
+  function highlightDepartment(roundType) {
+    const active = DEPT_MAP[roundType] || [];
+    ALL_AGENTS.forEach(id => {
+      const card = getCard(id);
+      if (!card) return;
+      if (active.includes(id)) {
+        card.classList.remove('dimmed');
+      } else {
+        card.classList.add('dimmed');
+      }
+    });
+  }
+
+  function resetAllAgents() {
+    ALL_AGENTS.forEach(id => {
+      setAgentStatus(id, 'idle');
+      const card = getCard(id);
+      if (card) card.classList.add('dimmed');
+    });
+  }
+
+  // ── SSE ──
+  function connectSSE() {
+    if (sseSource) { try { sseSource.close(); } catch(_) {} }
+    sseSource = new EventSource('/events');
+
+    sseSource.onopen = function() {
+      setConnected(true);
+      log('\uD83D\uDFE2 SSE connected', 'success');
+    };
+
+    sseSource.onmessage = function(e) {
+      let data;
+      try { data = JSON.parse(e.data); } catch(_) { return; }
+      handleEvent(data);
+    };
+
+    sseSource.onerror = function() {
+      setConnected(false);
+      log('\uD83D\uDD34 SSE disconnected — reconnecting in 3s...', 'error');
+      try { sseSource.close(); } catch(_) {}
+      setTimeout(connectSSE, 3000);
+    };
+  }
+
+  function handleEvent(data) {
     switch (data.type) {
       case 'connected':
-        dot.classList.add('live');
-        label.textContent = 'LIVE';
-        log('Connected to GTM Studio', 'dim');
+        setConnected(true);
         break;
 
       case 'round_start':
         currentRound = data.round;
-        resetAllAgents();
-        showRoundType(data.round, data.roundType || null);
-        setRunState(true);
-        setQAVerdict('—');
-        document.getElementById('build-report-text').textContent = 'Round in progress…';
-        document.getElementById('qa-report-text').textContent    = 'Awaiting QA…';
-        log(`Round ${data.round} started`, 'gold');
+        currentRoundType = data.roundType;
+        $roundNum.textContent = 'ROUND ' + data.round;
+        updateRoundBadge(data.roundType);
+        setRunning(true);
+        highlightDepartment(data.roundType);
+        log('\uD83D\uDFE2 Round ' + data.round + ' (' + data.roundType + ') started', 'success');
         break;
 
-      case 'agent_start':
+      case 'agent_start': {
+        const info = AGENT_INFO[data.agentId] || {};
         setAgentStatus(data.agentId, 'running');
-        log(`${data.name || data.agentId} running…`);
+        log((data.emoji || info.emoji || '') + ' ' + (data.agentName || info.name) + ' (' + (data.displayName || info.role) + ') running...');
         break;
+      }
 
-      case 'agent_complete':
+      case 'agent_complete': {
+        const info = AGENT_INFO[data.agentId] || {};
         setAgentStatus(data.agentId, 'complete', data.outputLength);
-        log(`${data.agentName || data.agentId} complete — ${data.outputLength} bytes`, 'green');
+        log('\u2705 ' + (data.agentName || info.name) + ' complete' + (data.outputLength ? ' (' + formatKB(data.outputLength) + ')' : ''), 'success');
         break;
+      }
 
-      case 'agent_error':
+      case 'agent_error': {
+        const info = AGENT_INFO[data.agentId] || {};
         setAgentStatus(data.agentId, 'error');
-        log(`${data.agentId} error: ${data.error}`, 'red');
+        log('\u274C ' + (info.name || data.agentId) + ' error: ' + (data.error || 'unknown'), 'error');
+        break;
+      }
+
+      case 'validation_failed':
+        log('\u26A0\uFE0F Validation failed: ' + (data.errors || []).join('; '), 'error');
         break;
 
       case 'qa_verdict':
-        setQAVerdict(data.verdict);
-        log(`QA verdict: ${data.verdict.toUpperCase()}`, data.verdict === 'ship' ? 'green' : 'red');
-        if (data.round) loadReports(data.round);
+        setVerdict(data.verdict, data.round);
+        log('\uD83C\uDFAF QA Verdict: ' + data.verdict.toUpperCase() + ' (Round ' + data.round + ')', data.verdict === 'ship' ? 'success' : 'error');
         break;
 
       case 'developer_retry':
-        setQAVerdict('retrying');
-        log('Developer retry in progress…', 'orange');
-        break;
-
-      case 'round_paused':
-        setRunState(false, true);
-        log(`Round ${data.round} paused — resume when ready`, 'orange');
+        $verdictBadge.textContent = 'RETRY';
+        $verdictBadge.className = 'verdict-badge verdict-retry';
+        $verdictRound.textContent = 'Round ' + data.round + ' — retrying...';
+        log('\uD83D\uDD04 Developer retry in progress (Round ' + data.round + ')');
         break;
 
       case 'round_complete':
-        lastRound = data.round;
-        setRunState(false);
-        log(`Round ${data.round} complete`, 'gold');
+        setRunning(false);
+        currentRoundType = null;
+        updateRoundBadge(null);
+        log('\uD83C\uDFC1 Round ' + data.round + ' (' + data.roundType + ') complete \u2014 ' + (data.verdict || 'done'), 'success');
+        // Fetch updated build report
+        fetchBuildReport(data.round);
+        loadQueue();
         loadRoundHistory();
-        loadReports(data.round);
-        loadAssetRegistry();
-        document.getElementById('summary-round-info').textContent = `Round ${data.round}`;
+        loadNextUpPreview();
+        break;
+
+      case 'round_error':
+        setRunning(false);
+        currentRoundType = null;
+        updateRoundBadge(null);
+        log('\uD83D\uDCA5 Round ' + data.round + ' error: ' + data.error, 'error');
         break;
 
       case 'committed':
-        log(`Committed and pushed — Round ${data.round}`, 'gold');
+        log('\uD83D\uDCE6 Committed: Round ' + data.round, 'success');
         break;
 
       case 'git_error':
-        log(`Git error: ${data.error}`, 'red');
+        log('\uD83D\uDEA8 Git error (Round ' + data.round + '): ' + data.error, 'error');
         break;
 
       case 'feedback_received':
-        document.getElementById('feedback-input').value = '';
-        log('Feedback delivered to Vivian', 'green');
-        loadPendingFeedback();
+        $feedbackInput.value = '';
+        log('\uD83D\uDCEC Feedback received');
         break;
 
-      case 'feedback_cleared':
-        document.getElementById('pending-block').style.display = 'none';
-        document.getElementById('pending-text').textContent = '';
-        log('Feedback consumed by Vivian', 'dim');
+      case 'asset_complete':
+        log('\uD83D\uDDBC\uFE0F Asset generated: ' + data.assetId + ' \u2192 ' + data.filename, 'success');
+        if (assetsOpen) loadAssets();
         break;
 
-      case 'no_html':
-        log('Developer did not produce valid HTML this round', 'red');
+      case 'asset_skipped':
+        log('\u23ED\uFE0F Asset skipped: ' + data.assetId);
         break;
 
-      case 'iris_generating':
-        log(`🖼️ Iris generating: ${data.assetId}…`, 'normal');
+      case 'batch_start':
+        $batchIndicator.style.display = 'flex';
+        $batchText.textContent = 'BATCH: 0/' + data.totalRounds + ' complete \u2014 pauses before ' + data.nextCheckpoint;
+        $batchText.style.color = 'var(--orange)';
+        $btnCancelBatch.style.display = '';
+        log('\u23E9 Batch started: ' + data.totalRounds + ' rounds, pauses before ' + data.nextCheckpoint);
         break;
 
-      case 'asset_complete': {
-        const logEl = document.getElementById('iris-asset-log');
-        if (logEl) {
-          const line = document.createElement('div');
-          line.className = 'asset-ok';
-          line.textContent = `✓ ${data.assetId} → ${data.filename}`;
-          logEl.appendChild(line);
-        }
-        log(`🖼️ Asset ready: ${data.assetId} (${data.filename})`, 'green');
-        break;
-      }
-
-      case 'asset_skipped': {
-        const logEl = document.getElementById('iris-asset-log');
-        if (logEl) {
-          const line = document.createElement('div');
-          line.className = 'asset-skip';
-          line.textContent = `— ${data.assetId} skipped`;
-          logEl.appendChild(line);
-        }
-        log(`🖼️ Asset skipped: ${data.assetId}`, 'dim');
-        break;
-      }
-
-      case 'asset_status_changed':
-        loadAssetRegistry();
-        log(`Asset ${data.assetId} → ${data.status}`, 'dim');
+      case 'batch_progress':
+        $batchText.textContent = 'BATCH: ' + data.completed + '/' + data.total + ' complete\u2026';
+        $batchText.style.color = 'var(--orange)';
         break;
 
-      case 'error':
-        log(`Error: ${data.message}`, 'red');
+      case 'batch_paused':
+        $batchText.innerHTML = '\u2705 BATCH COMPLETE \u2014 ' + escHtml((data.nextRound ? 'Round #' + data.nextRound.round + ' (' + data.nextRound.type + ')' : 'checkpoint') + ' ready for review');
+        $batchText.style.color = 'var(--green)';
+        $btnCancelBatch.style.display = 'none';
+        log('\u2705 Batch paused at checkpoint after ' + data.completed + ' rounds', 'success');
+        break;
+
+      case 'batch_complete':
+        $batchText.textContent = '\u2705 BATCH COMPLETE \u2014 ' + (data.reason === 'queue_empty' ? 'queue finished' : 'all rounds done');
+        $batchText.style.color = 'var(--green)';
+        $btnCancelBatch.style.display = 'none';
+        log('\u2705 Batch complete: ' + data.completed + ' rounds finished', 'success');
+        break;
+
+      case 'batch_stopped':
+        $batchText.textContent = '\u274C BATCH STOPPED \u2014 Round ' + data.failedRound + ' failed. Review logs.';
+        $batchText.style.color = 'var(--red)';
+        $btnCancelBatch.style.display = 'none';
+        log('\u274C Batch stopped: Round ' + data.failedRound + ' failed after ' + data.completed + ' completed', 'error');
+        break;
+
+      case 'batch_cancelled':
+        $batchText.textContent = '\u26A0\uFE0F BATCH CANCELLED \u2014 ' + data.completed + ' rounds completed';
+        $batchText.style.color = 'var(--gold)';
+        $btnCancelBatch.style.display = 'none';
+        log('\u26A0\uFE0F Batch cancelled after ' + data.completed + ' rounds');
         break;
     }
-  };
+  }
 
-  es.onerror = () => {
-    dot.classList.remove('live');
-    label.textContent = 'OFFLINE';
-    log('SSE disconnected — reconnecting…', 'red');
-    es.close();
-    setTimeout(connectSSE, 4000);
-  };
-}
-
-// ── Actions ──
-async function triggerRun() {
-  try {
-    const r = await fetch('/run', { method: 'POST' });
-    const d = await r.json();
-    if (d.error) log('Error: ' + d.error, 'red');
-  } catch (e) { log('Failed to start round: ' + e.message, 'red'); }
-}
-
-async function triggerResume() {
-  try {
-    const r = await fetch('/resume', { method: 'POST' });
-    const d = await r.json();
-    if (d.error) log('Error: ' + d.error, 'red');
-    else { setRunState(true, false); log('Round resumed', 'orange'); }
-  } catch (e) { log('Failed to resume: ' + e.message, 'red'); }
-}
-
-// ── Feedback ──
-async function sendFeedback() {
-  const msg = document.getElementById('feedback-input').value.trim();
-  if (!msg) return;
-  try {
-    const r = await fetch('/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: msg })
-    });
-    if (r.ok) {
-      document.getElementById('feedback-input').value = '';
-      log('Feedback sent to Vivian', 'green');
-      loadPendingFeedback();
-    } else { log('Failed to send feedback', 'red'); }
-  } catch (e) { log('Feedback error: ' + e.message, 'red'); }
-}
-
-async function clearFeedback() {
-  try {
-    await fetch('/feedback', { method: 'DELETE' });
-    document.getElementById('feedback-input').value = '';
-    document.getElementById('pending-block').style.display = 'none';
-    log('Feedback cleared', 'dim');
-  } catch (e) { log('Clear error: ' + e.message, 'red'); }
-}
-
-async function loadPendingFeedback() {
-  try {
-    const r = await fetch('/feedback');
-    if (!r.ok) return;
-    const d = await r.json();
-    const block = document.getElementById('pending-block');
-    const text  = document.getElementById('pending-text');
-    if (d && d.message) {
-      text.textContent = d.message;
-      block.style.display = 'block';
+  // ── Verdict Display ──
+  function setVerdict(verdict, round) {
+    if (verdict === 'ship') {
+      $verdictBadge.textContent = 'SHIP';
+      $verdictBadge.className = 'verdict-badge verdict-ship';
     } else {
-      block.style.display = 'none';
+      $verdictBadge.textContent = 'REJECT';
+      $verdictBadge.className = 'verdict-badge verdict-reject';
     }
-  } catch {}
-}
+    $verdictRound.textContent = 'Round ' + round;
+  }
 
-// ── Round History ──
-async function loadRoundHistory() {
-  try {
-    const r = await fetch('/rounds');
-    if (!r.ok) return;
-    const rounds = await r.json();
-    const badges = document.getElementById('history-badges');
-    badges.innerHTML = '';
-    for (const round of rounds.slice(0, 5)) {
-      const b = document.createElement('div');
-      b.className = 'round-badge';
-      b.textContent = 'R' + round;
-      badges.appendChild(b);
-    }
-  } catch {}
-}
+  // ── API Calls ──
+  function loadStatus() {
+    fetch('/status').then(r => r.json()).then(data => {
+      currentRound = data.currentRound || 0;
+      $roundNum.textContent = 'ROUND ' + currentRound;
+      setRunning(data.isRunning);
+      if (data.isRunning && data.currentRoundType) {
+        currentRoundType = data.currentRoundType;
+        updateRoundBadge(data.currentRoundType);
+        highlightDepartment(data.currentRoundType);
+      }
+      if (data.lastQAVerdict && currentRound > 0) {
+        setVerdict(data.lastQAVerdict, currentRound);
+      }
+    }).catch(() => {});
+  }
 
-// ── Asset Registry ──
-async function loadAssetRegistry() {
-  try {
-    const r = await fetch('/asset-registry');
-    if (!r.ok) return;
-    const reg = await r.json();
-    const grid = document.getElementById('asset-thumb-grid');
-    if (!grid) return;
-    const assets = Object.entries(reg.assets || {});
-    if (assets.length === 0) {
-      grid.innerHTML = '<div style="font-size:10px;color:var(--dim2)">No assets yet.</div>';
-      return;
-    }
-    grid.innerHTML = '';
-    for (const [id, a] of assets) {
-      const subfolder = a.subfolder || 'sprites';
-      const imgSrc = `/assets/${subfolder}/${a.file}`;
-      const card = document.createElement('div');
-      card.className = 'asset-thumb-card' + (a.status !== 'pending' ? ' ' + a.status : '');
-      card.id = 'asset-card-' + id;
-      card.innerHTML = `
-        <img class="asset-thumb-img" src="${esc(imgSrc)}" alt="${esc(id)}" title="${esc(a.prompt || '')}">
-        <div class="asset-thumb-id">${esc(id)}</div>
-        <div class="asset-thumb-meta">v${a.version} · ${a.target_width}×${a.target_height} · ${esc(a.status)}</div>
-        <div class="asset-status-btns">
-          <button class="asset-approve-btn" onclick="patchAsset('${esc(id)}','approved')">✓</button>
-          <button class="asset-flag-btn"    onclick="patchAsset('${esc(id)}','needs_revision')">!</button>
-        </div>
-      `;
-      grid.appendChild(card);
-    }
-  } catch {}
-}
+  function loadStudioState() {
+    fetch('/studio-state').then(r => r.json()).then(data => {
+      if (data.lastRound) {
+        currentRound = data.lastRound;
+        $roundNum.textContent = 'ROUND ' + currentRound;
+        fetchBuildReport(currentRound);
+      }
+      if (data.lastQAVerdict) {
+        setVerdict(data.lastQAVerdict, data.lastRound);
+      }
+    }).catch(() => {});
+  }
 
-async function patchAsset(assetId, status) {
-  try {
-    const r = await fetch(`/asset-registry/${encodeURIComponent(assetId)}`, {
+  function loadFeedback() {
+    fetch('/feedback').then(r => r.json()).then(data => {
+      if (data.feedback) $feedbackInput.value = data.feedback;
+    }).catch(() => {});
+  }
+
+  function loadQueue() {
+    fetch('/round-queue').then(r => r.json()).then(data => {
+      const q = data.queue || [];
+      if (q.length === 0) {
+        $queueList.innerHTML = '<div style="font-size:10px;color:var(--text-dim);">Queue empty</div>';
+        return;
+      }
+      $queueList.innerHTML = q.map((item, i) => {
+        const num = (currentRound || 0) + i + 1;
+        return '<div class="queue-item"><span style="color:var(--text-dim);">#' + num + '</span> <span class="round-badge badge-' + item.type + '">' + item.type + '</span> <span style="flex:1;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(item.priority || '') + '</span></div>';
+      }).join('');
+    }).catch(() => {});
+  }
+
+  function loadRoundHistory() {
+    fetch('/studio-state').then(r => r.json()).then(data => {
+      const history = (data.roundHistory || []).slice(-5).reverse();
+      if (history.length === 0) {
+        $roundHistory.innerHTML = '<div style="font-size:10px;color:var(--text-dim);">No rounds completed yet.</div>';
+        return;
+      }
+      $roundHistory.innerHTML = history.map((entry, i) => {
+        const olderCls = i >= 2 ? ' older' : '';
+        return '<div class="history-card' + olderCls + '" data-round="' + entry.round + '" style="border-left-color:' + typeBorderColor(entry.type) + ';">' +
+          '<div class="history-card-header">' +
+            '<span>#' + entry.round + ' <span class="round-badge badge-' + entry.type + '">' + entry.type + '</span></span>' +
+            '<span class="history-ts">' + relativeTime(entry.timestamp) + '</span>' +
+          '</div>' +
+          (entry.priority ? '<div class="history-priority">' + escHtml(entry.priority) + '</div>' : '') +
+          '<div class="history-summary" id="hsummary-' + entry.round + '">' + escHtml(entry.verdict) + '</div>' +
+          '<div class="history-full" id="hfull-' + entry.round + '" style="display:none;"></div>' +
+        '</div>';
+      }).join('');
+
+      // Fetch 1-line summaries
+      history.forEach(entry => {
+        fetch('/build-report/' + entry.round).then(r => {
+          if (r.ok) return r.text();
+          return null;
+        }).then(text => {
+          if (!text) return;
+          const firstLine = text.split('\n').find(l => l.trim()) || '';
+          const summary = firstLine.length > 80 ? firstLine.slice(0, 80) + '\u2026' : firstLine;
+          const el = document.getElementById('hsummary-' + entry.round);
+          if (el && summary) el.textContent = summary;
+        }).catch(() => {});
+      });
+
+      // Click to expand
+      $roundHistory.querySelectorAll('.history-card').forEach(card => {
+        card.addEventListener('click', function() {
+          const round = this.getAttribute('data-round');
+          const fullEl = document.getElementById('hfull-' + round);
+          if (!fullEl) return;
+          if (fullEl.style.display === 'none') {
+            if (!fullEl.textContent) {
+              fullEl.textContent = 'Loading...';
+              fetch('/build-report/' + round).then(r => r.ok ? r.text() : 'No report available.').then(text => {
+                fullEl.textContent = text;
+              }).catch(() => { fullEl.textContent = 'Failed to load report.'; });
+            }
+            fullEl.style.display = 'block';
+          } else {
+            fullEl.style.display = 'none';
+          }
+        });
+      });
+    }).catch(() => {});
+  }
+
+  let queuePopulated = false;
+
+  function showManualRoster() {
+    const type = $roundType.value;
+    const roster = TEAM_ROSTER[type] || [];
+    const rosterHtml = roster.map(a => a.emoji + ' ' + a.name).join(' <span class="arrow-sep">\u2192</span> ');
+    const label = type.charAt(0).toUpperCase() + type.slice(1);
+    $nextUpPanel.innerHTML = '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">' +
+      '<span style="color:var(--text-dim);font-size:10px;letter-spacing:1px;font-weight:bold;">MANUAL ROUND</span>' +
+      '<span class="round-badge badge-' + type + '">' + label + '</span>' +
+    '</div>' +
+    '<div class="team-roster">' + rosterHtml + '</div>';
+    $nextUpPanel.style.display = 'block';
+  }
+
+  function loadNextUpPreview() {
+    fetch('/round-queue').then(r => r.json()).then(data => {
+      const q = data.queue || [];
+      if (q.length === 0) {
+        queuePopulated = false;
+        showManualRoster();
+        return;
+      }
+      queuePopulated = true;
+      const next = q[0];
+      const nextRound = (currentRound || 0) + 1;
+      const roster = TEAM_ROSTER[next.type] || [];
+      const rosterHtml = roster.map(a => a.emoji + ' ' + a.name).join(' <span class="arrow-sep">\u2192</span> ');
+
+      // Auto-fill launcher fields
+      $roundType.value = next.type;
+      $roundPriority.value = next.priority || '';
+      $roundPriority.setAttribute('data-autofilled', 'true');
+      $roundNote.value = next.note || '';
+
+      let html = '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">' +
+        '<span style="color:var(--gold);font-size:10px;letter-spacing:1px;font-weight:bold;">NEXT UP</span>' +
+        '<span class="round-badge badge-' + next.type + '">' + next.type + '</span>' +
+        '<span style="color:var(--text-dim);font-size:10px;">#' + nextRound + '</span>' +
+      '</div>';
+      if (next.priority) html += '<div style="font-size:11px;">' + escHtml(next.priority) + '</div>';
+      if (next.note) html += '<div style="font-size:10px;color:var(--text-dim);font-style:italic;">' + escHtml(next.note) + '</div>';
+      html += '<div class="team-roster">' + rosterHtml + '</div>';
+
+      $nextUpPanel.innerHTML = html;
+      $nextUpPanel.style.display = 'block';
+
+      // Check for pending feedback
+      fetch('/feedback').then(r => r.json()).then(fb => {
+        if (fb.feedback && fb.feedback.trim()) {
+          const badge = document.createElement('div');
+          badge.style.cssText = 'font-size:10px;color:var(--gold);margin-top:4px;';
+          badge.textContent = '\uD83D\uDCDD Feedback queued';
+          $nextUpPanel.appendChild(badge);
+        }
+      }).catch(() => {});
+    }).catch(() => {});
+  }
+
+  function fetchBuildReport(round) {
+    fetch('/build-report/' + round).then(r => {
+      if (r.ok) return r.text();
+      throw new Error('not found');
+    }).then(text => {
+      $buildReport.textContent = text;
+    }).catch(() => {
+      $buildReport.textContent = 'No report for round ' + round + '.';
+    });
+  }
+
+  function loadAssets() {
+    fetch('/asset-registry').then(r => r.json()).then(data => {
+      const assets = data.assets || {};
+      const ids = Object.keys(assets);
+      if (ids.length === 0) {
+        $assetsGrid.innerHTML = '<div style="font-size:10px;color:var(--text-dim);">No assets yet</div>';
+        return;
+      }
+      $assetsGrid.innerHTML = ids.map(id => {
+        const a = assets[id];
+        const subfolder = a.file ? (a.file.includes('tile') ? 'tiles' : a.file.includes('ui_') ? 'ui' : 'sprites') : 'sprites';
+        const statusCls = 'asset-' + (a.status || 'pending');
+        return '<div class="asset-item">' +
+          '<img src="/assets/' + subfolder + '/' + escHtml(a.file || '') + '" alt="' + escHtml(id) + '" onerror="this.style.display=\'none\'">' +
+          '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(id) + '">' + escHtml(id) + '</div>' +
+          '<div>v' + (a.version || 1) + ' <span class="asset-status ' + statusCls + '">' + (a.status || 'pending') + '</span></div>' +
+          '<div class="asset-actions">' +
+            '<button class="btn" onclick="patchAsset(\'' + escHtml(id) + '\',\'approved\')">OK</button>' +
+            '<button class="btn" onclick="patchAsset(\'' + escHtml(id) + '\',\'needs_revision\')">Flag</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }).catch(() => {});
+  }
+
+  window.patchAsset = function(assetId, status) {
+    fetch('/asset-registry/' + encodeURIComponent(assetId), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
-    });
-    if (r.ok) {
-      log(`Asset ${assetId} marked ${status}`, status === 'approved' ? 'green' : 'orange');
-      loadAssetRegistry();
-    } else { log(`Failed to update asset ${assetId}`, 'red'); }
-  } catch (e) { log('Patch error: ' + e.message, 'red'); }
-}
+    }).then(() => loadAssets()).catch(() => {});
+  };
 
-// ── Build & QA Reports ──
-async function loadReports(round) {
-  try {
-    const r = await fetch(`/build-report/${round}`);
-    if (r.ok) {
-      const txt = await r.text();
-      document.getElementById('build-report-text').textContent = txt.slice(0, 700);
+  // ── Button Handlers ──
+  $btnSendFeedback.addEventListener('click', function() {
+    const msg = $feedbackInput.value.trim();
+    if (!msg) return;
+    fetch('/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg })
+    }).then(r => r.json()).then(() => {
+      log('\uD83D\uDCE4 Feedback sent to Vivian');
+    }).catch(e => log('\u274C Failed to send feedback: ' + e.message, 'error'));
+  });
+
+  $btnClearFeedback.addEventListener('click', function() {
+    fetch('/feedback', { method: 'DELETE' }).then(() => {
+      $feedbackInput.value = '';
+      log('\uD83D\uDDD1\uFE0F Feedback cleared');
+    }).catch(() => {});
+  });
+
+  // Clear auto-filled flag on manual edits
+  $roundPriority.addEventListener('input', function() {
+    $roundPriority.removeAttribute('data-autofilled');
+  });
+
+  // When round type changes, clear auto-suggested priority + update manual roster
+  $roundType.addEventListener('change', function() {
+    if ($roundPriority.getAttribute('data-autofilled') === 'true' || !$roundPriority.value.trim()) {
+      $roundPriority.value = '';
+      $roundPriority.removeAttribute('data-autofilled');
+      $roundPriority.style.borderColor = '';
+      $roundPriority.placeholder = 'What to focus on...';
     }
-  } catch {}
-  try {
-    const r = await fetch(`/qa-report/${round}`);
-    if (r.ok) {
-      const txt = await r.text();
-      document.getElementById('qa-report-text').textContent = txt.slice(0, 500);
+    if (!queuePopulated) showManualRoster();
+  });
+
+  $btnRunRound.addEventListener('click', function() {
+    if (isRunning) return;
+    const roundType = $roundType.value;
+    const priority = $roundPriority.value.trim();
+    const note = $roundNote.value.trim();
+
+    // If priority is empty, fetch suggestion first
+    if (!priority) {
+      fetch('/suggest-priority?type=' + encodeURIComponent(roundType))
+        .then(r => r.json())
+        .then(data => {
+          if (data.suggestion === '') {
+            // Hotfix case: require explicit priority
+            $roundPriority.style.borderColor = '#e05c5c';
+            $roundPriority.placeholder = 'required for hotfix';
+            $roundPriority.focus();
+          } else {
+            // Auto-fill and highlight gold for 2s
+            $roundPriority.value = data.suggestion;
+            $roundPriority.setAttribute('data-autofilled', 'true');
+            $roundPriority.style.borderColor = '#f0c040';
+            setTimeout(function() { $roundPriority.style.borderColor = ''; }, 2000);
+            log('Auto-filled priority: ' + data.suggestion + ' — click Run Round again to confirm');
+          }
+        })
+        .catch(e => log('\u274C Failed to fetch suggestion: ' + e.message, 'error'));
+      return;
     }
-  } catch {}
-}
 
-// ── Init ──
-async function init() {
-  connectSSE();
-  log('GTM STUDIO v2 — Mission Control', 'gold');
-
-  // Load status
-  try {
-    const r = await fetch('/status');
-    if (r.ok) {
-      const s = await r.json();
-      if (s.currentRound) {
-        currentRound = s.currentRound;
-        showRoundType(s.currentRound, null);
+    // Priority is filled — proceed with the round
+    $roundPriority.removeAttribute('data-autofilled');
+    fetch('/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roundType, priority, note })
+    }).then(r => {
+      if (r.status === 409) { log('\u26A0\uFE0F Round already in progress', 'error'); return; }
+      return r.json();
+    }).then(data => {
+      if (data && data.status === 'started') {
+        setRunning(true);
+        log('\uD83D\uDE80 Launched ' + roundType + ' round');
       }
-      setRunState(s.isRunning || false, false);
-    }
-  } catch {}
+    }).catch(e => log('\u274C Failed to start round: ' + e.message, 'error'));
+  });
 
-  // Load studio state if endpoint exists
-  try {
-    const r = await fetch('/studio-state');
-    if (r.ok) {
-      const s = await r.json();
-      if (s.currentRound) { currentRound = s.currentRound; showRoundType(s.currentRound, s.roundType); }
-      if (s.lastRound) lastRound = s.lastRound;
-      setRunState(s.isRunning || false, s.isPaused || false);
-    }
-  } catch {}
+  $btnRunNext.addEventListener('click', function() {
+    if (isRunning) return;
+    fetch('/run-next', { method: 'POST' }).then(r => {
+      if (r.status === 409) { log('\u26A0\uFE0F Round already in progress', 'error'); return; }
+      if (r.status === 404) { log('\u26A0\uFE0F Queue is empty', 'error'); return; }
+      return r.json();
+    }).then(data => {
+      if (data && data.status === 'started') {
+        setRunning(true);
+        log('\uD83D\uDE80 Started next round from queue');
+      }
+    }).catch(e => log('\u274C Failed: ' + e.message, 'error'));
+  });
 
-  await loadRoundHistory();
-  await loadPendingFeedback();
-  await loadAssetRegistry();
+  $btnRunCheckpoint.addEventListener('click', function() {
+    if (isRunning) return;
+    fetch('/run-to-checkpoint', { method: 'POST' }).then(r => {
+      if (r.ok) return r.json();
+      return r.json().then(e => { throw new Error(e.error); });
+    }).then(data => {
+      setRunning(true);
+      log('\u23E9 Run to checkpoint: ' + data.batchSize + ' rounds, pauses before ' + data.nextCheckpoint);
+    }).catch(e => log('\u274C ' + e.message, 'error'));
+  });
 
-  const reportRound = lastRound || currentRound;
-  if (reportRound) loadReports(reportRound);
+  $btnCancelBatch.addEventListener('click', function() {
+    fetch('/cancel-batch', { method: 'POST' }).then(r => r.json()).then(() => {
+      log('\u26A0\uFE0F Batch cancellation requested');
+    }).catch(e => log('\u274C ' + e.message, 'error'));
+  });
+
+  $btnRefreshQueue.addEventListener('click', loadQueue);
+
+  $btnPlay.addEventListener('click', function() {
+    window.open('/docs/game.html', '_blank');
+  });
+
+  $assetsToggle.addEventListener('click', function() {
+    assetsOpen = !assetsOpen;
+    $assetsPanel.style.display = assetsOpen ? 'block' : 'none';
+    $assetsArrow.className = 'arrow' + (assetsOpen ? ' open' : '');
+    if (assetsOpen) loadAssets();
+  });
+
+  // ── Init ──
+  connectSSE();
+  loadStatus();
+  loadStudioState();
+  loadFeedback();
+  loadQueue();
+  loadRoundHistory();
+  loadNextUpPreview();
+  loadAssets();
+})();
+
+// ========= ASSET STUDIO =========
+
+let sceneCatalog = null;
+let selectedAssetId = null;
+let selectedAssets = new Set();
+let currentCategoryFilter = 'all';
+let currentStatusFilter = 'all';
+let activeGenerations = new Map();
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.style.display = 'none';
+    el.classList.remove('active');
+  });
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  const content = document.getElementById('tab-' + tab);
+  content.style.display = 'block';
+  content.classList.add('active');
+  document.getElementById('tab-btn-' + tab).classList.add('active');
+  if (tab === 'assets' && !sceneCatalog) refreshCatalog();
 }
 
-init();
+async function refreshCatalog() {
+  try {
+    const res = await fetch('/scene-001/catalog');
+    sceneCatalog = await res.json();
+    renderAssetGrid();
+    try {
+      const balRes = await fetch('/pixellab/balance');
+      const balData = await balRes.json();
+      const credits = balData.data?.remaining_credits ?? balData.remaining_credits ?? '--';
+      const gens = balData.data?.remaining_generations ?? balData.remaining_generations ?? '';
+      document.getElementById('pixellab-balance').textContent = 'Credits: ' + credits + (gens ? ' | Gens: ' + gens : '');
+    } catch(e) {
+      document.getElementById('pixellab-balance').textContent = 'Credits: (error)';
+    }
+  } catch(e) {
+    console.error('Failed to load catalog:', e);
+  }
+}
+
+function renderAssetGrid() {
+  const grid = document.getElementById('asset-catalog-grid');
+  grid.innerHTML = '';
+  if (!sceneCatalog?.categories) return;
+
+  const statusColors = { pending: '#f59e0b', generating: '#3b82f6', approved: '#10b981', needs_revision: '#ef4444' };
+  const statusIcons = { pending: 'PEND', generating: 'GEN', approved: 'OK', needs_revision: 'FLAG' };
+
+  for (const [catKey, cat] of Object.entries(sceneCatalog.categories)) {
+    for (const asset of (cat.assets || [])) {
+      if (currentCategoryFilter !== 'all' && currentCategoryFilter !== catKey) continue;
+      if (currentStatusFilter !== 'all' && currentStatusFilter !== asset.status) continue;
+
+      const isSelected = selectedAssets.has(asset.id);
+      const isActive = selectedAssetId === asset.id;
+      const hasImage = asset.file && asset.status !== 'pending';
+
+      const card = document.createElement('div');
+      card.className = 'asset-card' + (isSelected ? ' selected' : '') + (isActive ? ' active' : '');
+      card.onclick = (e) => {
+        if (e.shiftKey) { toggleSelection(asset.id); }
+        else { selectAsset(asset.id, catKey); }
+      };
+
+      const imgHtml = hasImage
+        ? '<img src="/assets/' + (asset.subfolder || 'sprites') + '/' + asset.file + '" style="image-rendering:pixelated; width:64px; height:64px; object-fit:contain; background:#000; border-radius:3px;" />'
+        : '<div style="width:64px; height:64px; background:#000; border-radius:3px; display:flex; align-items:center; justify-content:center; color:#333; font-size:24px; margin:0 auto;">' + (cat.method === 'character' ? '?' : '#') + '</div>';
+
+      card.innerHTML =
+        '<div style="text-align:center; margin-bottom:6px;">' + imgHtml + '</div>' +
+        '<div style="font-size:10px; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="' + asset.id + '">' + asset.id + '</div>' +
+        '<div style="font-size:9px; color:' + (statusColors[asset.status] || '#888') + '; margin-top:2px;">' + (statusIcons[asset.status] || '--') + ' ' + (asset.status || 'pending') + '</div>' +
+        '<div style="font-size:9px; color:#555; margin-top:2px;">' + asset.width + 'x' + asset.height + '</div>';
+      grid.appendChild(card);
+    }
+  }
+}
+
+function selectAsset(assetId, categoryKey) {
+  selectedAssetId = assetId;
+  if (!sceneCatalog?.categories) return;
+
+  let asset = null;
+  let catKey = categoryKey;
+  for (const [ck, cat] of Object.entries(sceneCatalog.categories)) {
+    const found = (cat.assets || []).find(a => a.id === assetId);
+    if (found) { asset = found; catKey = ck; break; }
+  }
+  if (!asset) return;
+
+  document.getElementById('asset-preview-placeholder').style.display = 'none';
+  document.getElementById('asset-detail-panel').style.display = 'block';
+  document.getElementById('detail-name').textContent = asset.id;
+  document.getElementById('detail-id').textContent = asset.id;
+  document.getElementById('detail-size').textContent = asset.width + 'x' + asset.height;
+  document.getElementById('detail-status').textContent = asset.status || 'pending';
+  document.getElementById('detail-category').textContent = catKey;
+  document.getElementById('detail-prompt').value = asset.description;
+  document.getElementById('detail-notes').textContent = asset.notes || '';
+
+  const img = document.getElementById('detail-img');
+  if (asset.file && asset.status !== 'pending') {
+    img.src = '/assets/' + (asset.subfolder || 'sprites') + '/' + asset.file;
+    img.style.display = 'block';
+    img.style.width = (asset.width * 4) + 'px';
+    img.style.height = (asset.height * 4) + 'px';
+  } else {
+    img.style.display = 'none';
+  }
+  renderAssetGrid();
+}
+
+function toggleSelection(assetId) {
+  if (selectedAssets.has(assetId)) { selectedAssets.delete(assetId); }
+  else { selectedAssets.add(assetId); }
+  document.getElementById('selection-count').textContent = selectedAssets.size + ' selected';
+  renderAssetGrid();
+}
+
+function selectAllPending() {
+  if (!sceneCatalog?.categories) return;
+  selectedAssets.clear();
+  for (const cat of Object.values(sceneCatalog.categories)) {
+    for (const asset of (cat.assets || [])) {
+      if (asset.status === 'pending' || !asset.status) { selectedAssets.add(asset.id); }
+    }
+  }
+  document.getElementById('selection-count').textContent = selectedAssets.size + ' selected';
+  renderAssetGrid();
+}
+
+function clearSelection() {
+  selectedAssets.clear();
+  document.getElementById('selection-count').textContent = '0 selected';
+  renderAssetGrid();
+}
+
+function filterCategory(cat, btn) {
+  currentCategoryFilter = cat;
+  document.querySelectorAll('.cat-filter').forEach(el => el.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderAssetGrid();
+}
+
+function filterStatus(status, btn) {
+  currentStatusFilter = status;
+  document.querySelectorAll('.status-filter').forEach(el => el.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderAssetGrid();
+}
+
+async function generateSingle(btn) {
+  if (!selectedAssetId || !sceneCatalog) return;
+  let asset = null;
+  let catObj = null;
+  for (const cat of Object.values(sceneCatalog.categories)) {
+    const found = (cat.assets || []).find(a => a.id === selectedAssetId);
+    if (found) { asset = found; catObj = cat; break; }
+  }
+  if (!asset) return;
+
+  const prompt = document.getElementById('detail-prompt').value;
+
+  if (catObj.method === 'character') {
+    try {
+      const res = await fetch('/pixellab/create-character', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetId: asset.id, description: prompt,
+          width: asset.width, height: asset.height,
+          options: { ...(sceneCatalog.styleDefaults?.characterStyle || {}) }
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        addToGenQueue(asset.id, data.jobId || data.characterId, 'character');
+        asset.status = 'generating';
+        renderAssetGrid();
+      } else { alert('Generation failed: ' + (data.error || 'Unknown error')); }
+    } catch(e) { alert('Error: ' + e.message); }
+  } else if (catObj.method === 'map-object') {
+    // map-objects is async — returns job ID like characters
+    try {
+      if (btn) { btn.textContent = 'Queuing...'; btn.disabled = true; }
+      const res = await fetch('/pixellab/generate-map-object', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetId: asset.id, description: prompt,
+          width: asset.width, height: asset.height,
+          options: {
+            ...(sceneCatalog.styleDefaults?.imageStyle || {}),
+            view: asset.height > asset.width ? 'side' : (sceneCatalog.styleDefaults?.view || 'high top-down'),
+            guidanceScale: sceneCatalog.styleDefaults?.guidanceScale || 8
+          }
+        })
+      });
+      const data = await res.json();
+      if (btn) { btn.textContent = 'Generate'; btn.disabled = false; }
+      if (data.ok) {
+        addToGenQueue(asset.id, data.jobId, 'map-object');
+        asset.status = 'generating';
+        renderAssetGrid();
+      } else { alert('Generation failed: ' + (data.error || 'Unknown error')); }
+    } catch(e) {
+      if (btn) { btn.textContent = 'Generate'; btn.disabled = false; }
+      alert('Error: ' + e.message);
+    }
+  } else {
+    // Sync image generation (pixflux — tiles, walls, portraits)
+    try {
+      if (btn) { btn.textContent = 'Generating...'; btn.disabled = true; }
+      const res = await fetch('/pixellab/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetId: asset.id, description: prompt,
+          width: asset.width, height: asset.height,
+          options: {
+            ...(sceneCatalog.styleDefaults?.imageStyle || {}),
+            noBackground: asset.noBackground || false,
+            view: asset.height > asset.width ? 'side' : (sceneCatalog.styleDefaults?.view || 'high top-down'),
+            guidanceScale: sceneCatalog.styleDefaults?.guidanceScale || 8
+          }
+        })
+      });
+      const data = await res.json();
+      if (btn) { btn.textContent = 'Generate'; btn.disabled = false; }
+      if (data.ok) {
+        asset.status = 'pending';
+        asset.file = data.filename;
+        refreshCatalog();
+        selectAsset(asset.id);
+      } else { alert('Generation failed: ' + (data.error || 'Unknown error')); }
+    } catch(e) {
+      if (btn) { btn.textContent = 'Generate'; btn.disabled = false; }
+      alert('Error: ' + e.message);
+    }
+  }
+}
+
+async function generateSelected() {
+  if (selectedAssets.size === 0) return;
+  const btn = document.getElementById('btn-generate-selected');
+  btn.textContent = 'Generating 0/' + selectedAssets.size + '...';
+  btn.disabled = true;
+
+  let done = 0;
+  for (const assetId of selectedAssets) {
+    let asset = null;
+    let catObj = null;
+    for (const cat of Object.values(sceneCatalog.categories)) {
+      const found = (cat.assets || []).find(a => a.id === assetId);
+      if (found) { asset = found; catObj = cat; break; }
+    }
+    if (!asset) continue;
+
+    try {
+      if (catObj.method === 'character') {
+        const res = await fetch('/pixellab/create-character', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            assetId: asset.id, description: asset.description,
+            width: asset.width, height: asset.height,
+            options: { ...(sceneCatalog.styleDefaults?.characterStyle || {}) }
+          })
+        });
+        const data = await res.json();
+        if (data.ok) addToGenQueue(asset.id, data.jobId || data.characterId, 'character');
+      } else if (catObj.method === 'map-object') {
+        const res = await fetch('/pixellab/generate-map-object', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            assetId: asset.id, description: asset.description,
+            width: asset.width, height: asset.height,
+            options: {
+              ...(sceneCatalog.styleDefaults?.imageStyle || {}),
+              view: sceneCatalog.styleDefaults?.view || 'high top-down',
+              guidanceScale: sceneCatalog.styleDefaults?.guidanceScale || 8
+            }
+          })
+        });
+        const data = await res.json();
+        if (data.ok) addToGenQueue(asset.id, data.jobId, 'map-object');
+      } else {
+        const res = await fetch('/pixellab/generate-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            assetId: asset.id, description: asset.description,
+            width: asset.width, height: asset.height,
+            options: {
+              ...(sceneCatalog.styleDefaults?.imageStyle || {}),
+              noBackground: asset.noBackground || false,
+              view: sceneCatalog.styleDefaults?.view || 'high top-down',
+              guidanceScale: sceneCatalog.styleDefaults?.guidanceScale || 8
+            }
+          })
+        });
+        await res.json();
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    } catch(e) { console.error('Failed to generate ' + assetId + ':', e); }
+    done++;
+    btn.textContent = 'Generating ' + done + '/' + selectedAssets.size + '...';
+  }
+
+  btn.textContent = 'Generate Selected';
+  btn.disabled = false;
+  selectedAssets.clear();
+  document.getElementById('selection-count').textContent = '0 selected';
+  refreshCatalog();
+}
+
+async function approveAsset() {
+  if (!selectedAssetId) return;
+  await fetch('/scene-001/asset/' + selectedAssetId, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'approved' })
+  });
+  refreshCatalog();
+}
+
+async function flagAsset() {
+  if (!selectedAssetId) return;
+  await fetch('/scene-001/asset/' + selectedAssetId, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'needs_revision' })
+  });
+  refreshCatalog();
+}
+
+async function savePromptEdit() {
+  if (!selectedAssetId) return;
+  const newPrompt = document.getElementById('detail-prompt').value;
+  await fetch('/scene-001/asset/' + selectedAssetId, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ description: newPrompt })
+  });
+  refreshCatalog();
+}
+
+function addToGenQueue(assetId, jobId, type) {
+  activeGenerations.set(jobId || assetId, { assetId, type, startTime: Date.now() });
+  renderGenQueue();
+  if (jobId) pollJob(jobId, assetId);
+}
+
+function renderGenQueue() {
+  const container = document.getElementById('gen-queue');
+  if (activeGenerations.size === 0) {
+    container.innerHTML = '<p>No active generations</p>';
+    return;
+  }
+  container.innerHTML = '';
+  for (const [jobId, info] of activeGenerations) {
+    const elapsed = Math.round((Date.now() - info.startTime) / 1000);
+    const el = document.createElement('div');
+    el.style.cssText = 'padding:4px 0; border-bottom:1px solid #222;';
+    el.innerHTML = '<span style="color:#3b82f6;">GEN</span> ' + info.assetId + ' <span style="color:#555;">(' + info.type + ', ' + elapsed + 's)</span>';
+    container.appendChild(el);
+  }
+}
+
+async function pollJob(jobId, assetId) {
+  const maxAttempts = 60;
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(r => setTimeout(r, 5000));
+    try {
+      const res = await fetch('/pixellab/job/' + jobId);
+      const data = await res.json();
+      const status = data.data?.status || data.status;
+      if (status === 'completed' || status === 'success') {
+        activeGenerations.delete(jobId);
+        renderGenQueue();
+        refreshCatalog();
+        return;
+      } else if (status === 'failed' || status === 'error') {
+        activeGenerations.delete(jobId);
+        renderGenQueue();
+        console.error('Job ' + jobId + ' failed:', data);
+        return;
+      }
+    } catch(e) { console.error('Poll error:', e); }
+    renderGenQueue();
+  }
+  activeGenerations.delete(jobId);
+  renderGenQueue();
+}
+
+setInterval(renderGenQueue, 5000);
 </script>
 </body>
 </html>

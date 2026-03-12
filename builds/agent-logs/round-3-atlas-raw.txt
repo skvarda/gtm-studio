@@ -1,0 +1,1795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SaaS Quest: Startup Simulator</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+</style>
+</head>
+<body>
+<script>
+// ============================================================
+// SaaS Quest: Startup Simulator — Engine Round 2
+// ============================================================
+
+// --- Color Palette ---
+const PAL = {
+  bg: '#1A1A2E',
+  hudBg: '#0D0D1A',
+  text: '#E8E8E8',
+  gold: '#F0C060',
+  teal: '#60C0B0',
+  amber: '#D4A04A',
+  wood: '#C09060',
+  woodDark: '#A07848',
+  wall: '#506078',
+  wallLight: '#607890',
+  skin: '#F0C8A0',
+  hair: '#3A2820',
+  hoodie: '#408080',
+  jordanHoodie: '#706088',
+  jeans: '#405880',
+  desk: '#6B4830',
+  laptop: '#A0A0B0',
+  bed: '#4060A0',
+  rug: '#A06040',
+  door: '#8B6840',
+  white: '#FFFFFF',
+  black: '#000000',
+  danger: '#E05050',
+  success: '#50C050',
+  magenta: '#E040A0',
+  panelDark: '#12122A',
+  uiBorder: '#404060',
+  textDim: '#555566',
+  textLight: '#C0C0D0'
+};
+
+// --- Pixel Font Renderer ---
+const FONT_W = 5;
+const FONT_H = 7;
+const FONT_DATA = {};
+
+(function defineFont() {
+  const glyphs = {
+    'A': [
+      '01110',
+      '10001',
+      '10001',
+      '11111',
+      '10001',
+      '10001',
+      '10001'
+    ],
+    'B': [
+      '11110',
+      '10001',
+      '10001',
+      '11110',
+      '10001',
+      '10001',
+      '11110'
+    ],
+    'C': [
+      '01110',
+      '10001',
+      '10000',
+      '10000',
+      '10000',
+      '10001',
+      '01110'
+    ],
+    'D': [
+      '11100',
+      '10010',
+      '10001',
+      '10001',
+      '10001',
+      '10010',
+      '11100'
+    ],
+    'E': [
+      '11111',
+      '10000',
+      '10000',
+      '11110',
+      '10000',
+      '10000',
+      '11111'
+    ],
+    'F': [
+      '11111',
+      '10000',
+      '10000',
+      '11110',
+      '10000',
+      '10000',
+      '10000'
+    ],
+    'G': [
+      '01110',
+      '10001',
+      '10000',
+      '10111',
+      '10001',
+      '10001',
+      '01110'
+    ],
+    'H': [
+      '10001',
+      '10001',
+      '10001',
+      '11111',
+      '10001',
+      '10001',
+      '10001'
+    ],
+    'I': [
+      '11111',
+      '00100',
+      '00100',
+      '00100',
+      '00100',
+      '00100',
+      '11111'
+    ],
+    'J': [
+      '00111',
+      '00010',
+      '00010',
+      '00010',
+      '00010',
+      '10010',
+      '01100'
+    ],
+    'K': [
+      '10001',
+      '10010',
+      '10100',
+      '11000',
+      '10100',
+      '10010',
+      '10001'
+    ],
+    'L': [
+      '10000',
+      '10000',
+      '10000',
+      '10000',
+      '10000',
+      '10000',
+      '11111'
+    ],
+    'M': [
+      '10001',
+      '11011',
+      '10101',
+      '10101',
+      '10001',
+      '10001',
+      '10001'
+    ],
+    'N': [
+      '10001',
+      '11001',
+      '10101',
+      '10011',
+      '10001',
+      '10001',
+      '10001'
+    ],
+    'O': [
+      '01110',
+      '10001',
+      '10001',
+      '10001',
+      '10001',
+      '10001',
+      '01110'
+    ],
+    'P': [
+      '11110',
+      '10001',
+      '10001',
+      '11110',
+      '10000',
+      '10000',
+      '10000'
+    ],
+    'Q': [
+      '01110',
+      '10001',
+      '10001',
+      '10001',
+      '10101',
+      '10010',
+      '01101'
+    ],
+    'R': [
+      '11110',
+      '10001',
+      '10001',
+      '11110',
+      '10100',
+      '10010',
+      '10001'
+    ],
+    'S': [
+      '01111',
+      '10000',
+      '10000',
+      '01110',
+      '00001',
+      '00001',
+      '11110'
+    ],
+    'T': [
+      '11111',
+      '00100',
+      '00100',
+      '00100',
+      '00100',
+      '00100',
+      '00100'
+    ],
+    'U': [
+      '10001',
+      '10001',
+      '10001',
+      '10001',
+      '10001',
+      '10001',
+      '01110'
+    ],
+    'V': [
+      '10001',
+      '10001',
+      '10001',
+      '10001',
+      '01010',
+      '01010',
+      '00100'
+    ],
+    'W': [
+      '10001',
+      '10001',
+      '10001',
+      '10101',
+      '10101',
+      '11011',
+      '10001'
+    ],
+    'X': [
+      '10001',
+      '10001',
+      '01010',
+      '00100',
+      '01010',
+      '10001',
+      '10001'
+    ],
+    'Y': [
+      '10001',
+      '10001',
+      '01010',
+      '00100',
+      '00100',
+      '00100',
+      '00100'
+    ],
+    'Z': [
+      '11111',
+      '00001',
+      '00010',
+      '00100',
+      '01000',
+      '10000',
+      '11111'
+    ],
+    '0': [
+      '01110',
+      '10001',
+      '10011',
+      '10101',
+      '11001',
+      '10001',
+      '01110'
+    ],
+    '1': [
+      '00100',
+      '01100',
+      '00100',
+      '00100',
+      '00100',
+      '00100',
+      '11111'
+    ],
+    '2': [
+      '01110',
+      '10001',
+      '00001',
+      '00110',
+      '01000',
+      '10000',
+      '11111'
+    ],
+    '3': [
+      '01110',
+      '10001',
+      '00001',
+      '00110',
+      '00001',
+      '10001',
+      '01110'
+    ],
+    '4': [
+      '00010',
+      '00110',
+      '01010',
+      '10010',
+      '11111',
+      '00010',
+      '00010'
+    ],
+    '5': [
+      '11111',
+      '10000',
+      '11110',
+      '00001',
+      '00001',
+      '10001',
+      '01110'
+    ],
+    '6': [
+      '01110',
+      '10000',
+      '10000',
+      '11110',
+      '10001',
+      '10001',
+      '01110'
+    ],
+    '7': [
+      '11111',
+      '00001',
+      '00010',
+      '00100',
+      '01000',
+      '01000',
+      '01000'
+    ],
+    '8': [
+      '01110',
+      '10001',
+      '10001',
+      '01110',
+      '10001',
+      '10001',
+      '01110'
+    ],
+    '9': [
+      '01110',
+      '10001',
+      '10001',
+      '01111',
+      '00001',
+      '00001',
+      '01110'
+    ],
+    '.': [
+      '00000',
+      '00000',
+      '00000',
+      '00000',
+      '00000',
+      '00000',
+      '01100'
+    ],
+    ',': [
+      '00000',
+      '00000',
+      '00000',
+      '00000',
+      '00000',
+      '01100',
+      '01000'
+    ],
+    ':': [
+      '00000',
+      '01100',
+      '01100',
+      '00000',
+      '01100',
+      '01100',
+      '00000'
+    ],
+    ';': [
+      '00000',
+      '01100',
+      '01100',
+      '00000',
+      '01100',
+      '01000',
+      '00000'
+    ],
+    '!': [
+      '00100',
+      '00100',
+      '00100',
+      '00100',
+      '00100',
+      '00000',
+      '00100'
+    ],
+    '?': [
+      '01110',
+      '10001',
+      '00001',
+      '00110',
+      '00100',
+      '00000',
+      '00100'
+    ],
+    "'": [
+      '00100',
+      '00100',
+      '01000',
+      '00000',
+      '00000',
+      '00000',
+      '00000'
+    ],
+    '-': [
+      '00000',
+      '00000',
+      '00000',
+      '11111',
+      '00000',
+      '00000',
+      '00000'
+    ],
+    '/': [
+      '00001',
+      '00010',
+      '00010',
+      '00100',
+      '01000',
+      '01000',
+      '10000'
+    ],
+    '$': [
+      '00100',
+      '01111',
+      '10100',
+      '01110',
+      '00101',
+      '11110',
+      '00100'
+    ],
+    '%': [
+      '11001',
+      '11010',
+      '00010',
+      '00100',
+      '01000',
+      '01011',
+      '10011'
+    ],
+    '&': [
+      '01100',
+      '10010',
+      '10100',
+      '01000',
+      '10101',
+      '10010',
+      '01101'
+    ],
+    '(': [
+      '00010',
+      '00100',
+      '01000',
+      '01000',
+      '01000',
+      '00100',
+      '00010'
+    ],
+    ')': [
+      '01000',
+      '00100',
+      '00010',
+      '00010',
+      '00010',
+      '00100',
+      '01000'
+    ],
+    '+': [
+      '00000',
+      '00100',
+      '00100',
+      '11111',
+      '00100',
+      '00100',
+      '00000'
+    ],
+    '[': [
+      '01110',
+      '01000',
+      '01000',
+      '01000',
+      '01000',
+      '01000',
+      '01110'
+    ],
+    ']': [
+      '01110',
+      '00010',
+      '00010',
+      '00010',
+      '00010',
+      '00010',
+      '01110'
+    ],
+    '_': [
+      '00000',
+      '00000',
+      '00000',
+      '00000',
+      '00000',
+      '00000',
+      '11111'
+    ],
+    ' ': [
+      '00000',
+      '00000',
+      '00000',
+      '00000',
+      '00000',
+      '00000',
+      '00000'
+    ]
+  };
+
+  for (const ch in glyphs) {
+    const rows = glyphs[ch];
+    const bits = [];
+    for (let r = 0; r < FONT_H; r++) {
+      for (let c = 0; c < FONT_W; c++) {
+        bits.push(rows[r][c] === '1' ? 1 : 0);
+      }
+    }
+    FONT_DATA[ch] = bits;
+  }
+
+  for (let i = 97; i <= 122; i++) {
+    const lower = String.fromCharCode(i);
+    const upper = String.fromCharCode(i - 32);
+    if (FONT_DATA[upper]) {
+      FONT_DATA[lower] = FONT_DATA[upper];
+    }
+  }
+})();
+
+function drawText(ctx, text, x, y, color, scale) {
+  if (scale === undefined) scale = 1;
+  ctx.fillStyle = color;
+  let cx = x;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const glyph = FONT_DATA[ch];
+    if (ch === ' ') {
+      cx += 4 * scale;
+      continue;
+    }
+    if (!glyph) {
+      cx += (FONT_W + 1) * scale;
+      continue;
+    }
+    for (let r = 0; r < FONT_H; r++) {
+      for (let c = 0; c < FONT_W; c++) {
+        if (glyph[r * FONT_W + c]) {
+          ctx.fillRect(cx + c * scale, y + r * scale, scale, scale);
+        }
+      }
+    }
+    cx += (FONT_W + 1) * scale;
+  }
+}
+
+function measureText(text, scale) {
+  if (scale === undefined) scale = 1;
+  let w = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === ' ') {
+      w += 4 * scale;
+    } else {
+      w += (FONT_W + 1) * scale;
+    }
+  }
+  if (text.length > 0) w -= 1 * scale;
+  return { width: w, height: FONT_H * scale };
+}
+
+// --- Canvas Rendering ---
+let canvas, ctx;
+
+function initCanvas() {
+  canvas = document.createElement('canvas');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = 640 * dpr;
+  canvas.height = 360 * dpr;
+  canvas.style.width = '1280px';
+  canvas.style.height = '720px';
+  document.body.appendChild(canvas);
+  ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.scale(dpr, dpr);
+}
+
+// --- Game State ---
+const gameState = {
+  screen: 'title',
+  day: 1,
+  cash: 150000,
+  mrr: 0,
+  ap: 5,
+  maxAP: 5,
+  currentRoom: 'apartment',
+  player: {
+    name: null,
+    role: null,
+    stats: {
+      sales: 0,
+      dev: 0,
+      marketing: 0,
+      hustle: 0,
+      focus: 0
+    },
+    tileX: 5, tileY: 6,
+    drawX: 0, drawY: 0,
+    facing: 'down',
+    moving: false,
+    moveProgress: 0,
+    targetTileX: 5,
+    targetTileY: 6,
+    startDrawX: 0,
+    startDrawY: 0
+  },
+  charSelect: 0,
+  nameInput: '',
+  dialogue: null,
+  laptopMenu: { selected: 0 },
+  dayTransition: { timer: 0, phase: 'fadeOut' },
+  titleBlink: 0,
+  transition: { active: false, timer: 0, phase: 'none', targetState: null, callback: null, duration: 10 }
+};
+
+// --- Screen Transition System ---
+function transitionToScreen(targetState, callback) {
+  gameState.transition.active = true;
+  gameState.transition.timer = 0;
+  gameState.transition.phase = 'fadeOut';
+  gameState.transition.targetState = targetState;
+  gameState.transition.callback = callback || null;
+}
+
+function updateTransition(dt) {
+  const t = gameState.transition;
+  if (!t.active) return;
+  t.timer += dt;
+
+  if (t.phase === 'fadeOut') {
+    if (t.timer >= 300) {
+      gameState.screen = t.targetState;
+      if (t.callback) t.callback();
+      t.phase = 'fadeIn';
+      t.timer = 0;
+    }
+  } else if (t.phase === 'fadeIn') {
+    if (t.timer >= 300) {
+      t.active = false;
+      t.phase = 'none';
+    }
+  }
+}
+
+function drawTransitionOverlay(ctx) {
+  const t = gameState.transition;
+  if (!t.active) return;
+  let alpha = 0;
+  if (t.phase === 'fadeOut') {
+    alpha = Math.min(t.timer / 300, 1);
+  } else if (t.phase === 'fadeIn') {
+    alpha = 1 - Math.min(t.timer / 300, 1);
+  }
+  ctx.fillStyle = 'rgba(0,0,0,' + alpha + ')';
+  ctx.fillRect(0, 0, 640, 360);
+}
+
+// --- Role Data ---
+function getRoleData(roleId) {
+  const roles = {
+    seller: {
+      id: 'seller',
+      label: 'THE SELLER',
+      description: 'BORN CLOSER. YOU COULD SELL ICE TO PENGUINS.',
+      stats: { sales: 3, hustle: 2, dev: 1, marketing: 0, focus: 0 },
+      accentColor: PAL.gold
+    },
+    dev: {
+      id: 'dev',
+      label: 'THE DEV',
+      description: 'CODE IS POETRY. BUGS ARE JUST UNDOCUMENTED FEATURES.',
+      stats: { dev: 3, focus: 2, sales: 1, marketing: 0, hustle: 0 },
+      accentColor: PAL.teal
+    },
+    marketer: {
+      id: 'marketer',
+      label: 'THE MARKETER',
+      description: 'GROWTH HACKER. FUNNEL WIZARD. LINKEDIN THOUGHT LEADER.',
+      stats: { marketing: 3, hustle: 2, dev: 1, sales: 0, focus: 0 },
+      accentColor: PAL.magenta
+    }
+  };
+  return roles[roleId] || null;
+}
+
+const ROLE_IDS = ['seller', 'dev', 'marketer'];
+
+// --- Rooms ---
+const TILE = 32;
+const GRID_W = 20;
+const GRID_H = 11;
+const HUD_H = 32;
+
+const ROOMS = {
+  apartment: {
+    name: 'Apartment',
+    tiles: (function() {
+      const t = [];
+      for (let y = 0; y < GRID_H; y++) {
+        t[y] = [];
+        for (let x = 0; x < GRID_W; x++) {
+          if (y < 2) t[y][x] = 1;
+          else t[y][x] = 0;
+        }
+      }
+      t[3][3] = 2;
+      t[2][14] = 3; t[2][15] = 3; t[3][14] = 3; t[3][15] = 3;
+      t[1][6] = 5;
+      t[9][10] = 6;
+      t[5][8] = 7;
+      for (let ry = 6; ry <= 8; ry++) {
+        for (let rx = 8; rx <= 11; rx++) {
+          t[ry][rx] = 4;
+        }
+      }
+      return t;
+    })(),
+    collisions: (function() {
+      const c = new Set();
+      for (let x = 0; x < GRID_W; x++) {
+        c.add('0,' + x); c.add('1,' + x);
+      }
+      c.add('3,3');
+      c.add('2,14'); c.add('2,15'); c.add('3,14'); c.add('3,15');
+      c.add('5,8');
+      return c;
+    })(),
+    playerSpawn: { x: 5, y: 6 },
+    jordan: { x: 8, y: 5 },
+    laptop: { x: 3, y: 3 },
+    door: { x: 10, y: 9 }
+  }
+};
+
+function isCollision(tx, ty) {
+  if (tx < 0 || tx >= GRID_W || ty < 2 || ty >= GRID_H) return true;
+  const room = ROOMS[gameState.currentRoom];
+  return room.collisions.has(ty + ',' + tx);
+}
+
+// --- Drawing: Room ---
+function drawRoom(ctx) {
+  const room = ROOMS[gameState.currentRoom];
+  for (let y = 0; y < GRID_H; y++) {
+    for (let x = 0; x < GRID_W; x++) {
+      const px = x * TILE;
+      const py = y * TILE + HUD_H;
+      const tile = room.tiles[y][x];
+
+      if (tile === 1) {
+        ctx.fillStyle = PAL.wall;
+        ctx.fillRect(px, py, TILE, TILE);
+        ctx.fillStyle = PAL.wallLight;
+        ctx.fillRect(px + 2, py + 2, 4, 4);
+      } else if (tile === 0 || tile === 7) {
+        ctx.fillStyle = ((x + y) % 2 === 0) ? PAL.wood : PAL.woodDark;
+        ctx.fillRect(px, py, TILE, TILE);
+      } else if (tile === 4) {
+        ctx.fillStyle = PAL.rug;
+        ctx.fillRect(px, py, TILE, TILE);
+        ctx.fillStyle = '#B07050';
+        ctx.fillRect(px + 1, py + 1, TILE - 2, TILE - 2);
+      } else if (tile === 2) {
+        ctx.fillStyle = ((x + y) % 2 === 0) ? PAL.wood : PAL.woodDark;
+        ctx.fillRect(px, py, TILE, TILE);
+        ctx.fillStyle = PAL.desk;
+        ctx.fillRect(px + 2, py + 4, 28, 24);
+        ctx.fillStyle = PAL.laptop;
+        ctx.fillRect(px + 6, py + 6, 18, 14);
+        ctx.fillStyle = '#80C0E0';
+        ctx.fillRect(px + 8, py + 8, 14, 10);
+      } else if (tile === 3) {
+        ctx.fillStyle = ((x + y) % 2 === 0) ? PAL.wood : PAL.woodDark;
+        ctx.fillRect(px, py, TILE, TILE);
+        ctx.fillStyle = PAL.bed;
+        ctx.fillRect(px + 1, py + 1, TILE - 2, TILE - 2);
+        ctx.fillStyle = '#5070B0';
+        ctx.fillRect(px + 3, py + 3, TILE - 6, TILE - 6);
+      } else if (tile === 5) {
+        ctx.fillStyle = PAL.wall;
+        ctx.fillRect(px, py, TILE, TILE);
+        ctx.fillStyle = PAL.white;
+        ctx.fillRect(px + 4, py + 4, 24, 20);
+        ctx.fillStyle = '#E0E0E0';
+        ctx.fillRect(px + 6, py + 8, 20, 2);
+        ctx.fillRect(px + 6, py + 14, 16, 2);
+      } else if (tile === 6) {
+        ctx.fillStyle = ((x + y) % 2 === 0) ? PAL.wood : PAL.woodDark;
+        ctx.fillRect(px, py, TILE, TILE);
+        ctx.fillStyle = PAL.door;
+        ctx.fillRect(px + 4, py, 24, TILE);
+        ctx.fillStyle = PAL.gold;
+        ctx.fillRect(px + 22, py + 14, 4, 4);
+      }
+    }
+  }
+}
+
+// --- Drawing: Player Sprite ---
+function drawPlayer(ctx, x, y, facing) {
+  const ox = x + 8;
+  const oy = y + 2;
+
+  ctx.fillStyle = PAL.hoodie;
+  ctx.fillRect(ox, oy + 10, 16, 14);
+
+  ctx.fillStyle = PAL.jeans;
+  ctx.fillRect(ox + 2, oy + 24, 5, 4);
+  ctx.fillRect(ox + 9, oy + 24, 5, 4);
+
+  ctx.fillStyle = PAL.skin;
+  ctx.fillRect(ox + 3, oy + 2, 10, 8);
+
+  ctx.fillStyle = PAL.hair;
+  if (facing === 'down' || facing === 'left' || facing === 'right') {
+    ctx.fillRect(ox + 3, oy, 10, 4);
+  }
+  if (facing === 'up') {
+    ctx.fillRect(ox + 3, oy, 10, 6);
+  }
+
+  if (facing === 'down') {
+    ctx.fillStyle = PAL.black;
+    ctx.fillRect(ox + 5, oy + 5, 2, 2);
+    ctx.fillRect(ox + 9, oy + 5, 2, 2);
+    ctx.fillRect(ox + 7, oy + 8, 2, 1);
+  } else if (facing === 'left') {
+    ctx.fillStyle = PAL.black;
+    ctx.fillRect(ox + 4, oy + 5, 2, 2);
+    ctx.fillRect(ox + 6, oy + 8, 2, 1);
+    ctx.fillStyle = PAL.hair;
+    ctx.fillRect(ox + 10, oy + 2, 3, 6);
+  } else if (facing === 'right') {
+    ctx.fillStyle = PAL.black;
+    ctx.fillRect(ox + 10, oy + 5, 2, 2);
+    ctx.fillRect(ox + 8, oy + 8, 2, 1);
+    ctx.fillStyle = PAL.hair;
+    ctx.fillRect(ox + 3, oy + 2, 3, 6);
+  }
+
+  ctx.fillStyle = PAL.hoodie;
+  ctx.fillRect(ox - 2, oy + 12, 4, 10);
+  ctx.fillRect(ox + 14, oy + 12, 4, 10);
+
+  ctx.fillStyle = PAL.skin;
+  ctx.fillRect(ox - 1, oy + 22, 3, 2);
+  ctx.fillRect(ox + 14, oy + 22, 3, 2);
+}
+
+function drawPlayerPreview(ctx, x, y) {
+  // Draw player sprite at 2x size (32x56) facing down
+  const s = 2;
+  const ox = x;
+  const oy = y;
+
+  // Body (hoodie)
+  ctx.fillStyle = PAL.hoodie;
+  ctx.fillRect(ox, oy + 10 * s, 16 * s, 14 * s);
+
+  // Jeans
+  ctx.fillStyle = PAL.jeans;
+  ctx.fillRect(ox + 2 * s, oy + 24 * s, 5 * s, 4 * s);
+  ctx.fillRect(ox + 9 * s, oy + 24 * s, 5 * s, 4 * s);
+
+  // Head
+  ctx.fillStyle = PAL.skin;
+  ctx.fillRect(ox + 3 * s, oy + 2 * s, 10 * s, 8 * s);
+
+  // Hair
+  ctx.fillStyle = PAL.hair;
+  ctx.fillRect(ox + 3 * s, oy, 10 * s, 4 * s);
+
+  // Eyes
+  ctx.fillStyle = PAL.black;
+  ctx.fillRect(ox + 5 * s, oy + 5 * s, 2 * s, 2 * s);
+  ctx.fillRect(ox + 9 * s, oy + 5 * s, 2 * s, 2 * s);
+  // Mouth
+  ctx.fillRect(ox + 7 * s, oy + 8 * s, 2 * s, 1 * s);
+
+  // Arms
+  ctx.fillStyle = PAL.hoodie;
+  ctx.fillRect(ox - 2 * s, oy + 12 * s, 4 * s, 10 * s);
+  ctx.fillRect(ox + 14 * s, oy + 12 * s, 4 * s, 10 * s);
+
+  // Hands
+  ctx.fillStyle = PAL.skin;
+  ctx.fillRect(ox - 1 * s, oy + 22 * s, 3 * s, 2 * s);
+  ctx.fillRect(ox + 14 * s, oy + 22 * s, 3 * s, 2 * s);
+}
+
+function drawJordan(ctx, x, y) {
+  const ox = x + 8;
+  const oy = y + 2;
+
+  ctx.fillStyle = PAL.jordanHoodie;
+  ctx.fillRect(ox, oy + 10, 16, 14);
+
+  ctx.fillStyle = PAL.jeans;
+  ctx.fillRect(ox + 2, oy + 24, 5, 4);
+  ctx.fillRect(ox + 9, oy + 24, 5, 4);
+
+  ctx.fillStyle = PAL.skin;
+  ctx.fillRect(ox + 3, oy + 2, 10, 8);
+
+  ctx.fillStyle = PAL.hair;
+  ctx.fillRect(ox + 2, oy, 12, 4);
+  ctx.fillRect(ox + 1, oy + 1, 2, 3);
+  ctx.fillRect(ox + 13, oy + 1, 2, 3);
+
+  ctx.fillStyle = '#A0A0B0';
+  ctx.fillRect(ox + 4, oy + 4, 3, 3);
+  ctx.fillRect(ox + 9, oy + 4, 3, 3);
+  ctx.fillRect(ox + 7, oy + 5, 2, 1);
+
+  ctx.fillStyle = PAL.black;
+  ctx.fillRect(ox + 5, oy + 5, 1, 1);
+  ctx.fillRect(ox + 10, oy + 5, 1, 1);
+
+  ctx.fillStyle = PAL.jordanHoodie;
+  ctx.fillRect(ox - 2, oy + 12, 4, 10);
+  ctx.fillRect(ox + 14, oy + 12, 4, 10);
+
+  ctx.fillStyle = PAL.skin;
+  ctx.fillRect(ox - 1, oy + 22, 3, 2);
+  ctx.fillRect(ox + 14, oy + 22, 3, 2);
+}
+
+// --- HUD ---
+function formatCash(n) {
+  if (n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return '$' + Math.floor(n / 1000) + 'K';
+  return '$' + n;
+}
+
+function drawHUD(ctx) {
+  ctx.fillStyle = PAL.hudBg;
+  ctx.fillRect(0, 0, 640, 28);
+  ctx.fillStyle = '#2A2A3E';
+  ctx.fillRect(0, 28, 640, 1);
+
+  drawText(ctx, 'DAY ' + gameState.day, 8, 8, PAL.white, 1);
+  drawText(ctx, formatCash(gameState.cash), 140, 8, PAL.gold, 1);
+  drawText(ctx, 'MRR: ' + formatCash(gameState.mrr), 270, 8, PAL.teal, 1);
+
+  const apStr = 'AP: ';
+  drawText(ctx, apStr, 440, 8, PAL.white, 1);
+  const apX = 440 + measureText(apStr, 1).width + 4;
+  for (let i = 0; i < gameState.maxAP; i++) {
+    ctx.fillStyle = i < gameState.ap ? PAL.gold : '#333344';
+    const dx = apX + i * 12;
+    const dy = 11;
+    ctx.beginPath();
+    ctx.moveTo(dx, dy - 4);
+    ctx.lineTo(dx + 4, dy);
+    ctx.lineTo(dx, dy + 4);
+    ctx.lineTo(dx - 4, dy);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+// --- Input ---
+const keysDown = {};
+
+function handleInput(e) {
+  keysDown[e.code] = true;
+
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab'].includes(e.key) ||
+      ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab'].includes(e.code)) {
+    e.preventDefault();
+  }
+
+  // Block input during transitions
+  if (gameState.transition.active) return;
+
+  switch (gameState.screen) {
+    case 'title':
+      handleTitleInput(e.code);
+      break;
+    case 'nameEntry':
+      handleNameEntryInput(e);
+      break;
+    case 'characterCreation':
+      handleCharCreationInput(e.code);
+      break;
+    case 'play':
+      handlePlayInput(e.code);
+      break;
+    case 'dialogue':
+      handleDialogueInput(e.code);
+      break;
+    case 'laptopMenu':
+      handleLaptopInput(e.code);
+      break;
+  }
+}
+
+function handleInputUp(e) {
+  delete keysDown[e.code];
+}
+
+window.addEventListener('keydown', handleInput);
+window.addEventListener('keyup', handleInputUp);
+
+// --- Title Screen ---
+function handleTitleInput(key) {
+  if (key === 'Space' || key === 'Enter') {
+    transitionToScreen('nameEntry');
+  }
+}
+
+function drawTitleScreen(ctx) {
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+
+  const title = 'SAAS QUEST';
+  const tw = measureText(title, 5);
+  drawText(ctx, title, Math.floor((640 - tw.width) / 2), 80, PAL.gold, 5);
+
+  const sub = 'Startup Simulator';
+  const sw = measureText(sub, 2);
+  drawText(ctx, sub, Math.floor((640 - sw.width) / 2), 140, PAL.teal, 2);
+
+  gameState.titleBlink += 1;
+  if (Math.floor(gameState.titleBlink / 30) % 2 === 0) {
+    const ps = 'PRESS START';
+    const pw = measureText(ps, 2);
+    drawText(ctx, ps, Math.floor((640 - pw.width) / 2), 260, PAL.white, 2);
+  }
+
+  const cr = 'GTM STUDIO 2026';
+  const cw = measureText(cr, 1);
+  drawText(ctx, cr, Math.floor((640 - cw.width) / 2), 330, '#555566', 1);
+}
+
+// --- Name Entry Screen ---
+function handleNameEntryInput(e) {
+  const key = e.key;
+
+  if (key === 'Enter') {
+    if (gameState.nameInput.length >= 1) {
+      gameState.player.name = gameState.nameInput;
+      gameState.charSelect = 1;
+      transitionToScreen('characterCreation');
+    }
+    return;
+  }
+
+  if (key === 'Backspace') {
+    if (gameState.nameInput.length > 0) {
+      gameState.nameInput = gameState.nameInput.slice(0, -1);
+    }
+    return;
+  }
+
+  // Only accept letters A-Z
+  if (key.length === 1 && /^[a-zA-Z]$/.test(key)) {
+    if (gameState.nameInput.length < 10) {
+      gameState.nameInput += key.toUpperCase();
+    }
+  }
+}
+
+function drawNameEntry(ctx) {
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+
+  // Header
+  const hdr = "WHAT'S YOUR NAME?";
+  const hw = measureText(hdr, 3);
+  drawText(ctx, hdr, Math.floor((640 - hw.width) / 2), 80, PAL.gold, 3);
+
+  // Input box
+  const boxW = 280;
+  const boxH = 50;
+  const boxX = Math.floor((640 - boxW) / 2);
+  const boxY = 150;
+
+  ctx.fillStyle = PAL.panelDark;
+  ctx.fillRect(boxX, boxY, boxW, boxH);
+  ctx.strokeStyle = PAL.uiBorder;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+  // Name text
+  const nameStr = gameState.nameInput;
+  const nameScale = 3;
+  const nameW = measureText(nameStr, nameScale);
+  const nameX = boxX + Math.floor((boxW - nameW.width) / 2);
+  const nameY = boxY + Math.floor((boxH - FONT_H * nameScale) / 2);
+
+  if (nameStr.length > 0) {
+    drawText(ctx, nameStr, nameX, nameY, PAL.gold, nameScale);
+  }
+
+  // Blinking cursor
+  const cursorBlink = Math.floor(Date.now() / 500) % 2 === 0;
+  if (cursorBlink) {
+    let cursorX;
+    if (nameStr.length > 0) {
+      cursorX = nameX + nameW.width + 2 * nameScale;
+    } else {
+      cursorX = boxX + Math.floor(boxW / 2) - 3 * nameScale;
+    }
+    drawText(ctx, '_', cursorX, nameY, PAL.gold, nameScale);
+  }
+
+  // Instructions
+  const inst = 'TYPE YOUR NAME AND PRESS ENTER';
+  const iw = measureText(inst, 1);
+  drawText(ctx, inst, Math.floor((640 - iw.width) / 2), 230, PAL.textDim, 1);
+
+  const inst2 = 'A-Z ONLY  -  10 CHARACTERS MAX';
+  const iw2 = measureText(inst2, 1);
+  drawText(ctx, inst2, Math.floor((640 - iw2.width) / 2), 250, PAL.textDim, 1);
+}
+
+// --- Character Creation ---
+function handleCharCreationInput(key) {
+  if (key === 'ArrowLeft' || key === 'KeyA') {
+    gameState.charSelect--;
+    if (gameState.charSelect < 0) gameState.charSelect = 2;
+  } else if (key === 'ArrowRight' || key === 'KeyD') {
+    gameState.charSelect++;
+    if (gameState.charSelect > 2) gameState.charSelect = 0;
+  } else if (key === 'Space' || key === 'Enter') {
+    const roleId = ROLE_IDS[gameState.charSelect];
+    const roleData = getRoleData(roleId);
+    gameState.player.role = roleId;
+    gameState.player.stats = Object.assign({}, roleData.stats);
+
+    transitionToScreen('play', function() {
+      const room = ROOMS[gameState.currentRoom];
+      gameState.player.tileX = room.playerSpawn.x;
+      gameState.player.tileY = room.playerSpawn.y;
+      gameState.player.targetTileX = room.playerSpawn.x;
+      gameState.player.targetTileY = room.playerSpawn.y;
+      gameState.player.drawX = room.playerSpawn.x * TILE;
+      gameState.player.drawY = room.playerSpawn.y * TILE + HUD_H;
+      gameState.player.startDrawX = gameState.player.drawX;
+      gameState.player.startDrawY = gameState.player.drawY;
+      gameState.player.moving = false;
+    });
+  } else if (key === 'Escape' || key === 'Backspace') {
+    transitionToScreen('nameEntry');
+  }
+}
+
+function drawStatBar(ctx, x, y, label, value, maxValue, color) {
+  drawText(ctx, label, x, y, PAL.textLight, 1);
+  const barX = x + 52;
+  const barW = 60;
+  const barH = 6;
+  const barY = y + 1;
+
+  // Background
+  ctx.fillStyle = PAL.panelDark;
+  ctx.fillRect(barX, barY, barW, barH);
+
+  // Filled portion
+  if (value > 0) {
+    const fillW = Math.floor((value / maxValue) * barW);
+    ctx.fillStyle = color;
+    ctx.fillRect(barX, barY, fillW, barH);
+  }
+}
+
+function drawRoleCard(ctx, x, y, role, isSelected) {
+  const cardW = 170;
+  const cardH = 210;
+
+  const yOff = isSelected ? -4 : 0;
+  const dy = y + yOff;
+
+  // Card background
+  ctx.fillStyle = isSelected ? '#2A2A4E' : PAL.panelDark;
+  ctx.fillRect(x, dy, cardW, cardH);
+
+  // Border
+  ctx.strokeStyle = isSelected ? role.accentColor : PAL.textDim;
+  ctx.lineWidth = isSelected ? 3 : 1;
+  ctx.strokeRect(x, dy, cardW, cardH);
+
+  // Role icon (simple 32x32 pixel art)
+  const iconCx = x + Math.floor(cardW / 2);
+  const iconCy = dy + 40;
+  drawRoleIcon(ctx, role.id, iconCx, iconCy, role.accentColor);
+
+  // Role name
+  const nw = measureText(role.label, 2);
+  drawText(ctx, role.label, x + Math.floor((cardW - nw.width) / 2), dy + 65, role.accentColor, 2);
+
+  // Description (word-wrapped)
+  const descLines = wrapText(role.description, cardW - 20, 1);
+  for (let i = 0; i < descLines.length; i++) {
+    const dw = measureText(descLines[i], 1);
+    drawText(ctx, descLines[i], x + Math.floor((cardW - dw.width) / 2), dy + 90 + i * 12, PAL.textLight, 1);
+  }
+
+  // Stat bars
+  const statsOrder = ['sales', 'dev', 'marketing', 'hustle', 'focus'];
+  const statLabels = { sales: 'SALES', dev: 'DEV', marketing: 'MKT', hustle: 'HSTL', focus: 'FOCUS' };
+  const statStartY = dy + 130;
+  for (let i = 0; i < statsOrder.length; i++) {
+    const stat = statsOrder[i];
+    const val = role.stats[stat];
+    drawStatBar(ctx, x + 14, statStartY + i * 14, statLabels[stat], val, 3, role.accentColor);
+  }
+}
+
+function drawRoleIcon(ctx, type, cx, cy, color) {
+  if (type === 'seller') {
+    // Dollar sign / handshake icon
+    ctx.fillStyle = color;
+    ctx.fillRect(cx - 8, cy - 12, 16, 24);
+    ctx.fillStyle = PAL.panelDark;
+    ctx.fillRect(cx - 5, cy - 9, 10, 18);
+    ctx.fillStyle = color;
+    // $ sign
+    ctx.fillRect(cx - 1, cy - 12, 2, 24);
+    ctx.fillRect(cx - 5, cy - 6, 10, 2);
+    ctx.fillRect(cx - 5, cy + 4, 10, 2);
+    ctx.fillRect(cx - 5, cy - 6, 3, 6);
+    ctx.fillRect(cx + 2, cy, 3, 6);
+  } else if (type === 'dev') {
+    // Code brackets < / >
+    ctx.fillStyle = color;
+    // <
+    ctx.fillRect(cx - 12, cy - 4, 3, 2);
+    ctx.fillRect(cx - 9, cy - 6, 3, 2);
+    ctx.fillRect(cx - 9, cy - 2, 3, 2);
+    ctx.fillRect(cx - 6, cy - 8, 3, 2);
+    ctx.fillRect(cx - 6, cy, 3, 2);
+    // >
+    ctx.fillRect(cx + 9, cy - 4, 3, 2);
+    ctx.fillRect(cx + 6, cy - 6, 3, 2);
+    ctx.fillRect(cx + 6, cy - 2, 3, 2);
+    ctx.fillRect(cx + 3, cy - 8, 3, 2);
+    ctx.fillRect(cx + 3, cy, 3, 2);
+    // /
+    ctx.fillRect(cx - 1, cy - 8, 2, 2);
+    ctx.fillRect(cx, cy - 5, 2, 2);
+    ctx.fillRect(cx - 1, cy - 2, 2, 2);
+    ctx.fillRect(cx, cy + 1, 2, 2);
+  } else if (type === 'marketer') {
+    // Megaphone
+    ctx.fillStyle = color;
+    ctx.fillRect(cx - 4, cy - 4, 10, 8);
+    ctx.fillRect(cx + 6, cy - 8, 6, 16);
+    ctx.fillRect(cx + 12, cy - 12, 4, 24);
+    ctx.fillStyle = '#B03080';
+    ctx.fillRect(cx - 8, cy - 2, 6, 4);
+  }
+}
+
+function drawCharacterCreation(ctx) {
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+
+  // Header with player name
+  const name = gameState.player.name || 'PLAYER';
+  const hdr = name + ', CHOOSE YOUR PATH';
+  const hw = measureText(hdr, 2);
+  drawText(ctx, hdr, Math.floor((640 - hw.width) / 2), 12, PAL.gold, 2);
+
+  // Player preview on the left
+  drawPlayerPreview(ctx, 30, 80);
+  // Player name under preview
+  const pnw = measureText(name, 1);
+  drawPlayerPreviewName(ctx, 30, name);
+
+  // Three role cards
+  const cardW = 170;
+  const gap = 12;
+  const totalW = cardW * 3 + gap * 2;
+  const startX = Math.floor((640 - totalW) / 2) + 20;
+  const cardY = 45;
+
+  for (let i = 0; i < 3; i++) {
+    const roleId = ROLE_IDS[i];
+    const role = getRoleData(roleId);
+    const cx = startX + i * (cardW + gap);
+    const selected = i === gameState.charSelect;
+    drawRoleCard(ctx, cx, cardY, role, selected);
+
+    // Selection arrow below selected card
+    if (selected) {
+      const arrowY = cardY + 210 + 6;
+      ctx.fillStyle = role.accentColor;
+      ctx.beginPath();
+      ctx.moveTo(cx + cardW / 2, arrowY + 8);
+      ctx.lineTo(cx + cardW / 2 - 6, arrowY);
+      ctx.lineTo(cx + cardW / 2 + 6, arrowY);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  // Instructions
+  const inst = 'Arrow Keys to Select  -  Enter to Confirm  -  ESC to Go Back';
+  const iw = measureText(inst, 1);
+  drawText(ctx, inst, Math.floor((640 - iw.width) / 2), 340, PAL.textDim, 1);
+}
+
+function drawPlayerPreviewName(ctx, previewX, name) {
+  const pnw = measureText(name, 1);
+  // Center name under the preview sprite (sprite is 36px wide at 2x)
+  const spriteW = 36;
+  drawText(ctx, name, previewX + Math.floor((spriteW - pnw.width) / 2), 145, PAL.textLight, 1);
+}
+
+// --- Tile Movement ---
+const MOVE_SPEED = 150;
+
+function handlePlayInput(key) {
+  if (key === 'KeyE' || key === 'Space') {
+    checkInteraction();
+  }
+}
+
+function updateMovement(dt) {
+  if (gameState.screen !== 'play') return;
+
+  const p = gameState.player;
+
+  if (p.moving) {
+    p.moveProgress += dt;
+    const t = Math.min(p.moveProgress / MOVE_SPEED, 1);
+    const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    const targetDrawX = p.targetTileX * TILE;
+    const targetDrawY = p.targetTileY * TILE + HUD_H;
+    p.drawX = p.startDrawX + (targetDrawX - p.startDrawX) * ease;
+    p.drawY = p.startDrawY + (targetDrawY - p.startDrawY) * ease;
+
+    if (t >= 1) {
+      p.tileX = p.targetTileX;
+      p.tileY = p.targetTileY;
+      p.drawX = targetDrawX;
+      p.drawY = targetDrawY;
+      p.moving = false;
+      p.moveProgress = 0;
+    }
+    return;
+  }
+
+  let dx = 0, dy = 0, newFacing = null;
+  if (keysDown['ArrowUp'] || keysDown['KeyW']) { dy = -1; newFacing = 'up'; }
+  else if (keysDown['ArrowDown'] || keysDown['KeyS']) { dy = 1; newFacing = 'down'; }
+  else if (keysDown['ArrowLeft'] || keysDown['KeyA']) { dx = -1; newFacing = 'left'; }
+  else if (keysDown['ArrowRight'] || keysDown['KeyD']) { dx = 1; newFacing = 'right'; }
+
+  if (newFacing) {
+    p.facing = newFacing;
+    const nx = p.tileX + dx;
+    const ny = p.tileY + dy;
+    if (!isCollision(nx, ny)) {
+      p.targetTileX = nx;
+      p.targetTileY = ny;
+      p.startDrawX = p.drawX;
+      p.startDrawY = p.drawY;
+      p.moving = true;
+      p.moveProgress = 0;
+    }
+  }
+}
+
+// --- NPC Interaction ---
+function getFacingTile() {
+  const p = gameState.player;
+  let tx = p.tileX, ty = p.tileY;
+  switch (p.facing) {
+    case 'up': ty--; break;
+    case 'down': ty++; break;
+    case 'left': tx--; break;
+    case 'right': tx++; break;
+  }
+  return { x: tx, y: ty };
+}
+
+function checkInteraction() {
+  const ft = getFacingTile();
+  const room = ROOMS[gameState.currentRoom];
+
+  if (room.jordan && ft.x === room.jordan.x && ft.y === room.jordan.y) {
+    showDialogue('Jordan', [
+      "Hey. You're finally up.",
+      "We've got $150K and zero customers.",
+      "Maybe check the laptop. We should get to work."
+    ]);
+    return;
+  }
+
+  if (room.laptop && ft.x === room.laptop.x && ft.y === room.laptop.y) {
+    showLaptopMenu();
+    return;
+  }
+}
+
+function drawInteractionPrompt(ctx) {
+  if (gameState.screen !== 'play' || gameState.player.moving) return;
+
+  const room = ROOMS[gameState.currentRoom];
+  const ft = getFacingTile();
+
+  if (room.jordan && ft.x === room.jordan.x && ft.y === room.jordan.y) {
+    const px = room.jordan.x * TILE + TILE / 2;
+    const py = room.jordan.y * TILE + HUD_H - 8;
+    const txt = '[E] Talk';
+    const tw = measureText(txt, 1);
+    drawText(ctx, txt, Math.floor(px - tw.width / 2), py, PAL.gold, 1);
+  }
+
+  if (room.laptop && ft.x === room.laptop.x && ft.y === room.laptop.y) {
+    const px = room.laptop.x * TILE + TILE / 2;
+    const py = room.laptop.y * TILE + HUD_H - 8;
+    const txt = '[E] Use';
+    const tw = measureText(txt, 1);
+    drawText(ctx, txt, Math.floor(px - tw.width / 2), py, PAL.gold, 1);
+  }
+}
+
+// --- Dialogue System ---
+function showDialogue(speakerName, lines) {
+  gameState.dialogue = {
+    speaker: speakerName,
+    lines: lines,
+    currentLine: 0
+  };
+  gameState.screen = 'dialogue';
+}
+
+function advanceDialogue() {
+  if (!gameState.dialogue) return;
+  gameState.dialogue.currentLine++;
+  if (gameState.dialogue.currentLine >= gameState.dialogue.lines.length) {
+    gameState.dialogue = null;
+    gameState.screen = 'play';
+  }
+}
+
+function handleDialogueInput(key) {
+  if (key === 'Space' || key === 'Enter' || key === 'KeyE') {
+    advanceDialogue();
+  }
+}
+
+function wrapText(text, maxWidth, scale) {
+  const words = text.split(' ');
+  const lines = [];
+  let currentLine = '';
+  for (const word of words) {
+    const test = currentLine ? currentLine + ' ' + word : word;
+    if (measureText(test, scale).width > maxWidth) {
+      if (currentLine) lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = test;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  return lines;
+}
+
+function drawDialogue(ctx) {
+  if (!gameState.dialogue) return;
+
+  const boxH = 80;
+  const boxY = 360 - boxH;
+  const boxX = 16;
+  const boxW = 640 - 32;
+
+  ctx.fillStyle = '#1A1A3A';
+  ctx.fillRect(boxX, boxY, boxW, boxH);
+
+  ctx.strokeStyle = '#4040A0';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+  drawText(ctx, gameState.dialogue.speaker, boxX + 10, boxY + 6, PAL.gold, 1);
+
+  const line = gameState.dialogue.lines[gameState.dialogue.currentLine];
+  const wrapped = wrapText(line, boxW - 24, 1);
+  for (let i = 0; i < wrapped.length; i++) {
+    drawText(ctx, wrapped[i], boxX + 10, boxY + 22 + i * 14, PAL.text, 1);
+  }
+
+  const blink = Math.floor(Date.now() / 400) % 2;
+  if (blink === 0) {
+    ctx.fillStyle = PAL.text;
+    ctx.fillRect(boxX + boxW - 20, boxY + boxH - 14, 6, 6);
+  }
+}
+
+// --- Laptop Menu ---
+const LAPTOP_OPTIONS = ['END DAY', 'CHECK STATS'];
+
+function showLaptopMenu() {
+  gameState.laptopMenu.selected = 0;
+  gameState.screen = 'laptopMenu';
+}
+
+function handleLaptopInput(key) {
+  if (key === 'ArrowUp' || key === 'KeyW') {
+    gameState.laptopMenu.selected = Math.max(0, gameState.laptopMenu.selected - 1);
+  } else if (key === 'ArrowDown' || key === 'KeyS') {
+    gameState.laptopMenu.selected = Math.min(LAPTOP_OPTIONS.length - 1, gameState.laptopMenu.selected + 1);
+  } else if (key === 'Enter' || key === 'Space') {
+    if (gameState.laptopMenu.selected === 0) {
+      advanceDay();
+    } else {
+      gameState.screen = 'play';
+      const playerName = gameState.player.name || 'PLAYER';
+      const role = gameState.player.role ? gameState.player.role.toUpperCase() : 'NONE';
+      showDialogue('Laptop', [
+        'Day ' + gameState.day + ' | Cash: ' + formatCash(gameState.cash) + ' | MRR: ' + formatCash(gameState.mrr),
+        playerName + ' | Role: ' + role,
+        'Keep hustling!'
+      ]);
+    }
+  } else if (key === 'Escape' || key === 'KeyX') {
+    gameState.screen = 'play';
+  }
+}
+
+function drawLaptopMenu(ctx) {
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(0, 0, 640, 360);
+
+  const menuW = 200;
+  const menuH = 120;
+  const mx = Math.floor((640 - menuW) / 2);
+  const my = Math.floor((360 - menuH) / 2);
+
+  ctx.fillStyle = '#1A1A3A';
+  ctx.fillRect(mx, my, menuW, menuH);
+  ctx.strokeStyle = PAL.teal;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(mx, my, menuW, menuH);
+
+  const title = 'LAPTOP';
+  const tw = measureText(title, 2);
+  drawText(ctx, title, mx + Math.floor((menuW - tw.width) / 2), my + 10, PAL.teal, 2);
+
+  for (let i = 0; i < LAPTOP_OPTIONS.length; i++) {
+    const opt = LAPTOP_OPTIONS[i];
+    const selected = i === gameState.laptopMenu.selected;
+    const oy = my + 45 + i * 25;
+    if (selected) {
+      ctx.fillStyle = '#2A2A5E';
+      ctx.fillRect(mx + 8, oy - 3, menuW - 16, 18);
+      drawText(ctx, '>', mx + 14, oy, PAL.gold, 1);
+    }
+    drawText(ctx, opt, mx + 28, oy, selected ? PAL.gold : PAL.text, 1);
+  }
+
+  drawText(ctx, 'ESC to close', mx + 10, my + menuH - 16, '#555566', 1);
+}
+
+// --- Day Cycle ---
+function resetAP() {
+  gameState.ap = gameState.maxAP;
+}
+
+function spendAP(cost) {
+  if (gameState.ap >= cost) {
+    gameState.ap -= cost;
+    return true;
+  }
+  return false;
+}
+
+function advanceDay() {
+  gameState.screen = 'dayTransition';
+  gameState.dayTransition = { timer: 0, phase: 'fadeOut', totalDuration: 1500 };
+}
+
+function updateDayTransition(dt) {
+  const t = gameState.dayTransition;
+  t.timer += dt;
+
+  if (t.phase === 'fadeOut' && t.timer >= 400) {
+    gameState.day++;
+    resetAP();
+    t.phase = 'splash';
+    t.timer = 0;
+  } else if (t.phase === 'splash' && t.timer >= 800) {
+    t.phase = 'fadeIn';
+    t.timer = 0;
+  } else if (t.phase === 'fadeIn' && t.timer >= 300) {
+    gameState.screen = 'play';
+  }
+}
+
+function drawDayTransition(ctx) {
+  const t = gameState.dayTransition;
+
+  if (t.phase === 'fadeOut') {
+    drawPlayScreen(ctx);
+    const alpha = Math.min(t.timer / 400, 1);
+    ctx.fillStyle = 'rgba(0,0,0,' + alpha + ')';
+    ctx.fillRect(0, 0, 640, 360);
+  } else if (t.phase === 'splash') {
+    ctx.fillStyle = PAL.black;
+    ctx.fillRect(0, 0, 640, 360);
+    const dayStr = 'DAY ' + gameState.day;
+    const dw = measureText(dayStr, 4);
+    drawText(ctx, dayStr, Math.floor((640 - dw.width) / 2), 140, PAL.gold, 4);
+
+    const weekStr = 'Week ' + gameState.day;
+    const ww = measureText(weekStr, 2);
+    drawText(ctx, weekStr, Math.floor((640 - ww.width) / 2), 200, PAL.teal, 2);
+  } else if (t.phase === 'fadeIn') {
+    drawPlayScreen(ctx);
+    const alpha = 1 - Math.min(t.timer / 300, 1);
+    ctx.fillStyle = 'rgba(0,0,0,' + alpha + ')';
+    ctx.fillRect(0, 0, 640, 360);
+  }
+}
+
+// --- Play Screen ---
+function drawPlayScreen(ctx) {
+  drawRoom(ctx);
+
+  const room = ROOMS[gameState.currentRoom];
+  if (room.jordan) {
+    drawJordan(ctx, room.jordan.x * TILE, room.jordan.y * TILE + HUD_H);
+  }
+
+  drawPlayer(ctx, gameState.player.drawX, gameState.player.drawY, gameState.player.facing);
+
+  drawHUD(ctx);
+
+  drawInteractionPrompt(ctx);
+}
+
+// --- Game Loop ---
+let lastTime = 0;
+
+function gameLoop(timestamp) {
+  if (!lastTime) lastTime = timestamp;
+  let dt = timestamp - lastTime;
+  lastTime = timestamp;
+  if (dt > 50) dt = 50;
+
+  update(dt);
+  draw(ctx);
+  requestAnimationFrame(gameLoop);
+}
+
+function update(dt) {
+  // Always update transitions
+  updateTransition(dt);
+
+  switch (gameState.screen) {
+    case 'play':
+      updateMovement(dt);
+      break;
+    case 'dayTransition':
+      updateDayTransition(dt);
+      break;
+  }
+}
+
+function draw(ctx) {
+  ctx.fillStyle = PAL.bg;
+  ctx.fillRect(0, 0, 640, 360);
+
+  switch (gameState.screen) {
+    case 'title':
+      drawTitleScreen(ctx);
+      break;
+    case 'nameEntry':
+      drawNameEntry(ctx);
+      break;
+    case 'characterCreation':
+      drawCharacterCreation(ctx);
+      break;
+    case 'play':
+      drawPlayScreen(ctx);
+      break;
+    case 'dialogue':
+      drawPlayScreen(ctx);
+      drawDialogue(ctx);
+      break;
+    case 'laptopMenu':
+      drawPlayScreen(ctx);
+      drawLaptopMenu(ctx);
+      break;
+    case 'dayTransition':
+      drawDayTransition(ctx);
+      break;
+  }
+
+  // Draw transition overlay on top of everything
+  drawTransitionOverlay(ctx);
+}
+
+// --- Init ---
+initCanvas();
+requestAnimationFrame(gameLoop);
+
+</script>
+</body>
+</html>
+<!-- BUILD_REPORT_START -->
+## Build Report — Engine Round 2: Character Creation
+
+### What Changed
+1. **Name Entry Screen** (`nameEntry` state): New screen between title and role selection. Shows "WHAT'S YOUR NAME?" header, bordered input box with blinking cursor, uppercase A-Z input (max 10 chars). Enter confirms, stores name in `gameState.player.name`.
+
+2. **Role Selection Rework**: Replaced Hacker/Designer/Hustler with **Seller/Dev/Marketer** per game-state.json spec. Each role has proper stat bonuses (sales, dev, marketing, hustle, focus). Cards show role icon, name, description, and 5 stat bars. Left/Right wraps around. ESC/Backspace returns to name entry with name preserved.
+
+3. **Player Stats Structure**: `gameState.player.stats` now has `{sales, dev, marketing, hustle, focus}`. Set from `getRoleData()` on role confirmation. Stats are cosmetic this round — not wired into gameplay.
+
+4. **Player Preview Sprite**: 2x-scaled player sprite drawn on the left side of role selection screen, with player name underneath.
+
+5. **Screen Transitions**: `transitionToScreen()` handles fade-out/fade-in (300ms each) between title→nameEntry→characterCreation→play. Input blocked during transitions.
+
+6. **Palette Additions**: Added `PAL.magenta` (#E040A0), `PAL.panelDark`, `PAL.uiBorder`, `PAL.textDim`, `PAL.textLight`. Added `_` glyph to font data.
+
+7. **State Flow**: `title → nameEntry → characterCreation → play` with ESC back-nav from characterCreation to nameEntry.
+
+8. **Input Router**: Added `nameEntry` case. Name entry uses `e.key` (not `e.code`) for proper letter detection.
+
+### What Was Preserved
+- `initCanvas()`, `drawText()`, `measureText()`, `gameLoop()` — all untouched signatures
+- All room/tile/movement/dialogue/laptop/HUD/day-cycle systems intact
+- Starting cash remains $150,000
+- Post-creation apartment spawn, Jordan, laptop interaction, day cycling all work
+
+### What's Fragile
+- Player preview positioning is hardcoded for current card layout; if card count changes, preview may overlap
+- Name entry only accepts A-Z (no numbers, spaces, or special chars) — intentional per spec but may feel limiting
+- The `drawRoleIcon` pixel art for seller/dev/marketer is minimal — could use polish in a future art pass
+
+### Recommendations for Next Round
+- Consider adding number support to name entry if players want names like "P1" 
+- Stats should get wired into gameplay mechanics (action effectiveness) in a future engine round
+- Character creation is NOT marked protected — good for iteration in narrative rounds
+- The role descriptions could be expanded with a tooltip or second page showing gameplay implications
+<!-- BUILD_REPORT_END -->
