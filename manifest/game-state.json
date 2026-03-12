@@ -1,0 +1,28 @@
+{
+  "version": 4,
+  "last_updated_round": 0,
+  "resolution": {
+    "native_width": 640,
+    "native_height": 360,
+    "scale_factor": 2,
+    "display_width": 1280,
+    "display_height": 720
+  },
+  "player": {
+    "role": null,
+    "name": null,
+    "role_options": ["seller", "dev", "marketer"],
+    "action_points_per_day": 5
+  },
+  "economy": {
+    "starting_cash": 150000
+  },
+  "time": {
+    "current_day": 1,
+    "current_era": "garage"
+  },
+  "locations_available": [],
+  "locations_implemented": {},
+  "npcs": {},
+  "pending_npcs": []
+}

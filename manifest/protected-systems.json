@@ -1,0 +1,16 @@
+{
+  "version": 4,
+  "protected_files": [
+    {
+      "path": "res://project.godot",
+      "reason": "Project configuration — never modify via agents"
+    },
+    {
+      "path": "res://export_presets.cfg",
+      "reason": "Web export configuration — never modify via agents"
+    }
+  ],
+  "protected_autoloads": [],
+  "protected_scenes": [],
+  "notes": "Populated as Godot scenes and scripts are built and locked."
+}

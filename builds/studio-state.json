@@ -1,15 +1,11 @@
 {
-  "lastRound": 12,
-  "lastRoundType": "feature",
-  "lastQAVerdict": "ship",
-  "knownIssues": [
-    "Rounds 13-15 caused regressions - movement system was rewritten, pixel font was replaced, starting cash changed from $150K to $50K",
-    "Game was rolled back to Round 12 build which is stable"
-  ],
-  "deferredWork": [
-    "Email inbox system",
-    "Coffee shop location",
-    "NPC dialogue variety for Jordan"
-  ],
-  "roundHistory": []
+  "lastRound": 0,
+  "lastRoundType": null,
+  "lastQAVerdict": null,
+  "knownIssues": [],
+  "deferredWork": [],
+  "roundHistory": [],
+  "version": "v4",
+  "architecture": "godot+pixellab",
+  "notes": "Clean slate for v4. Game output is now a Godot project, not a single HTML file."
 }
